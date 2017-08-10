@@ -1,0 +1,234 @@
+syntax = "proto3";
+
+package model;
+
+// commands
+message AddChainedStageRequest {
+    string graph_id = 1;
+    CompletionOperation operation = 2;
+    RawDatum closure = 3;
+    repeated uint32 deps = 4;
+}
+
+message AddCompletedValueStageRequest  {
+    string graph_id = 1;
+    CompletionResult result = 2;
+}
+
+
+message AddDelayStageRequest{
+    string graph_id = 1;
+    uint64 delay_ms = 2;
+}
+
+message AddExternalCompletionStageRequest {
+    string graph_id = 1;
+}
+
+
+message AddInvokeFunctionStageRequest {
+    string graph_id = 1;
+    string function_id = 2;
+    RawDatum arg = 3;
+}
+
+
+message AddStageResponse {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+}
+
+message CompleteDelayStageRequest {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+}
+
+message CommitGraphRequest {
+    string graph_id = 1;
+}
+
+message CommitGraphProcessed {
+    string graph_id = 1;
+}
+
+message CompleteStageExternallyRequest {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    CompletionResult result = 3;
+}
+
+
+message CompleteStageExternallyResponse {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    bool successful = 3;
+}
+
+message CreateGraphRequest {
+    string function_id = 1;
+    string graph_id = 2;
+}
+
+message CreateGraphResponse {
+    string graph_id = 1;
+}
+
+message FaasInvocationResponse {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    string function_id = 3;
+    CompletionResult result = 4;
+}
+
+message GetGraphStateRequest {
+    string graph_id = 1;
+}
+
+message GetGraphStateResponse {
+    message StageRepresentation {
+        string type = 1;
+        string status = 2;
+        repeated uint32 dependencies = 3;
+    }
+    map<uint32, StageRepresentation> stages = 1;
+    string function_id = 2;
+    string graph_id = 3;
+}
+
+message ListGraphsRequest {
+    ListGraphsFilter filter = 1;
+}
+
+enum ListGraphsFilter {
+    unknown = 0;
+    all = 1;
+    running = 2;
+    completed = 3;
+}
+
+message ListGraphResponse {
+    string graph_id = 1;
+}
+
+message ListGraphsResponse {
+    repeated ListGraphResponse graphs = 1;
+}
+
+message GetStageResultRequest {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+}
+
+message GetStageResultResponse {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    CompletionResult result = 3;
+}
+
+message InvalidGraphOperation {
+    string graph_id = 1;
+    string error = 2;
+}
+
+message InvalidStageOperation {
+    string graph_id = 1;
+    string error = 2;
+    uint32 stage_id = 3;
+}
+
+message InvokeFunctionRequest {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    string function_id = 3;
+    RawDatum arg = 4;
+}
+
+message InvokeStageRequest {
+    string graph_id = 1;
+    uint32 stage_id = 2;
+    string function_id = 3;
+    CompletionOperation operation = 4;
+    repeated RawDatum args = 5;
+    RawDatum closure = 6;
+    bool exceptional = 7;
+}
+
+message AddGraphEntity {
+    string graph_entity = 1;
+}
+
+
+message CompletionResult {
+    ResultStatus status = 1;
+    RawDatum datum = 2;
+}
+
+message RawDatum {
+    bytes data_string = 1;
+}
+
+enum ResultStatus {
+    unknown_status = 0;
+    succeeded = 1;
+    failed = 2; // Exception thrown by user function
+    error = 3;
+}
+
+enum CompletionOperation {
+    unknown_operation = 0;
+    acceptEither = 1;
+    applyToEither = 2;
+    thenAcceptBoth = 3;
+    thenApply = 4;
+    thenRun = 5;
+    thenAccept = 6;
+    thenCompose = 7;
+    thenCombine = 8;
+    whenComplete = 9;
+    handle = 10;
+    supply = 11;
+    invokeFunction = 12;
+    completedValue = 13;
+    delay = 14;
+    allOf = 15;
+    anyOf = 16;
+    externalCompletion = 17;
+    exceptionally = 18;
+}
+
+
+message DelayScheduledEvent {
+    uint32 stage_id = 1;
+    uint64 delayed_ts = 2;
+}
+
+message GraphCreatedEvent {
+    string graph_id = 1;
+    string function_id = 2;
+}
+
+message GraphCompletedEvent {
+    string graph_id = 1;
+    string function_id = 2;
+}
+
+message GraphCommittedEvent {
+    string graph_id = 1;
+}
+
+message StageAddedEvent {
+    uint32 stage_id = 1;
+    CompletionOperation op = 2;
+    RawDatum closure = 3;
+    repeated int32 dependencies = 4;
+}
+
+message StageCompletedEvent {
+    uint32 stage_id = 1;
+    CompletionResult result = 2;
+}
+
+message StageComposedEvent {
+    uint32 stage_id = 1;
+    uint32 composed_stage_id = 2;
+}

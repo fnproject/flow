@@ -123,6 +123,8 @@ For example:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
+FnProject-ThreadID: thread-abcd-12344
+FnProject-StageID: stage:
 Content-Length: 707419
 
 --01ead4a5-7a67-4703-ad02-589886e00923
@@ -195,11 +197,23 @@ Retrieving the value of a failed stage due to a platform error will return the f
 ```
 Content-Type: text/plain
 FnProject-DatumType: error
+FnProject-ErrorType: stage-timeout
 
 The continuation request timed out.
 ```
 
-In the Java runtime, a platform error will be internally converted to a `CloudCompletionPlatformException` and contain the original error message string.
+In the Java runtime, a platform error will be internally converted to a `CloudCompletionStageTimeoutException` and contain the original error message string.
+
+`FnProject-ErrorType` indicates the type of the error, currently supported values are: 
+
+| Error Type | Meaning |
+| ---         | ----   |
+| stage-timeout | a completion stage function timed out - the stage may or may not have completed normally'|
+| stage-invoke-failed | a completion stage invocation failed - the stage may or may not have been invoked or and that invocation may or may not have completed |
+| function-timeout | A function call timed out | 
+
+
+Recipients should accept unknown values for this header.
 
 ### Completer Invokes a Function
 

@@ -167,7 +167,7 @@ FnProject-ResultStatus: success
 ```
 
 ##### Completion Stage ID Result
-Successful execution of the continuation associated with a _thenCompose_ stage returns a datum of type `StageRef` and must include the header `FnProject-StageID` containing the inner completion stage's ID. The body of the response should be empty.
+Successful execution of the continuation associated with a _thenCompose_ stage returns a datum of type `stageref` and must include the header `FnProject-StageID` containing the inner completion stage's ID. The body of the response should be empty.
 For example:
 ```
 FnProject-DatumType: stageref

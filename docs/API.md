@@ -50,7 +50,7 @@ The _empty_ datum type is used to signify a null/void type and has no body.
 
 The _stageref_ type is used to return the stage ID of a composed stage reference (see below) and also has no body.
 
-Finally, the _httpreq_  and _httpresp__ types encapsulates an HTTP request or response. It includes the body of the HTTP message and includes any headers present in the original response by prefixing them with `FnProject-Header-`. HTTP requests must specify an HTTP Method  for the requested call via `FnProject-Method` Additionally, HTTP responses must include the header `FnProject-ResultCode` with the HTTP status code.
+Finally, the _httpreq_  and _httpresp__ types encapsulate an HTTP request or response (such as a function call or response). They include the body of the HTTP message and  any headers present in the original response by prefixing them with `FnProject-Header-`. HTTP requests must specify an HTTP Method  for the requested call via `FnProject-Method` Additionally, HTTP responses must include the header `FnProject-ResultCode` with the HTTP status code. The `Content-type` header is preserved as per a `blob` datum. 
 
 ## Cloud Threads Application Lifecycle
 

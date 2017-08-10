@@ -1,0 +1,14 @@
+hash: ab94186dad1da2671712aa682550924f85a6b56295517c0d19adfd13bc7d06b9
+updated: 2017-08-10T17:34:52.65766721+01:00
+imports:
+- name: github.com/AsynkronIT/protoactor-go
+  version: cb767d04211c13fda62cb41312e04f984cd571f5
+- name: github.com/golang/protobuf
+  version: 1909bc2f63dc92bb931deace8b8312c4db72d12f
+  subpackages:
+  - proto
+- name: github.com/Workiva/go-datastructures
+  version: f456f73ca7d46a56b394de9f5ede6fd1c8f73b54
+  subpackages:
+  - queue
+testImports: []

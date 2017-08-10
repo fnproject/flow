@@ -1,0 +1,10 @@
+package: github.com/fnproject/completer
+import:
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+- package: github.com/AsynkronIT/protoactor-go
+- package: github.com/Workiva/go-datastructures
+  version: v1.0.38
+  subpackages:
+  - queue

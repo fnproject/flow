@@ -244,7 +244,7 @@ Runtimes may also optionally provide coercions of function results to the approp
 
 #### Failed Response
 
-As with successful invocations, the completer will store body, status and headers for function calls that complete with a failed response (50x). In this case the stage's status will be set to _failure_:
+As with successful invocations, the completer will store body, status and headers for function invocations where the function indicates that it has terminated unsuccessfully. In this case the stage's status will be set to _failure_ and the body will echo the output from the function:
 
 ```
 FnProject-DatumType: httpresp

@@ -201,6 +201,7 @@ Retrieving the value of a failed stage due to a platform error will return the f
 ```
 Content-Type: text/plain
 FnProject-DatumType: error
+FnProject-ResultStatus: failure
 FnProject-ErrorType: stage-timeout
 
 The continuation request timed out.

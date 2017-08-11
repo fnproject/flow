@@ -16,3 +16,11 @@ import:
   version: v1.1.4
 - package: github.com/gorilla/mux
   version: ~1.4.0
+- package: github.com/emirpasic/gods
+  version: 1.9.0
+  subpackages:
+  - stacks
+- package: github.com/gogo/protobuf
+  version: 0.4
+- package: github.com/orcaman/concurrent-map
+  version: 2ae17bc4c860c83513ee50feb9746f3e50d7515d

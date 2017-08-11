@@ -1,13 +1,22 @@
 package graph
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/completer/model"
+	"github.com/sirupsen/logrus"
 )
 
 type GraphId string
 
 type StageId uint32
+
+type TriggerStatus uint32
+const (
+	SUCCESSFUL  TriggerStatus = 0
+	EXCEPTIONAL TriggerStatus = 1
+	PENDING     TriggerStatus = 2
+)
+func (ts TriggerStatus) isCompletable() bool { return ts == PENDING }
+func (ts TriggerStatus) isExceptional() bool { return ts == EXCEPTIONAL }
 
 type CompletionStage struct {
 	Id           StageId
@@ -16,10 +25,16 @@ type CompletionStage struct {
 	result       *model.CompletionResult
 	dependencies []StageId
 	children     []StageId
-	// TODO when complete future
+
+	// TODO "when complete" future
 
 	// Reference because it is nullable
 	composeReference *StageId
+}
+
+func (stage *CompletionStage) Complete(result *model.CompletionResult) bool {
+	// TODO
+	return false
 }
 
 type CompletionEventListener interface {
@@ -39,8 +54,8 @@ type CompletionGraph struct {
 	completed bool
 }
 
-func New (id GraphId, functionId string, listener CompletionEventListener) *CompletionGraph {
-	return &CompletionGraph {
+func New(id GraphId, functionId string, listener CompletionEventListener) *CompletionGraph {
+	return &CompletionGraph{
 		Id:             id,
 		FunctionId:     functionId,
 		stages:         make(map[StageId]*CompletionStage),
@@ -51,14 +66,18 @@ func New (id GraphId, functionId string, listener CompletionEventListener) *Comp
 	}
 }
 
+func (graph *CompletionGraph) IsCommitted() bool {
+	return graph.committed
+}
+
 func (graph *CompletionGraph) SetCommitted() {
 	graph.log.Info("committing graph")
 	graph.committed = true
-	graph.checkForCompletions()
+	graph.checkForCompletion()
 }
 
-func (graph *CompletionGraph) IsCommitted () bool {
-	return graph.committed
+func (graph *CompletionGraph) IsCompleted() bool {
+	return graph.completed
 }
 
 func (graph *CompletionGraph) SetCompleted() {
@@ -66,12 +85,25 @@ func (graph *CompletionGraph) SetCompleted() {
 	graph.completed = true
 }
 
-func (graph *CompletionGraph) IsCompleted () bool {
-	return graph.completed
+func (graph *CompletionGraph) GetStage(stageId StageId) *CompletionStage {
+	if stageId >= StageId(len(graph.stages)) {
+		return nil
+	}
+	return graph.stages[stageId]
 }
 
-func (graph *CompletionGraph) GetStage(stageId StageId) *CompletionStage {
-	return graph.stages[stageId]
+// TODO: Do we need this?!?
+func (graph *CompletionGraph) GetStages() *map[StageId]*CompletionStage {
+	return &graph.stages
+}
+
+func (graph *CompletionGraph) GetTriggerStatus(stage CompletionStage) *TriggerStatus {
+	// TODO
+	return nil
+}
+
+func (graph *CompletionGraph) NextStageId() uint32 {
+	return uint32(len(graph.stages))
 }
 
 func toStageIdArray(in []uint32) []StageId {
@@ -83,21 +115,66 @@ func toStageIdArray(in []uint32) []StageId {
 }
 
 func (graph *CompletionGraph) AddStage(event *model.StageAddedEvent, shouldTrigger bool) {
-	node := &CompletionStage {
-		Id: StageId(event.StageId),
-		operation: event.Op,
-		closure: event.Closure,
-		result: nil,
+	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "op": event.Op})
+	log.Info("Adding stage to graph")
+	if event.StageId < uint32(len(graph.stages)) {
+		log.Warn("New stage will overwrite previous stage")
+	}
+	node := &CompletionStage{
+		Id:           StageId(event.StageId),
+		operation:    event.Op,
+		closure:      event.Closure,
+		result:       nil,
 		dependencies: toStageIdArray(event.Dependencies),
 	}
-	for i := 0; i < len(node.dependencies) ; i++ {
+	for i := 0; i < len(node.dependencies); i++ {
 		graph.stages[node.dependencies[i]].children = append(graph.stages[node.dependencies[i]].children, node.Id)
 	}
-
-	// TODO: more stuff
-
 	graph.stages[node.Id] = node
+
+	if shouldTrigger {
+		graph.executeCompletableStages([]StageId{node.Id})
+	}
 }
 
+func (graph *CompletionGraph) CompleteStage(event *model.StageCompletedEvent, shouldTrigger bool) bool {
+	log := graph.log.WithFields(logrus.Fields{"status": event.Result.Status})
+	log.Info("Completing node")
+	node := graph.stages[StageId(event.StageId)]
+	success := node.Complete(event.Result)
 
-func (graph *CompletionGraph) checkForCompletions() {}
+	if node.composeReference != nil {
+		graph.tryCompleteComposedStage(graph[node.composeReference], node)
+	}
+
+	if shouldTrigger {
+		graph.executeCompletableStages(node.children)
+	}
+
+	graph.checkForCompletion()
+
+	return success
+}
+
+func (graph *CompletionGraph) ComposeNodes(event model.StageComposedEvent) {
+	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "composed_stage": event.ComposedStageId})
+	log.Info("Setting composed reference")
+	outer := graph.stages[StageId(event.StageId)]
+	inner := graph.stages[StageId(event.ComposedStageId)]
+	inner.composeReference = &outer.Id
+
+	// If inner stage is complete, complete outer stage too
+	graph.tryCompleteComposedStage(outer, inner)
+}
+
+func (graph *CompletionGraph) tryCompleteComposedStage(outer *CompletionStage, inner *CompletionStage) {
+	// TODO
+}
+
+func (graph *CompletionGraph) executeCompletableStages(id []StageId) {
+	// TODO
+}
+
+func (graph *CompletionGraph) checkForCompletion() {
+	// TODO
+}

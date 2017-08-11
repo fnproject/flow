@@ -77,7 +77,7 @@ FnProject-ThreadID: thread-abcd-12344
 
 ### Runtime creates a stage in the graph
 
-HTTP POST requests to the Completer REST API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
+HTTP POST requests to the Completer Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
 
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
@@ -98,7 +98,7 @@ FnProject-StageID: 1
 
 ### Runtime requests a function invocation via the completer 
 
-Invoke Function stages take an *httpreq* datum which encapsulates the request's route (path in functions), as well as the HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
+Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's path, as well as the HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
 POST /graph/thread-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path

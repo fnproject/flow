@@ -2,7 +2,47 @@ syntax = "proto3";
 
 package model;
 
-// commands
+// Common
+
+message CompletionResult {
+    ResultStatus status = 1;
+    RawDatum datum = 2;
+}
+
+message RawDatum {
+    bytes data_string = 1;
+}
+
+enum ResultStatus {
+    unknown_status = 0;
+    succeeded = 1;
+    failed = 2; // Exception thrown by user function
+    error = 3;
+}
+
+enum CompletionOperation {
+    unknown_operation = 0;
+    acceptEither = 1;
+    applyToEither = 2;
+    thenAcceptBoth = 3;
+    thenApply = 4;
+    thenRun = 5;
+    thenAccept = 6;
+    thenCompose = 7;
+    thenCombine = 8;
+    whenComplete = 9;
+    handle = 10;
+    supply = 11;
+    invokeFunction = 12;
+    completedValue = 13;
+    delay = 14;
+    allOf = 15;
+    anyOf = 16;
+    externalCompletion = 17;
+    exceptionally = 18;
+}
+
+// Commands
 message AddChainedStageRequest {
     string graph_id = 1;
     CompletionOperation operation = 2;
@@ -157,45 +197,7 @@ message AddGraphEntity {
     string graph_entity = 1;
 }
 
-
-message CompletionResult {
-    ResultStatus status = 1;
-    RawDatum datum = 2;
-}
-
-message RawDatum {
-    bytes data_string = 1;
-}
-
-enum ResultStatus {
-    unknown_status = 0;
-    succeeded = 1;
-    failed = 2; // Exception thrown by user function
-    error = 3;
-}
-
-enum CompletionOperation {
-    unknown_operation = 0;
-    acceptEither = 1;
-    applyToEither = 2;
-    thenAcceptBoth = 3;
-    thenApply = 4;
-    thenRun = 5;
-    thenAccept = 6;
-    thenCompose = 7;
-    thenCombine = 8;
-    whenComplete = 9;
-    handle = 10;
-    supply = 11;
-    invokeFunction = 12;
-    completedValue = 13;
-    delay = 14;
-    allOf = 15;
-    anyOf = 16;
-    externalCompletion = 17;
-    exceptionally = 18;
-}
-
+// Events
 
 message DelayScheduledEvent {
     uint32 stage_id = 1;
@@ -220,7 +222,7 @@ message StageAddedEvent {
     uint32 stage_id = 1;
     CompletionOperation op = 2;
     RawDatum closure = 3;
-    repeated int32 dependencies = 4;
+    repeated uint32 dependencies = 4;
 }
 
 message StageCompletedEvent {

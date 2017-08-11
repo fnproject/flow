@@ -411,8 +411,6 @@ Example request:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: application/octet-stream
-FnProject-ThreadID: thread-abcd-12344
-FnProject-StageID: 2
 Content-Length: 707419
 Custom-Header: SomeValue
 

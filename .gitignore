@@ -14,9 +14,11 @@ completer
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
 
+# No need for the lock file as we're vendoring the deps
+glide.lock
+
 # Emacs
 .\#*
 
 # IDE stuff
 .idea/
-

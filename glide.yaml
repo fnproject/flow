@@ -5,6 +5,7 @@ import:
   subpackages:
   - proto
 - package: github.com/AsynkronIT/protoactor-go
+  version: cb767d04211c13fda62cb41312e04f984cd571f5
 - package: github.com/Workiva/go-datastructures
   version: v1.0.38
   subpackages:

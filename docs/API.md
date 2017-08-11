@@ -1,4 +1,4 @@
-# Threads API - DRAFT 
+# Threads API 
 
 This document defines how to interact with threads via the completer, and how the completer invokes threads via fn.
 

@@ -107,9 +107,7 @@ FnProject-Method: POST
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "transaction-id" : "12345678"
-}
+...request body...
 ```
 
 Again the completer returns a new `StageID` in the `FnProject-StageID` header. 
@@ -235,9 +233,7 @@ FnProject-ResultCode: 200
 FnProject-Header-CUSTOM-HEADER: customValue
 Content-Type: application/json
 
-{
-   "message" : "Successfully created user"
-}
+...function response body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `FnResult` type. FnResult is a wrapped HTTP response including:
@@ -258,10 +254,7 @@ FnProject-ResultCode: 500
 FnProject-Header-CUSTOM-HEADER: customValue
 Content-Type: application/json
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...function response body...
 ```
 
 In the Java runtime, the stage's value will be coerced to a `FunctionInvocationException`, which like FnResult wraps the body, headers and status code of the original response.
@@ -283,9 +276,7 @@ When a POST request is made to the _completionUrl_ of a stage, the HTTP status a
 Content-Type: application/json
 CUSTOM-HEADER: user-12334
 
-{
-   "result" : "12345678"
-}
+...request body...
 ```
 
 will result in the following being transmitted to the runtime:
@@ -297,9 +288,7 @@ FnProject-ResultStatus: success
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "result" : "12345678"
-}
+... request body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `ExternalResult` type, which wraps the body and headers of the original request.
@@ -312,10 +301,7 @@ POSTing to the _failUrl_ will also result in the completer saving HTTP status, h
 Content-Type: application/json
 CUSTOM-HEADER: user-12334
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...request body...
 ```
 
 will result in the following being transmitted to the runtime:
@@ -327,10 +313,7 @@ FnProject-ResultStatus: failure
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...request body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `FunctionInvocationException` type, which wraps the body and headers of the original request.

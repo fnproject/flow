@@ -392,14 +392,26 @@ FnProject-DatumType: empty
 --01ead4a5-7a67-4703-ad02-589886e00923
 ```
 
-Example response: 
+Example of successful stage response: 
 
 ```
+HTTP/1.1 200 OK 
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
 FnProject-ResultStatus: success
 
 ...serialized result...
+```
+
+Example of failed stage response: 
+
+```
+HTTP/1.1 200 OK 
+Content-Type: application/java-serialized-object
+FnProject-DatumType: blob
+FnProject-ResultStatus: failure
+
+...serialized exception...
 ```
 
 #### Function Invocation

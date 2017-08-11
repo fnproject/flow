@@ -98,7 +98,7 @@ FnProject-StageID: 1
 
 ### Runtime requests a function invocation via the completer 
 
-Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's path, as well as the HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
+Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
 POST /graph/thread-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path

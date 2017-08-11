@@ -4,9 +4,9 @@ This document defines how to interact with threads via the completer, and how th
 
 There are two API call contracts: 
 
-The [Client API](#Completer-Client-API) between a client function and the completer: Functions make calls to the completer to create threads and append completion stages , the completer stores these and invokes the stages when they are triggered.   
+The [Client API](#completer-client-api) between a client function and the completer: Functions make calls to the completer to create threads and append completion stages , the completer stores these and invokes the stages when they are triggered.   
 
-The [Invoke API](#Completer-Invoke-API) between the completer and a the fn service: The completer invokes back into fn via it's public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer. 
+The [Invoke API](#completer-invoke-api) between the completer and a the fn service: The completer invokes back into fn via it's public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer. 
 
  
 

@@ -1,8 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"github.com/gorilla/mux"
+	"log"
+	"net/http"
+)
 
+func ping(w http.ResponseWriter, r *http.Request) {
+	return
+}
 
 func main() {
-	fmt.Println("I Complete You")
+	r := mux.NewRouter()
+	r.HandleFunc("/ping", ping)
+	http.Handle("/", r)
+	log.Fatal(http.ListenAndServe(":8000", r))
 }

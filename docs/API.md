@@ -1,12 +1,12 @@
-# Threads API - DRAFT 
+# Threads API 
 
 This document defines how to interact with threads via the completer, and how the completer invokes threads via fn.
 
 There are two API call contracts: 
 
-The *Client API* between a client function and the completer: Functions make calls to the completer to create threads and append completion stages , the completer stores these and invokes the stages when they are triggered.   
+The [Client API](#completer-client-api) between a client function and the completer: Functions make calls to the completer to create threads and append completion stages , the completer stores these and invokes the stages when they are triggered.   
 
-The *Invoke API* between the completer and a the fn service : The completer invokes back into fn via it's public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementatons before returning a result back to the completer. 
+The [Invoke API](#completer-invoke-api) between the completer and a the fn service: The completer invokes back into fn via it's public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer. 
 
  
 
@@ -77,7 +77,7 @@ FnProject-ThreadID: thread-abcd-12344
 
 ### Runtime creates a stage in the graph
 
-HTTP POST requests to the Completer REST API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
+HTTP POST requests to the Completer Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
 
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
@@ -92,13 +92,13 @@ Content-length: 100
 
 The completer returns a new `StageID` in the `FnProject-StageID` header. 
 ```
-HTTP1/1 200 OK
-FnProject-StageID : 1
+HTTP/1.1 200 OK
+FnProject-StageID: 1
 ```
 
 ### Runtime requests a function invocation via the completer 
 
-Invoke Function stages take an *httpreq* datum which encapsulates the requested HTTP headers, route (path in functions) and 
+Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
 POST /graph/thread-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
@@ -107,16 +107,18 @@ FnProject-Method: POST
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "result" : "12345678"
-}
+...request body...
+```
+
+Again the completer returns a new `StageID` in the `FnProject-StageID` header. 
+```
+HTTP/1.1 200 OK
+FnProject-StageID: 3
 ```
 
 ### Completer Invokes a Continuation
 
-A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null.
-
-In order to frame the different elements of the request, HTTP multipart should be used. The closure and arguments constitute the individual parts and must be named _closure_ and _arg_X_ where X is the index of the argument starting at 0. Note also that the arguments should appear in increasing order in the request, with the lowest index appearing immediately after the closure part. 
+A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null. HTTP multipart is used to frame the different elements of the request.
 
 For example:
 
@@ -124,7 +126,7 @@ For example:
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
 FnProject-ThreadID: thread-abcd-12344
-FnProject-StageID: stage:
+FnProject-StageID: 2
 Content-Length: 707419
 
 --01ead4a5-7a67-4703-ad02-589886e00923
@@ -197,6 +199,7 @@ Retrieving the value of a failed stage due to a platform error will return the f
 ```
 Content-Type: text/plain
 FnProject-DatumType: error
+FnProject-ResultStatus: failure
 FnProject-ErrorType: stage-timeout
 
 The continuation request timed out.
@@ -230,9 +233,7 @@ FnProject-ResultCode: 200
 FnProject-Header-CUSTOM-HEADER: customValue
 Content-Type: application/json
 
-{
-   "message" : "Successfully created user"
-}
+...function response body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `FnResult` type. FnResult is a wrapped HTTP response including:
@@ -253,10 +254,7 @@ FnProject-ResultCode: 500
 FnProject-Header-CUSTOM-HEADER: customValue
 Content-Type: application/json
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...function response body...
 ```
 
 In the Java runtime, the stage's value will be coerced to a `FunctionInvocationException`, which like FnResult wraps the body, headers and status code of the original response.
@@ -278,9 +276,7 @@ When a POST request is made to the _completionUrl_ of a stage, the HTTP status a
 Content-Type: application/json
 CUSTOM-HEADER: user-12334
 
-{
-   "result" : "12345678"
-}
+...request body...
 ```
 
 will result in the following being transmitted to the runtime:
@@ -292,9 +288,7 @@ FnProject-ResultStatus: success
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "result" : "12345678"
-}
+... request body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `ExternalResult` type, which wraps the body and headers of the original request.
@@ -307,10 +301,7 @@ POSTing to the _failUrl_ will also result in the completer saving HTTP status, h
 Content-Type: application/json
 CUSTOM-HEADER: user-12334
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...request body...
 ```
 
 will result in the following being transmitted to the runtime:
@@ -322,10 +313,7 @@ FnProject-ResultStatus: failure
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 
-{
-   "reason" : "INVALID_USER_AUTHENTICATION",
-   "message" : "Failed to authenticate principal, password was invalid"
-}
+...request body...
 ```
 
 In the Java runtime, this stage's value will be transparently coerced to the `FunctionInvocationException` type, which wraps the body and headers of the original request.
@@ -333,7 +321,7 @@ In the Java runtime, this stage's value will be transparently coerced to the `Fu
 
 
 
-### Completer Invoke API
+### Completer Client API
 We'll swagger this up at some point 
 
 
@@ -368,6 +356,77 @@ Note that all operations that add a stage execute any associated closures asynch
 
 Data is exchanged between the client and the completer and the completer and the function using HTTP multipart messages 
  
+### Completer Invoke API
+
+The following sections describe the completer contract for outgoing requests into fn's public API.
+
+#### Closure Invocation
+
+The completer makes a closure invocation request into fn when triggering a stage of computation. The request consists of a closure optionally followed by a variable number of arguments. In order to frame the different elements of the request, HTTP multipart should be used. The closure and arguments constitute the individual parts and must be named _closure_ and _arg_X_ where X is the index of the argument starting at 0. Note also that the arguments should appear in increasing order in the request, with the lowest index appearing immediately after the closure part. 
+
+Example request:
+
+```
+POST /r/app/path HTTP/1.1
+Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
+FnProject-ThreadID: thread-abcd-12344
+FnProject-StageID: 2
+Content-Length: 707419
+
+--01ead4a5-7a67-4703-ad02-589886e00923
+Content-Type: application/java-serialized-object
+Content-Disposition: form-data; name=closure
+FnProject-DatumType: blob
+
+...serialized closure...
+--01ead4a5-7a67-4703-ad02-589886e00923
+Content-Type: application/java-serialized-object
+Content-Disposition: form-data; name=arg_0
+FnProject-DatumType: blob
+
+...serialized arg 0...
+--01ead4a5-7a67-4703-ad02-589886e00923
+Content-Disposition: form-data; name=arg_1
+FnProject-DatumType: empty
+
+--01ead4a5-7a67-4703-ad02-589886e00923
+```
+
+Example response: 
+
+```
+Content-Type: application/java-serialized-object
+FnProject-DatumType: blob
+FnProject-ResultStatus: success
+
+...serialized result...
+```
+
+#### Function Invocation
+
+The completer makes a function request into fn when triggering execution of a stage associated with a function (i.e. a stage created via _invokeFunction_). The outgoing request will incorporate the HTTP method, headers, and body supplied by the application when constructing the stage.
+
+Example request:
+
+```
+POST /r/app/path HTTP/1.1
+Content-Type: application/octet-stream
+Content-Length: 707419
+Custom-Header: SomeValue
+
+...request body from stage...
+```
+
+Example response:
+
+```
+HTTP/1.1 200 OK 
+Content-Type: application/json
+Content-Length: 10419
+Custom-Header: SomeOtherValue
+
+...response body from function...
+```
 
 
 ### <a name="stage_types">Completion Stage Types</a>

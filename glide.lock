@@ -1,5 +1,5 @@
-hash: ab94186dad1da2671712aa682550924f85a6b56295517c0d19adfd13bc7d06b9
-updated: 2017-08-10T17:34:52.65766721+01:00
+hash: b12a3d80fa3adf098c5eef2b51f987660c08a1103ed55af16b332c8881c17978
+updated: 2017-08-11T10:50:35.977352098+01:00
 imports:
 - name: github.com/AsynkronIT/protoactor-go
   version: cb767d04211c13fda62cb41312e04f984cd571f5
@@ -7,6 +7,10 @@ imports:
   version: 1909bc2f63dc92bb931deace8b8312c4db72d12f
   subpackages:
   - proto
+- name: github.com/sirupsen/logrus
+  version: a3f95b5c423586578a4e099b11a46c2479628cac
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
 - name: github.com/Workiva/go-datastructures
   version: f456f73ca7d46a56b394de9f5ede6fd1c8f73b54
   subpackages:

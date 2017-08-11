@@ -1,6 +1,7 @@
 package: github.com/fnproject/completer
 import:
 - package: github.com/golang/protobuf
+  version: 1909bc2f63dc92bb931deace8b8312c4db72d12f
   subpackages:
   - proto
 - package: github.com/AsynkronIT/protoactor-go
@@ -8,3 +9,7 @@ import:
   version: v1.0.38
   subpackages:
   - queue
+- package: github.com/sirupsen/logrus
+  version: 1.0.2
+- package: github.com/stretchr/testify
+  version: v1.1.4

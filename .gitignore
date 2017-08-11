@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+completer
 
 # Test binary, build with `go test -c`
 *.test
@@ -18,3 +19,4 @@
 
 # IDE stuff
 .idea/
+

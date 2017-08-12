@@ -9,7 +9,14 @@ It is generated from these files:
 
 It has these top-level messages:
 	CompletionResult
-	RawDatum
+	BlobDatum
+	HttpHeader
+	HttpReqDatum
+	HttpRespDatum
+	EmptyDatum
+	StageRefDatum
+	ErrorDatum
+	Datum
 	AddChainedStageRequest
 	AddCompletedValueStageRequest
 	AddDelayStageRequest
@@ -61,32 +68,101 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type HttpMethod int32
+
+const (
+	HttpMethod_unknown_method HttpMethod = 0
+	HttpMethod_get            HttpMethod = 1
+	HttpMethod_head           HttpMethod = 2
+	HttpMethod_post           HttpMethod = 3
+	HttpMethod_put            HttpMethod = 4
+	HttpMethod_delete         HttpMethod = 5
+	HttpMethod_options        HttpMethod = 7
+	HttpMethod_patch          HttpMethod = 6
+)
+
+var HttpMethod_name = map[int32]string{
+	0: "unknown_method",
+	1: "get",
+	2: "head",
+	3: "post",
+	4: "put",
+	5: "delete",
+	7: "options",
+	6: "patch",
+}
+var HttpMethod_value = map[string]int32{
+	"unknown_method": 0,
+	"get":            1,
+	"head":           2,
+	"post":           3,
+	"put":            4,
+	"delete":         5,
+	"options":        7,
+	"patch":          6,
+}
+
+func (x HttpMethod) String() string {
+	return proto.EnumName(HttpMethod_name, int32(x))
+}
+func (HttpMethod) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+type ErrorDatumType int32
+
+const (
+	ErrorDatumType_unknown_error          ErrorDatumType = 0
+	ErrorDatumType_stage_timeout          ErrorDatumType = 1
+	ErrorDatumType_stage_failed           ErrorDatumType = 2
+	ErrorDatumType_function_timeout       ErrorDatumType = 3
+	ErrorDatumType_function_invoke_failed ErrorDatumType = 4
+	ErrorDatumType_stage_lost             ErrorDatumType = 5
+)
+
+var ErrorDatumType_name = map[int32]string{
+	0: "unknown_error",
+	1: "stage_timeout",
+	2: "stage_failed",
+	3: "function_timeout",
+	4: "function_invoke_failed",
+	5: "stage_lost",
+}
+var ErrorDatumType_value = map[string]int32{
+	"unknown_error":          0,
+	"stage_timeout":          1,
+	"stage_failed":           2,
+	"function_timeout":       3,
+	"function_invoke_failed": 4,
+	"stage_lost":             5,
+}
+
+func (x ErrorDatumType) String() string {
+	return proto.EnumName(ErrorDatumType_name, int32(x))
+}
+func (ErrorDatumType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
 type ResultStatus int32
 
 const (
 	ResultStatus_unknown_status ResultStatus = 0
 	ResultStatus_succeeded      ResultStatus = 1
 	ResultStatus_failed         ResultStatus = 2
-	ResultStatus_error          ResultStatus = 3
 )
 
 var ResultStatus_name = map[int32]string{
 	0: "unknown_status",
 	1: "succeeded",
 	2: "failed",
-	3: "error",
 }
 var ResultStatus_value = map[string]int32{
 	"unknown_status": 0,
 	"succeeded":      1,
 	"failed":         2,
-	"error":          3,
 }
 
 func (x ResultStatus) String() string {
 	return proto.EnumName(ResultStatus_name, int32(x))
 }
-func (ResultStatus) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (ResultStatus) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 type CompletionOperation int32
 
@@ -158,7 +234,7 @@ var CompletionOperation_value = map[string]int32{
 func (x CompletionOperation) String() string {
 	return proto.EnumName(CompletionOperation_name, int32(x))
 }
-func (CompletionOperation) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (CompletionOperation) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 type ListGraphsFilter int32
 
@@ -185,11 +261,11 @@ var ListGraphsFilter_value = map[string]int32{
 func (x ListGraphsFilter) String() string {
 	return proto.EnumName(ListGraphsFilter_name, int32(x))
 }
-func (ListGraphsFilter) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (ListGraphsFilter) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 type CompletionResult struct {
 	Status ResultStatus `protobuf:"varint,1,opt,name=status,enum=model.ResultStatus" json:"status,omitempty"`
-	Datum  *RawDatum    `protobuf:"bytes,2,opt,name=datum" json:"datum,omitempty"`
+	Datum  *Datum       `protobuf:"bytes,2,opt,name=datum" json:"datum,omitempty"`
 }
 
 func (m *CompletionResult) Reset()                    { *m = CompletionResult{} }
@@ -204,41 +280,430 @@ func (m *CompletionResult) GetStatus() ResultStatus {
 	return ResultStatus_unknown_status
 }
 
-func (m *CompletionResult) GetDatum() *RawDatum {
+func (m *CompletionResult) GetDatum() *Datum {
 	if m != nil {
 		return m.Datum
 	}
 	return nil
 }
 
-type RawDatum struct {
-	DataString []byte `protobuf:"bytes,1,opt,name=data_string,json=dataString,proto3" json:"data_string,omitempty"`
+type BlobDatum struct {
+	DataString  []byte `protobuf:"bytes,1,opt,name=data_string,json=dataString,proto3" json:"data_string,omitempty"`
+	ContentType string `protobuf:"bytes,2,opt,name=content_type,json=contentType" json:"content_type,omitempty"`
 }
 
-func (m *RawDatum) Reset()                    { *m = RawDatum{} }
-func (m *RawDatum) String() string            { return proto.CompactTextString(m) }
-func (*RawDatum) ProtoMessage()               {}
-func (*RawDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *BlobDatum) Reset()                    { *m = BlobDatum{} }
+func (m *BlobDatum) String() string            { return proto.CompactTextString(m) }
+func (*BlobDatum) ProtoMessage()               {}
+func (*BlobDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
-func (m *RawDatum) GetDataString() []byte {
+func (m *BlobDatum) GetDataString() []byte {
 	if m != nil {
 		return m.DataString
 	}
 	return nil
 }
 
+func (m *BlobDatum) GetContentType() string {
+	if m != nil {
+		return m.ContentType
+	}
+	return ""
+}
+
+type HttpHeader struct {
+	Key   string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+}
+
+func (m *HttpHeader) Reset()                    { *m = HttpHeader{} }
+func (m *HttpHeader) String() string            { return proto.CompactTextString(m) }
+func (*HttpHeader) ProtoMessage()               {}
+func (*HttpHeader) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *HttpHeader) GetKey() string {
+	if m != nil {
+		return m.Key
+	}
+	return ""
+}
+
+func (m *HttpHeader) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+type HttpReqDatum struct {
+	Blob    *BlobDatum    `protobuf:"bytes,1,opt,name=blob" json:"blob,omitempty"`
+	Headers []*HttpHeader `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty"`
+	Method  HttpMethod    `protobuf:"varint,4,opt,name=method,enum=model.HttpMethod" json:"method,omitempty"`
+}
+
+func (m *HttpReqDatum) Reset()                    { *m = HttpReqDatum{} }
+func (m *HttpReqDatum) String() string            { return proto.CompactTextString(m) }
+func (*HttpReqDatum) ProtoMessage()               {}
+func (*HttpReqDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *HttpReqDatum) GetBlob() *BlobDatum {
+	if m != nil {
+		return m.Blob
+	}
+	return nil
+}
+
+func (m *HttpReqDatum) GetHeaders() []*HttpHeader {
+	if m != nil {
+		return m.Headers
+	}
+	return nil
+}
+
+func (m *HttpReqDatum) GetMethod() HttpMethod {
+	if m != nil {
+		return m.Method
+	}
+	return HttpMethod_unknown_method
+}
+
+type HttpRespDatum struct {
+	Blob       *BlobDatum    `protobuf:"bytes,1,opt,name=blob" json:"blob,omitempty"`
+	Headers    []*HttpHeader `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty"`
+	StatusCode uint32        `protobuf:"varint,4,opt,name=status_code,json=statusCode" json:"status_code,omitempty"`
+}
+
+func (m *HttpRespDatum) Reset()                    { *m = HttpRespDatum{} }
+func (m *HttpRespDatum) String() string            { return proto.CompactTextString(m) }
+func (*HttpRespDatum) ProtoMessage()               {}
+func (*HttpRespDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *HttpRespDatum) GetBlob() *BlobDatum {
+	if m != nil {
+		return m.Blob
+	}
+	return nil
+}
+
+func (m *HttpRespDatum) GetHeaders() []*HttpHeader {
+	if m != nil {
+		return m.Headers
+	}
+	return nil
+}
+
+func (m *HttpRespDatum) GetStatusCode() uint32 {
+	if m != nil {
+		return m.StatusCode
+	}
+	return 0
+}
+
+type EmptyDatum struct {
+}
+
+func (m *EmptyDatum) Reset()                    { *m = EmptyDatum{} }
+func (m *EmptyDatum) String() string            { return proto.CompactTextString(m) }
+func (*EmptyDatum) ProtoMessage()               {}
+func (*EmptyDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+
+type StageRefDatum struct {
+	StageRef uint32 `protobuf:"varint,1,opt,name=stage_ref,json=stageRef" json:"stage_ref,omitempty"`
+}
+
+func (m *StageRefDatum) Reset()                    { *m = StageRefDatum{} }
+func (m *StageRefDatum) String() string            { return proto.CompactTextString(m) }
+func (*StageRefDatum) ProtoMessage()               {}
+func (*StageRefDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+
+func (m *StageRefDatum) GetStageRef() uint32 {
+	if m != nil {
+		return m.StageRef
+	}
+	return 0
+}
+
+type ErrorDatum struct {
+	Type    ErrorDatumType `protobuf:"varint,1,opt,name=type,enum=model.ErrorDatumType" json:"type,omitempty"`
+	Message string         `protobuf:"bytes,2,opt,name=message" json:"message,omitempty"`
+}
+
+func (m *ErrorDatum) Reset()                    { *m = ErrorDatum{} }
+func (m *ErrorDatum) String() string            { return proto.CompactTextString(m) }
+func (*ErrorDatum) ProtoMessage()               {}
+func (*ErrorDatum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+
+func (m *ErrorDatum) GetType() ErrorDatumType {
+	if m != nil {
+		return m.Type
+	}
+	return ErrorDatumType_unknown_error
+}
+
+func (m *ErrorDatum) GetMessage() string {
+	if m != nil {
+		return m.Message
+	}
+	return ""
+}
+
+type Datum struct {
+	// Types that are valid to be assigned to Val:
+	//	*Datum_Empty
+	//	*Datum_Blob
+	//	*Datum_Error
+	//	*Datum_StageRef
+	//	*Datum_HttpReq
+	//	*Datum_HttpResp
+	Val isDatum_Val `protobuf_oneof:"val"`
+}
+
+func (m *Datum) Reset()                    { *m = Datum{} }
+func (m *Datum) String() string            { return proto.CompactTextString(m) }
+func (*Datum) ProtoMessage()               {}
+func (*Datum) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+
+type isDatum_Val interface {
+	isDatum_Val()
+}
+
+type Datum_Empty struct {
+	Empty *EmptyDatum `protobuf:"bytes,1,opt,name=empty,oneof"`
+}
+type Datum_Blob struct {
+	Blob *BlobDatum `protobuf:"bytes,2,opt,name=blob,oneof"`
+}
+type Datum_Error struct {
+	Error *ErrorDatum `protobuf:"bytes,3,opt,name=error,oneof"`
+}
+type Datum_StageRef struct {
+	StageRef *StageRefDatum `protobuf:"bytes,4,opt,name=stage_ref,json=stageRef,oneof"`
+}
+type Datum_HttpReq struct {
+	HttpReq *HttpReqDatum `protobuf:"bytes,5,opt,name=http_req,json=httpReq,oneof"`
+}
+type Datum_HttpResp struct {
+	HttpResp *HttpRespDatum `protobuf:"bytes,6,opt,name=http_resp,json=httpResp,oneof"`
+}
+
+func (*Datum_Empty) isDatum_Val()    {}
+func (*Datum_Blob) isDatum_Val()     {}
+func (*Datum_Error) isDatum_Val()    {}
+func (*Datum_StageRef) isDatum_Val() {}
+func (*Datum_HttpReq) isDatum_Val()  {}
+func (*Datum_HttpResp) isDatum_Val() {}
+
+func (m *Datum) GetVal() isDatum_Val {
+	if m != nil {
+		return m.Val
+	}
+	return nil
+}
+
+func (m *Datum) GetEmpty() *EmptyDatum {
+	if x, ok := m.GetVal().(*Datum_Empty); ok {
+		return x.Empty
+	}
+	return nil
+}
+
+func (m *Datum) GetBlob() *BlobDatum {
+	if x, ok := m.GetVal().(*Datum_Blob); ok {
+		return x.Blob
+	}
+	return nil
+}
+
+func (m *Datum) GetError() *ErrorDatum {
+	if x, ok := m.GetVal().(*Datum_Error); ok {
+		return x.Error
+	}
+	return nil
+}
+
+func (m *Datum) GetStageRef() *StageRefDatum {
+	if x, ok := m.GetVal().(*Datum_StageRef); ok {
+		return x.StageRef
+	}
+	return nil
+}
+
+func (m *Datum) GetHttpReq() *HttpReqDatum {
+	if x, ok := m.GetVal().(*Datum_HttpReq); ok {
+		return x.HttpReq
+	}
+	return nil
+}
+
+func (m *Datum) GetHttpResp() *HttpRespDatum {
+	if x, ok := m.GetVal().(*Datum_HttpResp); ok {
+		return x.HttpResp
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Datum) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Datum_OneofMarshaler, _Datum_OneofUnmarshaler, _Datum_OneofSizer, []interface{}{
+		(*Datum_Empty)(nil),
+		(*Datum_Blob)(nil),
+		(*Datum_Error)(nil),
+		(*Datum_StageRef)(nil),
+		(*Datum_HttpReq)(nil),
+		(*Datum_HttpResp)(nil),
+	}
+}
+
+func _Datum_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Datum)
+	// val
+	switch x := m.Val.(type) {
+	case *Datum_Empty:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Empty); err != nil {
+			return err
+		}
+	case *Datum_Blob:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Blob); err != nil {
+			return err
+		}
+	case *Datum_Error:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Error); err != nil {
+			return err
+		}
+	case *Datum_StageRef:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.StageRef); err != nil {
+			return err
+		}
+	case *Datum_HttpReq:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.HttpReq); err != nil {
+			return err
+		}
+	case *Datum_HttpResp:
+		b.EncodeVarint(6<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.HttpResp); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Datum.Val has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Datum_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Datum)
+	switch tag {
+	case 1: // val.empty
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(EmptyDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_Empty{msg}
+		return true, err
+	case 2: // val.blob
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(BlobDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_Blob{msg}
+		return true, err
+	case 3: // val.error
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(ErrorDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_Error{msg}
+		return true, err
+	case 4: // val.stage_ref
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(StageRefDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_StageRef{msg}
+		return true, err
+	case 5: // val.http_req
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(HttpReqDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_HttpReq{msg}
+		return true, err
+	case 6: // val.http_resp
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(HttpRespDatum)
+		err := b.DecodeMessage(msg)
+		m.Val = &Datum_HttpResp{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Datum_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Datum)
+	// val
+	switch x := m.Val.(type) {
+	case *Datum_Empty:
+		s := proto.Size(x.Empty)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Datum_Blob:
+		s := proto.Size(x.Blob)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Datum_Error:
+		s := proto.Size(x.Error)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Datum_StageRef:
+		s := proto.Size(x.StageRef)
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Datum_HttpReq:
+		s := proto.Size(x.HttpReq)
+		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Datum_HttpResp:
+		s := proto.Size(x.HttpResp)
+		n += proto.SizeVarint(6<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 // Commands
 type AddChainedStageRequest struct {
 	GraphId   string              `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
 	Operation CompletionOperation `protobuf:"varint,2,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
-	Closure   *RawDatum           `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
+	Closure   *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
 	Deps      []uint32            `protobuf:"varint,4,rep,packed,name=deps" json:"deps,omitempty"`
 }
 
 func (m *AddChainedStageRequest) Reset()                    { *m = AddChainedStageRequest{} }
 func (m *AddChainedStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddChainedStageRequest) ProtoMessage()               {}
-func (*AddChainedStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*AddChainedStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *AddChainedStageRequest) GetGraphId() string {
 	if m != nil {
@@ -254,7 +719,7 @@ func (m *AddChainedStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_unknown_operation
 }
 
-func (m *AddChainedStageRequest) GetClosure() *RawDatum {
+func (m *AddChainedStageRequest) GetClosure() *BlobDatum {
 	if m != nil {
 		return m.Closure
 	}
@@ -276,7 +741,7 @@ type AddCompletedValueStageRequest struct {
 func (m *AddCompletedValueStageRequest) Reset()                    { *m = AddCompletedValueStageRequest{} }
 func (m *AddCompletedValueStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddCompletedValueStageRequest) ProtoMessage()               {}
-func (*AddCompletedValueStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*AddCompletedValueStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *AddCompletedValueStageRequest) GetGraphId() string {
 	if m != nil {
@@ -300,7 +765,7 @@ type AddDelayStageRequest struct {
 func (m *AddDelayStageRequest) Reset()                    { *m = AddDelayStageRequest{} }
 func (m *AddDelayStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddDelayStageRequest) ProtoMessage()               {}
-func (*AddDelayStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*AddDelayStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *AddDelayStageRequest) GetGraphId() string {
 	if m != nil {
@@ -324,7 +789,7 @@ func (m *AddExternalCompletionStageRequest) Reset()         { *m = AddExternalCo
 func (m *AddExternalCompletionStageRequest) String() string { return proto.CompactTextString(m) }
 func (*AddExternalCompletionStageRequest) ProtoMessage()    {}
 func (*AddExternalCompletionStageRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{5}
+	return fileDescriptor0, []int{12}
 }
 
 func (m *AddExternalCompletionStageRequest) GetGraphId() string {
@@ -335,15 +800,15 @@ func (m *AddExternalCompletionStageRequest) GetGraphId() string {
 }
 
 type AddInvokeFunctionStageRequest struct {
-	GraphId    string    `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	FunctionId string    `protobuf:"bytes,2,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
-	Arg        *RawDatum `protobuf:"bytes,3,opt,name=arg" json:"arg,omitempty"`
+	GraphId    string        `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	FunctionId string        `protobuf:"bytes,2,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
+	Arg        *HttpReqDatum `protobuf:"bytes,3,opt,name=arg" json:"arg,omitempty"`
 }
 
 func (m *AddInvokeFunctionStageRequest) Reset()                    { *m = AddInvokeFunctionStageRequest{} }
 func (m *AddInvokeFunctionStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddInvokeFunctionStageRequest) ProtoMessage()               {}
-func (*AddInvokeFunctionStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (*AddInvokeFunctionStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *AddInvokeFunctionStageRequest) GetGraphId() string {
 	if m != nil {
@@ -359,7 +824,7 @@ func (m *AddInvokeFunctionStageRequest) GetFunctionId() string {
 	return ""
 }
 
-func (m *AddInvokeFunctionStageRequest) GetArg() *RawDatum {
+func (m *AddInvokeFunctionStageRequest) GetArg() *HttpReqDatum {
 	if m != nil {
 		return m.Arg
 	}
@@ -374,7 +839,7 @@ type AddStageResponse struct {
 func (m *AddStageResponse) Reset()                    { *m = AddStageResponse{} }
 func (m *AddStageResponse) String() string            { return proto.CompactTextString(m) }
 func (*AddStageResponse) ProtoMessage()               {}
-func (*AddStageResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (*AddStageResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 func (m *AddStageResponse) GetGraphId() string {
 	if m != nil {
@@ -398,7 +863,7 @@ type CompleteDelayStageRequest struct {
 func (m *CompleteDelayStageRequest) Reset()                    { *m = CompleteDelayStageRequest{} }
 func (m *CompleteDelayStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*CompleteDelayStageRequest) ProtoMessage()               {}
-func (*CompleteDelayStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (*CompleteDelayStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 func (m *CompleteDelayStageRequest) GetGraphId() string {
 	if m != nil {
@@ -421,7 +886,7 @@ type CommitGraphRequest struct {
 func (m *CommitGraphRequest) Reset()                    { *m = CommitGraphRequest{} }
 func (m *CommitGraphRequest) String() string            { return proto.CompactTextString(m) }
 func (*CommitGraphRequest) ProtoMessage()               {}
-func (*CommitGraphRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (*CommitGraphRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 func (m *CommitGraphRequest) GetGraphId() string {
 	if m != nil {
@@ -437,7 +902,7 @@ type CommitGraphProcessed struct {
 func (m *CommitGraphProcessed) Reset()                    { *m = CommitGraphProcessed{} }
 func (m *CommitGraphProcessed) String() string            { return proto.CompactTextString(m) }
 func (*CommitGraphProcessed) ProtoMessage()               {}
-func (*CommitGraphProcessed) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+func (*CommitGraphProcessed) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 func (m *CommitGraphProcessed) GetGraphId() string {
 	if m != nil {
@@ -455,7 +920,7 @@ type CompleteStageExternallyRequest struct {
 func (m *CompleteStageExternallyRequest) Reset()                    { *m = CompleteStageExternallyRequest{} }
 func (m *CompleteStageExternallyRequest) String() string            { return proto.CompactTextString(m) }
 func (*CompleteStageExternallyRequest) ProtoMessage()               {}
-func (*CompleteStageExternallyRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (*CompleteStageExternallyRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
 func (m *CompleteStageExternallyRequest) GetGraphId() string {
 	if m != nil {
@@ -488,7 +953,7 @@ func (m *CompleteStageExternallyResponse) Reset()         { *m = CompleteStageEx
 func (m *CompleteStageExternallyResponse) String() string { return proto.CompactTextString(m) }
 func (*CompleteStageExternallyResponse) ProtoMessage()    {}
 func (*CompleteStageExternallyResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{12}
+	return fileDescriptor0, []int{19}
 }
 
 func (m *CompleteStageExternallyResponse) GetGraphId() string {
@@ -520,7 +985,7 @@ type CreateGraphRequest struct {
 func (m *CreateGraphRequest) Reset()                    { *m = CreateGraphRequest{} }
 func (m *CreateGraphRequest) String() string            { return proto.CompactTextString(m) }
 func (*CreateGraphRequest) ProtoMessage()               {}
-func (*CreateGraphRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (*CreateGraphRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
 
 func (m *CreateGraphRequest) GetFunctionId() string {
 	if m != nil {
@@ -543,7 +1008,7 @@ type CreateGraphResponse struct {
 func (m *CreateGraphResponse) Reset()                    { *m = CreateGraphResponse{} }
 func (m *CreateGraphResponse) String() string            { return proto.CompactTextString(m) }
 func (*CreateGraphResponse) ProtoMessage()               {}
-func (*CreateGraphResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (*CreateGraphResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
 
 func (m *CreateGraphResponse) GetGraphId() string {
 	if m != nil {
@@ -562,7 +1027,7 @@ type FaasInvocationResponse struct {
 func (m *FaasInvocationResponse) Reset()                    { *m = FaasInvocationResponse{} }
 func (m *FaasInvocationResponse) String() string            { return proto.CompactTextString(m) }
 func (*FaasInvocationResponse) ProtoMessage()               {}
-func (*FaasInvocationResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (*FaasInvocationResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
 
 func (m *FaasInvocationResponse) GetGraphId() string {
 	if m != nil {
@@ -599,7 +1064,7 @@ type GetGraphStateRequest struct {
 func (m *GetGraphStateRequest) Reset()                    { *m = GetGraphStateRequest{} }
 func (m *GetGraphStateRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetGraphStateRequest) ProtoMessage()               {}
-func (*GetGraphStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (*GetGraphStateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
 
 func (m *GetGraphStateRequest) GetGraphId() string {
 	if m != nil {
@@ -617,7 +1082,7 @@ type GetGraphStateResponse struct {
 func (m *GetGraphStateResponse) Reset()                    { *m = GetGraphStateResponse{} }
 func (m *GetGraphStateResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetGraphStateResponse) ProtoMessage()               {}
-func (*GetGraphStateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
+func (*GetGraphStateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
 
 func (m *GetGraphStateResponse) GetStages() map[uint32]*GetGraphStateResponse_StageRepresentation {
 	if m != nil {
@@ -652,7 +1117,7 @@ func (m *GetGraphStateResponse_StageRepresentation) Reset() {
 func (m *GetGraphStateResponse_StageRepresentation) String() string { return proto.CompactTextString(m) }
 func (*GetGraphStateResponse_StageRepresentation) ProtoMessage()    {}
 func (*GetGraphStateResponse_StageRepresentation) Descriptor() ([]byte, []int) {
-	return fileDescriptor0, []int{17, 0}
+	return fileDescriptor0, []int{24, 0}
 }
 
 func (m *GetGraphStateResponse_StageRepresentation) GetType() string {
@@ -683,7 +1148,7 @@ type ListGraphsRequest struct {
 func (m *ListGraphsRequest) Reset()                    { *m = ListGraphsRequest{} }
 func (m *ListGraphsRequest) String() string            { return proto.CompactTextString(m) }
 func (*ListGraphsRequest) ProtoMessage()               {}
-func (*ListGraphsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (*ListGraphsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
 
 func (m *ListGraphsRequest) GetFilter() ListGraphsFilter {
 	if m != nil {
@@ -699,7 +1164,7 @@ type ListGraphResponse struct {
 func (m *ListGraphResponse) Reset()                    { *m = ListGraphResponse{} }
 func (m *ListGraphResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListGraphResponse) ProtoMessage()               {}
-func (*ListGraphResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+func (*ListGraphResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
 
 func (m *ListGraphResponse) GetGraphId() string {
 	if m != nil {
@@ -715,7 +1180,7 @@ type ListGraphsResponse struct {
 func (m *ListGraphsResponse) Reset()                    { *m = ListGraphsResponse{} }
 func (m *ListGraphsResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListGraphsResponse) ProtoMessage()               {}
-func (*ListGraphsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+func (*ListGraphsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
 
 func (m *ListGraphsResponse) GetGraphs() []*ListGraphResponse {
 	if m != nil {
@@ -732,7 +1197,7 @@ type GetStageResultRequest struct {
 func (m *GetStageResultRequest) Reset()                    { *m = GetStageResultRequest{} }
 func (m *GetStageResultRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetStageResultRequest) ProtoMessage()               {}
-func (*GetStageResultRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
+func (*GetStageResultRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
 
 func (m *GetStageResultRequest) GetGraphId() string {
 	if m != nil {
@@ -757,7 +1222,7 @@ type GetStageResultResponse struct {
 func (m *GetStageResultResponse) Reset()                    { *m = GetStageResultResponse{} }
 func (m *GetStageResultResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetStageResultResponse) ProtoMessage()               {}
-func (*GetStageResultResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+func (*GetStageResultResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
 
 func (m *GetStageResultResponse) GetGraphId() string {
 	if m != nil {
@@ -788,7 +1253,7 @@ type InvalidGraphOperation struct {
 func (m *InvalidGraphOperation) Reset()                    { *m = InvalidGraphOperation{} }
 func (m *InvalidGraphOperation) String() string            { return proto.CompactTextString(m) }
 func (*InvalidGraphOperation) ProtoMessage()               {}
-func (*InvalidGraphOperation) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
+func (*InvalidGraphOperation) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{30} }
 
 func (m *InvalidGraphOperation) GetGraphId() string {
 	if m != nil {
@@ -813,7 +1278,7 @@ type InvalidStageOperation struct {
 func (m *InvalidStageOperation) Reset()                    { *m = InvalidStageOperation{} }
 func (m *InvalidStageOperation) String() string            { return proto.CompactTextString(m) }
 func (*InvalidStageOperation) ProtoMessage()               {}
-func (*InvalidStageOperation) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
+func (*InvalidStageOperation) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{31} }
 
 func (m *InvalidStageOperation) GetGraphId() string {
 	if m != nil {
@@ -836,17 +1301,18 @@ func (m *InvalidStageOperation) GetStageId() uint32 {
 	return 0
 }
 
+// Invoke commands
 type InvokeFunctionRequest struct {
-	GraphId    string    `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	StageId    uint32    `protobuf:"varint,2,opt,name=stage_id,json=stageId" json:"stage_id,omitempty"`
-	FunctionId string    `protobuf:"bytes,3,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
-	Arg        *RawDatum `protobuf:"bytes,4,opt,name=arg" json:"arg,omitempty"`
+	GraphId    string        `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	StageId    uint32        `protobuf:"varint,2,opt,name=stage_id,json=stageId" json:"stage_id,omitempty"`
+	FunctionId string        `protobuf:"bytes,3,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
+	Arg        *HttpReqDatum `protobuf:"bytes,4,opt,name=arg" json:"arg,omitempty"`
 }
 
 func (m *InvokeFunctionRequest) Reset()                    { *m = InvokeFunctionRequest{} }
 func (m *InvokeFunctionRequest) String() string            { return proto.CompactTextString(m) }
 func (*InvokeFunctionRequest) ProtoMessage()               {}
-func (*InvokeFunctionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
+func (*InvokeFunctionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
 
 func (m *InvokeFunctionRequest) GetGraphId() string {
 	if m != nil {
@@ -869,7 +1335,7 @@ func (m *InvokeFunctionRequest) GetFunctionId() string {
 	return ""
 }
 
-func (m *InvokeFunctionRequest) GetArg() *RawDatum {
+func (m *InvokeFunctionRequest) GetArg() *HttpReqDatum {
 	if m != nil {
 		return m.Arg
 	}
@@ -881,15 +1347,15 @@ type InvokeStageRequest struct {
 	StageId     uint32              `protobuf:"varint,2,opt,name=stage_id,json=stageId" json:"stage_id,omitempty"`
 	FunctionId  string              `protobuf:"bytes,3,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
 	Operation   CompletionOperation `protobuf:"varint,4,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
-	Args        []*RawDatum         `protobuf:"bytes,5,rep,name=args" json:"args,omitempty"`
-	Closure     *RawDatum           `protobuf:"bytes,6,opt,name=closure" json:"closure,omitempty"`
+	Args        []*Datum            `protobuf:"bytes,5,rep,name=args" json:"args,omitempty"`
+	Closure     *BlobDatum          `protobuf:"bytes,6,opt,name=closure" json:"closure,omitempty"`
 	Exceptional bool                `protobuf:"varint,7,opt,name=exceptional" json:"exceptional,omitempty"`
 }
 
 func (m *InvokeStageRequest) Reset()                    { *m = InvokeStageRequest{} }
 func (m *InvokeStageRequest) String() string            { return proto.CompactTextString(m) }
 func (*InvokeStageRequest) ProtoMessage()               {}
-func (*InvokeStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
+func (*InvokeStageRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
 
 func (m *InvokeStageRequest) GetGraphId() string {
 	if m != nil {
@@ -919,14 +1385,14 @@ func (m *InvokeStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_unknown_operation
 }
 
-func (m *InvokeStageRequest) GetArgs() []*RawDatum {
+func (m *InvokeStageRequest) GetArgs() []*Datum {
 	if m != nil {
 		return m.Args
 	}
 	return nil
 }
 
-func (m *InvokeStageRequest) GetClosure() *RawDatum {
+func (m *InvokeStageRequest) GetClosure() *BlobDatum {
 	if m != nil {
 		return m.Closure
 	}
@@ -947,7 +1413,7 @@ type AddGraphEntity struct {
 func (m *AddGraphEntity) Reset()                    { *m = AddGraphEntity{} }
 func (m *AddGraphEntity) String() string            { return proto.CompactTextString(m) }
 func (*AddGraphEntity) ProtoMessage()               {}
-func (*AddGraphEntity) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
+func (*AddGraphEntity) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
 
 func (m *AddGraphEntity) GetGraphEntity() string {
 	if m != nil {
@@ -964,7 +1430,7 @@ type DelayScheduledEvent struct {
 func (m *DelayScheduledEvent) Reset()                    { *m = DelayScheduledEvent{} }
 func (m *DelayScheduledEvent) String() string            { return proto.CompactTextString(m) }
 func (*DelayScheduledEvent) ProtoMessage()               {}
-func (*DelayScheduledEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
+func (*DelayScheduledEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{35} }
 
 func (m *DelayScheduledEvent) GetStageId() uint32 {
 	if m != nil {
@@ -988,7 +1454,7 @@ type GraphCreatedEvent struct {
 func (m *GraphCreatedEvent) Reset()                    { *m = GraphCreatedEvent{} }
 func (m *GraphCreatedEvent) String() string            { return proto.CompactTextString(m) }
 func (*GraphCreatedEvent) ProtoMessage()               {}
-func (*GraphCreatedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
+func (*GraphCreatedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
 
 func (m *GraphCreatedEvent) GetGraphId() string {
 	if m != nil {
@@ -1012,7 +1478,7 @@ type GraphCompletedEvent struct {
 func (m *GraphCompletedEvent) Reset()                    { *m = GraphCompletedEvent{} }
 func (m *GraphCompletedEvent) String() string            { return proto.CompactTextString(m) }
 func (*GraphCompletedEvent) ProtoMessage()               {}
-func (*GraphCompletedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{30} }
+func (*GraphCompletedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{37} }
 
 func (m *GraphCompletedEvent) GetGraphId() string {
 	if m != nil {
@@ -1035,7 +1501,7 @@ type GraphCommittedEvent struct {
 func (m *GraphCommittedEvent) Reset()                    { *m = GraphCommittedEvent{} }
 func (m *GraphCommittedEvent) String() string            { return proto.CompactTextString(m) }
 func (*GraphCommittedEvent) ProtoMessage()               {}
-func (*GraphCommittedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{31} }
+func (*GraphCommittedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{38} }
 
 func (m *GraphCommittedEvent) GetGraphId() string {
 	if m != nil {
@@ -1047,14 +1513,14 @@ func (m *GraphCommittedEvent) GetGraphId() string {
 type StageAddedEvent struct {
 	StageId      uint32              `protobuf:"varint,1,opt,name=stage_id,json=stageId" json:"stage_id,omitempty"`
 	Op           CompletionOperation `protobuf:"varint,2,opt,name=op,enum=model.CompletionOperation" json:"op,omitempty"`
-	Closure      *RawDatum           `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
+	Closure      *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
 	Dependencies []uint32            `protobuf:"varint,4,rep,packed,name=dependencies" json:"dependencies,omitempty"`
 }
 
 func (m *StageAddedEvent) Reset()                    { *m = StageAddedEvent{} }
 func (m *StageAddedEvent) String() string            { return proto.CompactTextString(m) }
 func (*StageAddedEvent) ProtoMessage()               {}
-func (*StageAddedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
+func (*StageAddedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{39} }
 
 func (m *StageAddedEvent) GetStageId() uint32 {
 	if m != nil {
@@ -1070,7 +1536,7 @@ func (m *StageAddedEvent) GetOp() CompletionOperation {
 	return CompletionOperation_unknown_operation
 }
 
-func (m *StageAddedEvent) GetClosure() *RawDatum {
+func (m *StageAddedEvent) GetClosure() *BlobDatum {
 	if m != nil {
 		return m.Closure
 	}
@@ -1092,7 +1558,7 @@ type StageCompletedEvent struct {
 func (m *StageCompletedEvent) Reset()                    { *m = StageCompletedEvent{} }
 func (m *StageCompletedEvent) String() string            { return proto.CompactTextString(m) }
 func (*StageCompletedEvent) ProtoMessage()               {}
-func (*StageCompletedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
+func (*StageCompletedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{40} }
 
 func (m *StageCompletedEvent) GetStageId() uint32 {
 	if m != nil {
@@ -1116,7 +1582,7 @@ type StageComposedEvent struct {
 func (m *StageComposedEvent) Reset()                    { *m = StageComposedEvent{} }
 func (m *StageComposedEvent) String() string            { return proto.CompactTextString(m) }
 func (*StageComposedEvent) ProtoMessage()               {}
-func (*StageComposedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
+func (*StageComposedEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{41} }
 
 func (m *StageComposedEvent) GetStageId() uint32 {
 	if m != nil {
@@ -1134,7 +1600,14 @@ func (m *StageComposedEvent) GetComposedStageId() uint32 {
 
 func init() {
 	proto.RegisterType((*CompletionResult)(nil), "model.CompletionResult")
-	proto.RegisterType((*RawDatum)(nil), "model.RawDatum")
+	proto.RegisterType((*BlobDatum)(nil), "model.BlobDatum")
+	proto.RegisterType((*HttpHeader)(nil), "model.HttpHeader")
+	proto.RegisterType((*HttpReqDatum)(nil), "model.HttpReqDatum")
+	proto.RegisterType((*HttpRespDatum)(nil), "model.HttpRespDatum")
+	proto.RegisterType((*EmptyDatum)(nil), "model.EmptyDatum")
+	proto.RegisterType((*StageRefDatum)(nil), "model.StageRefDatum")
+	proto.RegisterType((*ErrorDatum)(nil), "model.ErrorDatum")
+	proto.RegisterType((*Datum)(nil), "model.Datum")
 	proto.RegisterType((*AddChainedStageRequest)(nil), "model.AddChainedStageRequest")
 	proto.RegisterType((*AddCompletedValueStageRequest)(nil), "model.AddCompletedValueStageRequest")
 	proto.RegisterType((*AddDelayStageRequest)(nil), "model.AddDelayStageRequest")
@@ -1169,6 +1642,8 @@ func init() {
 	proto.RegisterType((*StageAddedEvent)(nil), "model.StageAddedEvent")
 	proto.RegisterType((*StageCompletedEvent)(nil), "model.StageCompletedEvent")
 	proto.RegisterType((*StageComposedEvent)(nil), "model.StageComposedEvent")
+	proto.RegisterEnum("model.HttpMethod", HttpMethod_name, HttpMethod_value)
+	proto.RegisterEnum("model.ErrorDatumType", ErrorDatumType_name, ErrorDatumType_value)
 	proto.RegisterEnum("model.ResultStatus", ResultStatus_name, ResultStatus_value)
 	proto.RegisterEnum("model.CompletionOperation", CompletionOperation_name, CompletionOperation_value)
 	proto.RegisterEnum("model.ListGraphsFilter", ListGraphsFilter_name, ListGraphsFilter_value)
@@ -1177,84 +1652,110 @@ func init() {
 func init() { proto.RegisterFile("model.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 1260 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x58, 0xcd, 0x72, 0xdb, 0x36,
-	0x10, 0x0e, 0x45, 0x59, 0xb2, 0x57, 0xfe, 0x81, 0x61, 0xc7, 0x55, 0x32, 0x93, 0xc4, 0x61, 0xa7,
-	0x33, 0xae, 0x33, 0xe3, 0x38, 0xce, 0x25, 0xd3, 0x43, 0xa7, 0xaa, 0x7f, 0x12, 0xcf, 0x24, 0xe3,
-	0x84, 0xce, 0xf4, 0xd2, 0x83, 0x07, 0x11, 0x56, 0x12, 0xc7, 0x14, 0xc8, 0x12, 0xa0, 0x1d, 0x5d,
-	0xda, 0x63, 0xcf, 0x3d, 0xf5, 0xda, 0x5b, 0x2f, 0x7d, 0x99, 0x3e, 0x46, 0xdf, 0xa2, 0x03, 0x10,
-	0xb4, 0x48, 0x29, 0x8e, 0xa4, 0xe8, 0x46, 0x2c, 0x16, 0xbb, 0xdf, 0x7e, 0x58, 0xec, 0x02, 0x84,
-	0x46, 0x3f, 0xe2, 0x18, 0xee, 0xc5, 0x49, 0xa4, 0x22, 0xba, 0x60, 0x06, 0x5e, 0x07, 0xc8, 0x61,
-	0xd4, 0x8f, 0x43, 0x54, 0x41, 0x24, 0x7c, 0x94, 0x69, 0xa8, 0xe8, 0x13, 0xa8, 0x49, 0xc5, 0x54,
-	0x2a, 0x9b, 0xce, 0xb6, 0xb3, 0xb3, 0x7a, 0xb0, 0xb1, 0x97, 0x2d, 0xcc, 0xa6, 0xcf, 0xcd, 0x94,
-	0x6f, 0x55, 0xe8, 0x37, 0xb0, 0xc0, 0x99, 0x4a, 0xfb, 0xcd, 0xca, 0xb6, 0xb3, 0xd3, 0x38, 0x58,
-	0xcb, 0x75, 0xd9, 0xf5, 0x91, 0x16, 0xfb, 0xd9, 0xac, 0xf7, 0x04, 0x16, 0x73, 0x11, 0x7d, 0x04,
-	0x0d, 0xce, 0x14, 0xbb, 0x90, 0x2a, 0x09, 0x44, 0xd7, 0x38, 0x59, 0xf6, 0x41, 0x8b, 0xce, 0x8d,
-	0xc4, 0xfb, 0xc7, 0x81, 0xad, 0x16, 0xe7, 0x87, 0x3d, 0x16, 0x08, 0xe4, 0xe7, 0x8a, 0x75, 0xd1,
-	0xc7, 0x5f, 0x52, 0x94, 0x8a, 0xde, 0x83, 0xc5, 0x6e, 0xc2, 0xe2, 0xde, 0x45, 0xc0, 0xcd, 0xc2,
-	0x25, 0xbf, 0x6e, 0xc6, 0xa7, 0x9c, 0xbe, 0x80, 0xa5, 0x28, 0xc6, 0x84, 0xe9, 0x48, 0x0c, 0x9a,
-	0xd5, 0x83, 0xfb, 0x16, 0xcd, 0x30, 0xc4, 0xb3, 0x5c, 0xc3, 0x1f, 0x2a, 0xd3, 0x6f, 0xa1, 0xde,
-	0x0e, 0x23, 0x99, 0x26, 0xd8, 0x74, 0x3f, 0x1d, 0x45, 0x3e, 0x4f, 0x29, 0x54, 0x39, 0xc6, 0xb2,
-	0x59, 0xdd, 0x76, 0x77, 0x56, 0x7c, 0xf3, 0xed, 0x5d, 0xc2, 0x03, 0x8d, 0x36, 0xf3, 0x81, 0xfc,
-	0x27, 0x16, 0xa6, 0x38, 0x2d, 0xe8, 0xa7, 0x50, 0x4b, 0x0c, 0xad, 0x96, 0xbf, 0xaf, 0xc6, 0x10,
-	0x67, 0xac, 0xfb, 0x56, 0xcd, 0x7b, 0x0d, 0x9b, 0x2d, 0xce, 0x8f, 0x30, 0x64, 0x83, 0x69, 0x7d,
-	0xdc, 0x83, 0x45, 0xae, 0xf5, 0x2f, 0xfa, 0xd2, 0x78, 0xa9, 0xfa, 0x75, 0x33, 0x7e, 0x23, 0xbd,
-	0xef, 0xe1, 0x71, 0x8b, 0xf3, 0xe3, 0x8f, 0x0a, 0x13, 0xc1, 0xc2, 0xa1, 0xd3, 0x29, 0x4d, 0x7b,
-	0xbf, 0x9a, 0xd0, 0x4f, 0xc5, 0x55, 0x74, 0x89, 0x27, 0xa9, 0x68, 0xcf, 0xb0, 0x56, 0xa7, 0x41,
-	0xc7, 0x2e, 0xd1, 0xb3, 0x15, 0x33, 0x0b, 0xb9, 0xe8, 0x94, 0xd3, 0xc7, 0xe0, 0xb2, 0xa4, 0x7b,
-	0xdb, 0x96, 0xe8, 0x39, 0xef, 0x15, 0x90, 0x16, 0xcf, 0x33, 0x44, 0xc6, 0x91, 0x90, 0x38, 0x81,
-	0x09, 0xa9, 0x75, 0x73, 0x7f, 0x2b, 0x7e, 0xdd, 0x8c, 0x4f, 0xb9, 0xf7, 0x0e, 0xee, 0xe5, 0x3b,
-	0x38, 0x2b, 0xb9, 0xb7, 0x99, 0x7c, 0x0a, 0xf4, 0x30, 0xea, 0xf7, 0x03, 0xf5, 0x52, 0xeb, 0x4e,
-	0xc1, 0xe6, 0x33, 0xd8, 0x2c, 0x2c, 0x78, 0x9b, 0x44, 0x6d, 0x94, 0x12, 0xf9, 0xe7, 0x96, 0xfc,
-	0xee, 0xc0, 0xc3, 0x1c, 0xb7, 0x81, 0x9c, 0xef, 0x65, 0x38, 0x98, 0x0b, 0x7c, 0x21, 0x31, 0xdd,
-	0xe9, 0x12, 0xf3, 0x1a, 0x1e, 0xdd, 0x0a, 0x64, 0x9e, 0x9d, 0xa1, 0x0f, 0x01, 0x64, 0xda, 0xd6,
-	0x54, 0x74, 0xd2, 0xd0, 0xa0, 0x59, 0xf4, 0x0b, 0x12, 0xef, 0x2d, 0xd0, 0xc3, 0x04, 0x99, 0xc2,
-	0x12, 0xcd, 0x23, 0xd9, 0xe5, 0x8c, 0x65, 0x57, 0x11, 0x4c, 0xa5, 0x4c, 0xea, 0x3e, 0x6c, 0x94,
-	0x2c, 0x4e, 0x84, 0xef, 0xfd, 0xe5, 0xc0, 0xd6, 0x09, 0x63, 0x52, 0x9f, 0x84, 0x36, 0xb3, 0xec,
-	0xcc, 0x13, 0xf4, 0x08, 0x7c, 0x77, 0x0c, 0xfe, 0x70, 0x7f, 0xaa, 0xd3, 0xed, 0xcf, 0x33, 0xd8,
-	0x7c, 0x89, 0x59, 0x66, 0xe9, 0x12, 0x3e, 0xcd, 0xe9, 0xfe, 0xaf, 0x02, 0x77, 0x47, 0xd6, 0xd8,
-	0xa0, 0x7e, 0x30, 0x2d, 0xa2, 0x8b, 0xba, 0x45, 0xb8, 0x3b, 0x8d, 0x83, 0x1d, 0xeb, 0xfd, 0x93,
-	0xda, 0x7b, 0x26, 0x1f, 0xe4, 0xb1, 0x50, 0xc9, 0xc0, 0xb7, 0xeb, 0x26, 0x9f, 0xfe, 0x22, 0x2e,
-	0xb7, 0x84, 0xeb, 0x3e, 0xc2, 0x86, 0x3d, 0x9e, 0x71, 0x82, 0x12, 0x85, 0xca, 0xca, 0x38, 0x85,
-	0xaa, 0x1a, 0xc4, 0x68, 0xa3, 0x30, 0xdf, 0x74, 0xeb, 0xa6, 0x97, 0x65, 0x1e, 0xf2, 0xb6, 0xe5,
-	0xc1, 0x32, 0xc7, 0x18, 0x05, 0x47, 0xd1, 0x0e, 0x50, 0x36, 0x5d, 0x53, 0xcf, 0x4b, 0xb2, 0xfb,
-	0x97, 0xd0, 0x28, 0x20, 0xa7, 0x04, 0xdc, 0x4b, 0x1c, 0x18, 0xeb, 0x2b, 0xbe, 0xfe, 0xa4, 0x27,
-	0xb0, 0x70, 0xa5, 0x8b, 0xbd, 0xad, 0xdd, 0xfb, 0x93, 0x49, 0x28, 0x23, 0xf6, 0xb3, 0xe5, 0xdf,
-	0x55, 0x5e, 0x38, 0xde, 0x11, 0xac, 0xbf, 0x0e, 0x64, 0xb6, 0x50, 0xe6, 0x7b, 0xf3, 0x14, 0x6a,
-	0x9d, 0x20, 0x54, 0x98, 0xd8, 0x4e, 0x9c, 0x6f, 0xf2, 0x50, 0xf3, 0xc4, 0x4c, 0xfb, 0x56, 0xcd,
-	0xdb, 0x2b, 0x58, 0x99, 0x26, 0x6f, 0x4f, 0x80, 0x16, 0xbd, 0xda, 0x05, 0xfb, 0x50, 0x33, 0x0a,
-	0xf9, 0xee, 0x36, 0x47, 0xdd, 0xe6, 0x9a, 0xbe, 0xd5, 0xf3, 0xde, 0x98, 0x44, 0xc9, 0xeb, 0xb0,
-	0x4e, 0xbb, 0xb9, 0x2a, 0xe7, 0x6f, 0xb0, 0x35, 0x6a, 0x6e, 0xae, 0xd3, 0x34, 0x73, 0x31, 0x7b,
-	0x05, 0x77, 0x4f, 0xc5, 0x15, 0x0b, 0x03, 0x6e, 0xe2, 0xbd, 0xb9, 0x35, 0x7c, 0xce, 0xff, 0x26,
-	0x2c, 0x60, 0x92, 0x44, 0x89, 0xcd, 0xb4, 0x6c, 0xe0, 0xb5, 0x6f, 0x2c, 0x99, 0x70, 0xbe, 0xdc,
-	0x52, 0x29, 0x3e, 0xb7, 0xcc, 0xd7, 0x1f, 0x8e, 0xf1, 0x52, 0x68, 0xc2, 0xf3, 0x15, 0xff, 0x89,
-	0xd5, 0xc7, 0xb6, 0xe6, 0xea, 0x67, 0x5a, 0xf3, 0x9f, 0x15, 0xa0, 0x19, 0xa6, 0xf9, 0x5b, 0xe9,
-	0x64, 0x40, 0xa5, 0xcb, 0x5f, 0x75, 0x96, 0xcb, 0xdf, 0xd7, 0x50, 0x65, 0x49, 0x57, 0x36, 0x17,
-	0x4c, 0xaa, 0x8f, 0xc5, 0x62, 0x26, 0x8b, 0x37, 0xc4, 0xda, 0x84, 0x1b, 0xe2, 0x36, 0x34, 0xf0,
-	0x63, 0x1b, 0x63, 0x6d, 0x9c, 0x85, 0xcd, 0xba, 0xe9, 0x57, 0x45, 0x91, 0xf7, 0x1c, 0x56, 0x5b,
-	0x3c, 0x4b, 0xac, 0x63, 0xa1, 0x02, 0x35, 0xa0, 0x8f, 0x61, 0x39, 0x23, 0x05, 0xcd, 0xd8, 0x12,
-	0xd3, 0xe8, 0x0e, 0x55, 0xbc, 0x33, 0xd8, 0xc8, 0xee, 0x25, 0xed, 0x1e, 0xf2, 0x34, 0x44, 0x7e,
-	0x7c, 0x85, 0x42, 0x95, 0x38, 0x73, 0xca, 0x9c, 0x3d, 0x00, 0x30, 0xd7, 0x3c, 0xe4, 0x17, 0x2a,
-	0xbf, 0xf8, 0x2d, 0x59, 0xc9, 0x7b, 0xe9, 0x9d, 0xc1, 0xba, 0x81, 0x90, 0x75, 0xba, 0xa1, 0xb9,
-	0x2f, 0xbd, 0xae, 0x79, 0xef, 0x60, 0x23, 0x33, 0x98, 0x5f, 0x84, 0xe7, 0x37, 0xb9, 0x3f, 0x34,
-	0xd9, 0x0f, 0xd4, 0x14, 0x26, 0xbd, 0xbf, 0x1d, 0x58, 0x33, 0xf9, 0xd6, 0xe2, 0x7c, 0x0a, 0x8e,
-	0x76, 0xa1, 0x12, 0xc5, 0x53, 0x3c, 0x16, 0x2a, 0x51, 0x3c, 0xcb, 0x2b, 0x61, 0xb4, 0xbb, 0x54,
-	0xc7, 0xbb, 0x8b, 0xc7, 0x6c, 0x13, 0x1b, 0xa7, 0xeb, 0x36, 0xb0, 0x33, 0xbf, 0x15, 0x7e, 0x06,
-	0x7a, 0xe3, 0x22, 0x92, 0x53, 0xd1, 0xb1, 0xde, 0xb6, 0xba, 0x17, 0x23, 0x47, 0x71, 0x2d, 0x9f,
-	0x38, 0xcf, 0x74, 0x77, 0x5f, 0xc1, 0x72, 0xf1, 0x41, 0x48, 0x29, 0xac, 0xa6, 0xe2, 0x52, 0x44,
-	0xd7, 0xe2, 0x22, 0xeb, 0xb1, 0xe4, 0x0e, 0x5d, 0x81, 0x25, 0x73, 0x51, 0x43, 0x8e, 0x9c, 0x38,
-	0x14, 0xa0, 0xd6, 0x61, 0x41, 0x88, 0x9c, 0x54, 0xe8, 0x92, 0xad, 0x71, 0xc4, 0xdd, 0xfd, 0xb7,
-	0x02, 0x1b, 0x9f, 0x20, 0x9d, 0xde, 0x85, 0xf5, 0xdc, 0xe2, 0xcd, 0x71, 0x25, 0x77, 0x28, 0x81,
-	0x65, 0xd6, 0xd6, 0xa7, 0xe9, 0x38, 0x50, 0x3d, 0x4c, 0x88, 0x43, 0xd7, 0x61, 0x85, 0xc5, 0x71,
-	0x38, 0x78, 0x1f, 0x59, 0x51, 0x45, 0xa3, 0x51, 0x3d, 0x14, 0x2d, 0xa3, 0xf8, 0x63, 0xa4, 0x7a,
-	0xc4, 0xd5, 0x68, 0x8c, 0x4c, 0xab, 0x92, 0x2a, 0x6d, 0x40, 0x5d, 0x0f, 0xfd, 0x54, 0x90, 0x05,
-	0xba, 0x0a, 0x30, 0xd4, 0x27, 0x35, 0xba, 0x06, 0x0d, 0x3d, 0xb6, 0xcc, 0x91, 0x7a, 0x41, 0xf0,
-	0x21, 0x10, 0x48, 0x16, 0x35, 0x8c, 0x6b, 0xab, 0xa1, 0xb7, 0x8f, 0x2c, 0xe9, 0xf0, 0x7a, 0x4c,
-	0xf0, 0x10, 0x09, 0xe8, 0x6f, 0x99, 0x1a, 0x47, 0x0d, 0x8d, 0x25, 0x28, 0x15, 0x67, 0xb2, 0xac,
-	0x65, 0xed, 0xd2, 0x83, 0x91, 0xac, 0x68, 0x4a, 0xcc, 0xf1, 0x24, 0xab, 0xfa, 0x93, 0x85, 0xe1,
-	0x59, 0x87, 0xac, 0x99, 0x4f, 0x31, 0x38, 0xeb, 0x10, 0x42, 0xb7, 0x80, 0xe2, 0xd8, 0x53, 0x8d,
-	0xac, 0xeb, 0xf8, 0x0b, 0xf5, 0x25, 0x1c, 0x10, 0xba, 0x7b, 0x04, 0x64, 0xf4, 0x92, 0xa0, 0x03,
-	0xb6, 0x7c, 0x92, 0x3b, 0xb4, 0x0e, 0x2e, 0x0b, 0x43, 0xe2, 0x68, 0x69, 0x92, 0x0a, 0x11, 0x88,
-	0x2e, 0xa9, 0x68, 0x8a, 0x6e, 0x60, 0x11, 0xf7, 0x43, 0xcd, 0xfc, 0x2b, 0x78, 0xfe, 0x7f, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x68, 0x6c, 0xb7, 0xb9, 0x3a, 0x10, 0x00, 0x00,
+	// 1675 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x58, 0xcd, 0x6e, 0xdb, 0x48,
+	0x12, 0x16, 0x45, 0x4a, 0xb2, 0x4a, 0x92, 0xdd, 0x6e, 0xff, 0xac, 0xe2, 0x45, 0x12, 0x87, 0xd8,
+	0x5d, 0x38, 0xce, 0x22, 0x71, 0x9c, 0x3d, 0x04, 0x0b, 0xec, 0x62, 0x1d, 0xff, 0x44, 0x06, 0x12,
+	0x38, 0xa1, 0x83, 0xbd, 0xec, 0x41, 0xa0, 0xd9, 0x2d, 0x89, 0x6b, 0x8a, 0x64, 0xd8, 0x4d, 0x27,
+	0x3a, 0x2d, 0xb0, 0x73, 0x18, 0x60, 0x30, 0xd7, 0xdc, 0xe7, 0x98, 0xcb, 0x3c, 0xcc, 0x3c, 0xc6,
+	0xbc, 0xc5, 0xa0, 0x7f, 0x28, 0x91, 0xb2, 0x13, 0xc9, 0x11, 0xe6, 0xc6, 0xae, 0xfe, 0xba, 0xea,
+	0xeb, 0xaa, 0xea, 0xea, 0x6a, 0x42, 0x63, 0x18, 0x11, 0x1a, 0x3c, 0x8e, 0x93, 0x88, 0x47, 0xb8,
+	0x22, 0x07, 0xb6, 0x07, 0xe8, 0x30, 0x1a, 0xc6, 0x01, 0xe5, 0x7e, 0x14, 0x3a, 0x94, 0xa5, 0x01,
+	0xc7, 0x8f, 0xa0, 0xca, 0xb8, 0xcb, 0x53, 0xd6, 0x36, 0xb6, 0x8d, 0x9d, 0xe5, 0xfd, 0xb5, 0xc7,
+	0x6a, 0xa1, 0x9a, 0x3e, 0x97, 0x53, 0x8e, 0x86, 0x60, 0x1b, 0x2a, 0xc4, 0xe5, 0xe9, 0xb0, 0x5d,
+	0xde, 0x36, 0x76, 0x1a, 0xfb, 0x4d, 0x8d, 0x3d, 0x12, 0x32, 0x47, 0x4d, 0xd9, 0x67, 0x50, 0x7f,
+	0x11, 0x44, 0x17, 0x52, 0x86, 0xef, 0x43, 0x83, 0xb8, 0xdc, 0xed, 0x32, 0x9e, 0xf8, 0x61, 0x5f,
+	0x9a, 0x68, 0x3a, 0x20, 0x44, 0xe7, 0x52, 0x82, 0x1f, 0x40, 0xd3, 0x8b, 0x42, 0x4e, 0x43, 0xde,
+	0xe5, 0xa3, 0x98, 0x4a, 0xc5, 0x75, 0xa7, 0xa1, 0x65, 0xef, 0x46, 0x31, 0xb5, 0xff, 0x06, 0xd0,
+	0xe1, 0x3c, 0xee, 0x50, 0x97, 0xd0, 0x04, 0x23, 0x30, 0x2f, 0xe9, 0x48, 0x6a, 0xaa, 0x3b, 0xe2,
+	0x13, 0xaf, 0x43, 0xe5, 0xca, 0x0d, 0xd2, 0x6c, 0xad, 0x1a, 0xd8, 0x3f, 0x1a, 0xd0, 0x14, 0xcb,
+	0x1c, 0xfa, 0x5e, 0x51, 0xf9, 0x13, 0x58, 0x17, 0x41, 0x74, 0x21, 0x57, 0x36, 0xf6, 0x91, 0xa6,
+	0x3e, 0xa6, 0xea, 0xc8, 0x59, 0xfc, 0x08, 0x6a, 0x03, 0x69, 0x88, 0xb5, 0xcd, 0x6d, 0x73, 0xa7,
+	0xb1, 0xbf, 0xaa, 0x81, 0x13, 0x0a, 0x4e, 0x86, 0xc0, 0x0f, 0xa1, 0x3a, 0xa4, 0x7c, 0x10, 0x91,
+	0xb6, 0x25, 0x7d, 0x97, 0xc7, 0xbe, 0x96, 0x13, 0x8e, 0x06, 0xd8, 0xdf, 0x19, 0xd0, 0x52, 0x74,
+	0x58, 0xfc, 0xbb, 0xf1, 0xb9, 0x0f, 0x0d, 0x15, 0xa8, 0xae, 0x17, 0x11, 0x2a, 0x49, 0xb5, 0x1c,
+	0x50, 0xa2, 0xc3, 0x88, 0x50, 0xbb, 0x09, 0x70, 0x3c, 0x8c, 0xf9, 0x48, 0x5a, 0xb0, 0xff, 0x0a,
+	0xad, 0x73, 0xee, 0xf6, 0xa9, 0x43, 0x7b, 0x8a, 0xd2, 0x1f, 0xa1, 0xce, 0x84, 0xa0, 0x9b, 0xd0,
+	0x9e, 0xe4, 0xd5, 0x72, 0x96, 0x98, 0x46, 0xd8, 0x6f, 0x01, 0x8e, 0x93, 0x24, 0x4a, 0x14, 0xf4,
+	0x21, 0x58, 0x32, 0x5e, 0x2a, 0x69, 0x36, 0x34, 0xa9, 0x09, 0x40, 0x44, 0xce, 0x91, 0x10, 0xdc,
+	0x86, 0xda, 0x90, 0x32, 0xe6, 0xf6, 0xb3, 0x08, 0x65, 0x43, 0xfb, 0x73, 0x19, 0x2a, 0x99, 0xba,
+	0x0a, 0x15, 0xc4, 0xb4, 0x37, 0xb2, 0x4d, 0x4e, 0xc8, 0x76, 0x4a, 0x8e, 0x42, 0xe0, 0xbf, 0x68,
+	0xbf, 0x95, 0x6f, 0xf6, 0x5b, 0xa7, 0xa4, 0x3d, 0x27, 0x54, 0x0a, 0x3a, 0x6d, 0xb3, 0xa8, 0x72,
+	0x4c, 0x51, 0xaa, 0x14, 0x23, 0xfc, 0x2c, 0xbf, 0x6f, 0x4b, 0xc2, 0xd7, 0x35, 0xbc, 0xe0, 0xa0,
+	0x4e, 0x69, 0xe2, 0x0f, 0xbc, 0x07, 0x4b, 0x03, 0xce, 0xe3, 0x6e, 0x42, 0xdf, 0xb7, 0x2b, 0x72,
+	0xcd, 0x5a, 0x2e, 0x34, 0x59, 0xda, 0x75, 0x4a, 0x4e, 0x6d, 0xa0, 0xc6, 0xc2, 0x8c, 0x5e, 0xc1,
+	0xe2, 0x76, 0xb5, 0x60, 0xa6, 0x90, 0x1a, 0xc2, 0xcc, 0x40, 0x0b, 0x5e, 0x54, 0xc0, 0xbc, 0x72,
+	0x03, 0xfb, 0x67, 0x03, 0x36, 0x0f, 0x08, 0x39, 0x1c, 0xb8, 0x7e, 0x48, 0x89, 0x66, 0xf5, 0x3e,
+	0xa5, 0x8c, 0xe3, 0x3b, 0xb0, 0xd4, 0x4f, 0xdc, 0x78, 0xd0, 0xf5, 0x89, 0x3e, 0x16, 0x35, 0x39,
+	0x3e, 0x25, 0xf8, 0x39, 0xd4, 0xa3, 0x98, 0x26, 0xae, 0x38, 0xef, 0xd2, 0x61, 0xcb, 0xfb, 0x5b,
+	0xda, 0xe2, 0xa4, 0x10, 0x9c, 0x65, 0x08, 0x67, 0x02, 0xc6, 0xbb, 0x50, 0xf3, 0x82, 0x88, 0xa5,
+	0x09, 0xd5, 0xfe, 0xbb, 0x9e, 0xa0, 0x19, 0x00, 0x63, 0xb0, 0x08, 0x8d, 0x59, 0xdb, 0xda, 0x36,
+	0x77, 0x5a, 0x8e, 0xfc, 0xb6, 0x2f, 0xe1, 0xae, 0xa0, 0xab, 0x8c, 0x50, 0xf2, 0x6f, 0x71, 0x26,
+	0xe7, 0x65, 0xfd, 0x04, 0xaa, 0x89, 0xac, 0x3e, 0x3a, 0xc6, 0x7f, 0xb8, 0x46, 0x59, 0x15, 0x27,
+	0x47, 0xc3, 0xec, 0x57, 0xb0, 0x7e, 0x40, 0xc8, 0x11, 0x0d, 0xdc, 0xd1, 0xbc, 0x36, 0xee, 0xc0,
+	0x12, 0x11, 0xf8, 0xee, 0x90, 0x49, 0x2b, 0x96, 0x53, 0x93, 0xe3, 0xd7, 0xcc, 0xfe, 0x27, 0x3c,
+	0x38, 0x20, 0xe4, 0xf8, 0x23, 0xa7, 0x49, 0xe8, 0x06, 0x13, 0xa3, 0x73, 0xaa, 0xb6, 0xff, 0x6f,
+	0xc8, 0xbd, 0x9f, 0x86, 0x57, 0xd1, 0x25, 0x3d, 0x49, 0x43, 0xef, 0x16, 0x8b, 0xc5, 0x11, 0xee,
+	0xe9, 0x25, 0x62, 0x56, 0x1d, 0x18, 0xc8, 0x44, 0xa7, 0x04, 0xff, 0x19, 0x4c, 0x37, 0xe9, 0xeb,
+	0xa0, 0xdc, 0x94, 0x71, 0x8e, 0x98, 0xb7, 0x3b, 0x80, 0x0e, 0x48, 0x96, 0x27, 0x2c, 0x8e, 0x42,
+	0x46, 0x67, 0xb8, 0x43, 0x9d, 0x00, 0x6d, 0xb3, 0xe5, 0xd4, 0xe4, 0xf8, 0x94, 0xd8, 0x6f, 0xe1,
+	0x4e, 0x16, 0xc6, 0xdb, 0x7a, 0xf8, 0x4b, 0x2a, 0x9f, 0x00, 0x3e, 0x8c, 0x86, 0x43, 0x9f, 0xbf,
+	0x14, 0xd8, 0x39, 0x5c, 0xfa, 0x14, 0xd6, 0x73, 0x0b, 0xde, 0x24, 0x91, 0x47, 0x19, 0xa3, 0xe4,
+	0x6b, 0x4b, 0xbe, 0x37, 0xe0, 0x5e, 0xc6, 0x5b, 0x52, 0xce, 0x02, 0x1a, 0x8c, 0x16, 0x22, 0x9f,
+	0xcb, 0x4e, 0x73, 0xbe, 0xec, 0xfc, 0x00, 0xf7, 0xbf, 0x48, 0x64, 0x91, 0xc8, 0xe0, 0x7b, 0x00,
+	0x2c, 0xf5, 0x84, 0x2b, 0x7a, 0x69, 0x20, 0xd9, 0x2c, 0x39, 0x39, 0x89, 0xfd, 0x06, 0xf0, 0x61,
+	0x42, 0x5d, 0x4e, 0x0b, 0x6e, 0x9e, 0xca, 0x30, 0xe3, 0x5a, 0x86, 0xe5, 0xc9, 0x94, 0x8b, 0x4e,
+	0xdd, 0x83, 0xb5, 0x82, 0xc6, 0x99, 0xf4, 0xed, 0x9f, 0x0c, 0xd8, 0x3c, 0x71, 0x5d, 0x26, 0x4e,
+	0x83, 0xe7, 0x6a, 0xef, 0x2c, 0xb2, 0xe9, 0x29, 0xfa, 0xe6, 0x35, 0xfa, 0x93, 0xf8, 0x58, 0xf3,
+	0xc5, 0xe7, 0x29, 0xac, 0xbf, 0xa4, 0x2a, 0xb3, 0x44, 0xbb, 0x33, 0xcf, 0x11, 0xff, 0xb5, 0x0c,
+	0x1b, 0x53, 0x6b, 0xf4, 0xa6, 0xfe, 0x25, 0xdb, 0xa9, 0x3e, 0x15, 0xed, 0x94, 0xb8, 0xae, 0x77,
+	0xb4, 0xf5, 0x1b, 0xd1, 0xea, 0x76, 0x61, 0xc7, 0x21, 0x4f, 0x46, 0x8e, 0x5e, 0x37, 0xbb, 0x02,
+	0xe4, 0x79, 0x99, 0x05, 0x5e, 0x5b, 0x14, 0xd6, 0xf4, 0xf1, 0x8c, 0x13, 0xca, 0x68, 0xc8, 0x55,
+	0x31, 0xc7, 0xb9, 0xcb, 0xba, 0xae, 0x6f, 0xe5, 0xcd, 0x71, 0xdf, 0xa7, 0x2c, 0x4c, 0x5a, 0xbc,
+	0x26, 0xa1, 0x31, 0x0d, 0x09, 0x0d, 0x3d, 0x9f, 0xaa, 0xae, 0xa3, 0xe5, 0x14, 0x64, 0x5b, 0x97,
+	0xd0, 0xc8, 0x31, 0xcf, 0xb7, 0x64, 0x2d, 0xd5, 0x92, 0x9d, 0xe4, 0x5b, 0xb2, 0xc6, 0xfe, 0xde,
+	0x6c, 0x27, 0x14, 0x19, 0xeb, 0x26, 0xee, 0xef, 0xe5, 0xe7, 0x86, 0x7d, 0x04, 0xab, 0xaf, 0x7c,
+	0xa6, 0x16, 0xb2, 0x2c, 0x36, 0x4f, 0xa0, 0xda, 0xf3, 0x03, 0x4e, 0x13, 0xdd, 0x80, 0x64, 0x41,
+	0x9e, 0x20, 0x4f, 0xe4, 0xb4, 0xa3, 0x61, 0xf6, 0xe3, 0x9c, 0x96, 0x79, 0xf2, 0xf6, 0x04, 0x70,
+	0xde, 0xaa, 0x5e, 0xb0, 0x07, 0x55, 0x09, 0xc8, 0xa2, 0xdb, 0x9e, 0x36, 0x9b, 0x21, 0x1d, 0x8d,
+	0xb3, 0x5f, 0xcb, 0x44, 0xc9, 0xea, 0xb0, 0x48, 0xbb, 0x85, 0x2a, 0xe7, 0xff, 0x60, 0x73, 0x5a,
+	0xdd, 0x42, 0xa7, 0xe9, 0xd6, 0xc5, 0xac, 0x03, 0x1b, 0xa7, 0xe1, 0x95, 0x1b, 0xf8, 0x44, 0xee,
+	0x77, 0xdc, 0x3b, 0x7c, 0xcd, 0xfe, 0x7a, 0xd6, 0x89, 0xe9, 0x06, 0x5d, 0x0e, 0x6c, 0x6f, 0xac,
+	0x49, 0x6e, 0xe7, 0xdb, 0x35, 0x15, 0xf6, 0x67, 0x16, 0xfd, 0xf5, 0xc9, 0x90, 0x56, 0x72, 0x17,
+	0xf1, 0x62, 0xc5, 0x7f, 0x66, 0xf5, 0xd1, 0xd7, 0xb3, 0x35, 0xe3, 0x7a, 0xfe, 0x54, 0x06, 0xac,
+	0x78, 0x2d, 0x7e, 0x9d, 0xce, 0x26, 0x55, 0x68, 0x03, 0xad, 0xdb, 0xb4, 0x81, 0xdb, 0x60, 0xb9,
+	0x49, 0x9f, 0xb5, 0x2b, 0x32, 0xdd, 0x8b, 0xef, 0x3d, 0x39, 0x93, 0x6f, 0x14, 0xab, 0xb3, 0x1a,
+	0xc5, 0x6d, 0x68, 0xd0, 0x8f, 0x1e, 0x8d, 0x85, 0x6a, 0x37, 0x68, 0xd7, 0xe4, 0x8d, 0x95, 0x17,
+	0xd9, 0xcf, 0x60, 0xf9, 0x80, 0xa8, 0xd4, 0x3a, 0x0e, 0xb9, 0xcf, 0x47, 0xe2, 0x81, 0xa8, 0x5c,
+	0x42, 0xe5, 0x58, 0xbb, 0xa5, 0xd1, 0x9f, 0x40, 0xec, 0x33, 0x58, 0x53, 0x9d, 0x89, 0x37, 0xa0,
+	0x24, 0x0d, 0x28, 0x39, 0xbe, 0xa2, 0x21, 0x2f, 0x78, 0xcc, 0x28, 0x7a, 0xec, 0x2e, 0x80, 0xec,
+	0xf6, 0x28, 0xe9, 0xf2, 0xac, 0xff, 0xab, 0x6b, 0xc9, 0x3b, 0x66, 0x9f, 0xc1, 0xaa, 0xa4, 0xa0,
+	0xee, 0xba, 0x89, 0xba, 0x6f, 0x6d, 0xda, 0xec, 0xb7, 0xb0, 0xa6, 0x14, 0x66, 0xfd, 0xf0, 0xe2,
+	0x2a, 0xf7, 0x26, 0x2a, 0x87, 0x3e, 0x9f, 0x43, 0xa5, 0xfd, 0xd9, 0x80, 0x15, 0x99, 0x6d, 0x07,
+	0x84, 0xcc, 0xe1, 0xa3, 0x5d, 0x28, 0x47, 0xf1, 0x1c, 0x8f, 0x86, 0x72, 0x14, 0xdf, 0xea, 0xb5,
+	0x30, 0x7d, 0xc1, 0x58, 0xd7, 0x2f, 0x18, 0xdb, 0xd5, 0xf7, 0xd8, 0x75, 0x7f, 0x7d, 0x89, 0xed,
+	0xad, 0xdf, 0x0c, 0xff, 0x01, 0x3c, 0x36, 0x11, 0xb1, 0xb9, 0xfc, 0xb1, 0xea, 0x69, 0x6c, 0x77,
+	0xea, 0x24, 0xae, 0x64, 0x13, 0xe7, 0x0a, 0xbb, 0xfb, 0x5f, 0xf5, 0xcb, 0x42, 0xfd, 0x03, 0xc0,
+	0x18, 0x96, 0xd3, 0xf0, 0x32, 0x8c, 0x3e, 0x84, 0x5d, 0xf5, 0x37, 0x00, 0x95, 0x70, 0x0d, 0xcc,
+	0x3e, 0xe5, 0xc8, 0xc0, 0x4b, 0x60, 0x89, 0xe7, 0x3b, 0x2a, 0x8b, 0xaf, 0x38, 0x62, 0x1c, 0x99,
+	0x62, 0x32, 0x4e, 0x39, 0xb2, 0x30, 0x40, 0x95, 0x50, 0xe1, 0x00, 0x54, 0xc1, 0x0d, 0xa8, 0x45,
+	0xf2, 0x98, 0x30, 0x54, 0xc3, 0x75, 0xa8, 0xc4, 0x2e, 0xf7, 0x06, 0xa8, 0xba, 0xfb, 0x83, 0x01,
+	0xcb, 0xc5, 0x77, 0x37, 0x5e, 0x85, 0x56, 0x66, 0x50, 0x56, 0x48, 0x54, 0x12, 0x22, 0x45, 0x9a,
+	0xfb, 0x43, 0x1a, 0xa5, 0xc2, 0x32, 0x82, 0xa6, 0x12, 0xf5, 0x5c, 0x3f, 0xa0, 0x82, 0xc1, 0x3a,
+	0xa0, 0x71, 0xd2, 0x65, 0x38, 0x13, 0x6f, 0xc1, 0xe6, 0x24, 0x15, 0x65, 0xcd, 0xca, 0x56, 0x58,
+	0x78, 0x19, 0x40, 0xe9, 0x08, 0x04, 0xf3, 0xca, 0xee, 0x3f, 0xa0, 0x99, 0xff, 0x71, 0x94, 0xdf,
+	0xba, 0xea, 0x2f, 0x50, 0x09, 0xb7, 0xa0, 0x2e, 0x9b, 0x54, 0x4a, 0x28, 0x41, 0x86, 0xd8, 0x63,
+	0x46, 0x60, 0xf7, 0x97, 0x32, 0xac, 0xdd, 0x90, 0x63, 0x78, 0x03, 0x56, 0x33, 0x35, 0xe3, 0xda,
+	0x84, 0x4a, 0x62, 0x07, 0xae, 0x27, 0x8a, 0xc7, 0xb1, 0xcf, 0x07, 0x34, 0x41, 0x86, 0xd8, 0xa6,
+	0x1b, 0xc7, 0xc1, 0xe8, 0x5d, 0xa4, 0x45, 0x65, 0x41, 0x81, 0x0f, 0x68, 0x78, 0x20, 0x81, 0x2f,
+	0x22, 0x3e, 0x40, 0xa6, 0xa0, 0x20, 0x65, 0x02, 0x8a, 0x2c, 0xe1, 0x5a, 0x31, 0x74, 0xd2, 0x10,
+	0x55, 0xc4, 0x96, 0x26, 0x78, 0x54, 0xc5, 0x2b, 0xd0, 0x10, 0x63, 0x9d, 0x27, 0xa8, 0x96, 0x13,
+	0x5c, 0xf8, 0x21, 0x45, 0x4b, 0x82, 0xc6, 0x07, 0x8d, 0x90, 0xb1, 0xaa, 0x8b, 0x3d, 0x0d, 0xdc,
+	0x90, 0x04, 0x14, 0x81, 0xf8, 0x66, 0xa9, 0x34, 0xd4, 0x10, 0x5c, 0xfc, 0xc2, 0x6d, 0x84, 0x9a,
+	0x42, 0xe6, 0x15, 0x9e, 0xc9, 0xa8, 0x25, 0xc2, 0x2b, 0xab, 0x11, 0x5a, 0x16, 0x9f, 0x6e, 0x10,
+	0x9c, 0xf5, 0xd0, 0x8a, 0xfc, 0x0c, 0x47, 0x67, 0x3d, 0x84, 0xf0, 0x26, 0x60, 0x7a, 0xed, 0x81,
+	0x8a, 0x56, 0xc5, 0xfe, 0x73, 0xe5, 0x34, 0x18, 0x21, 0xbc, 0x7b, 0x04, 0x68, 0xba, 0x2b, 0x12,
+	0x1b, 0xd6, 0xfe, 0x54, 0xa9, 0xe8, 0x06, 0x01, 0x32, 0x84, 0x34, 0x49, 0xc3, 0xd0, 0x0f, 0xfb,
+	0xa8, 0x2c, 0x5c, 0x34, 0xa6, 0x85, 0xcc, 0x8b, 0xaa, 0xfc, 0x91, 0xf8, 0xec, 0xb7, 0x00, 0x00,
+	0x00, 0xff, 0xff, 0x23, 0xe2, 0xe0, 0x9a, 0x57, 0x14, 0x00, 0x00,
 }

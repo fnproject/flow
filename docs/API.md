@@ -209,8 +209,10 @@ In the Java runtime, a platform error will be internally converted to a `CloudCo
 | Error Type | Meaning |
 | ---         | ----   |
 | stage-timeout | a completion stage function timed out - the stage may or may not have completed normally'|
-| stage-invoke-failed | a completion stage invocation failed - the stage may or may not have been invoked or and that invocation may or may not have completed |
+| stage-invoke-failed | a completion stage invocation failed  within Fn  - the stage may or may not have been invoked  and that invocation may or may not have completed |
 | function-timeout | A function call timed out | 
+| function-invoke-failed | A function call failed within Fn platform  - the function may or may not have been invoked  and that invocation may or may not have completed | 
+| stage-lost | A stage failed after an internal error in the completer the stage may or may not have been invoked  and that invocation may or may not have completed| 
 
 
 Recipients should accept unknown values for this header.

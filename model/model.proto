@@ -6,18 +6,80 @@ package model;
 
 message CompletionResult {
     ResultStatus status = 1;
-    RawDatum datum = 2;
+    Datum datum = 2;
 }
 
-message RawDatum {
+message BlobDatum {
     bytes data_string = 1;
+    string content_type = 2;
+}
+
+message HttpHeader {
+    string key = 1;
+    string value = 2;
+}
+enum HttpMethod {
+    unknown_method = 0;
+    get = 1;
+    head = 2;
+    post = 3;
+    put = 4;
+    delete = 5;
+    options = 7;
+    patch = 6;
+}
+
+message HttpReqDatum {
+    BlobDatum blob = 1;
+    repeated HttpHeader headers = 3;
+    HttpMethod method = 4;
+}
+
+message HttpRespDatum {
+    BlobDatum blob = 1;
+    repeated HttpHeader headers = 3;
+    uint32 status_code = 4;
+}
+
+enum ErrorDatumType {
+    unknown_error = 0;
+    stage_timeout = 1;
+    stage_failed = 2;
+    function_timeout = 3;
+    function_invoke_failed = 4;
+    stage_lost = 5;
+
+}
+
+
+message EmptyDatum {
+
+}
+
+message StageRefDatum {
+    uint32 stage_ref = 1;
+}
+message ErrorDatum {
+    ErrorDatumType type = 1;
+    string message = 2;
+}
+
+message Datum {
+    oneof val {
+        EmptyDatum empty = 1;
+        BlobDatum blob = 2;
+        ErrorDatum error = 3;
+        StageRefDatum stage_ref = 4;
+        HttpReqDatum http_req = 5;
+        HttpRespDatum http_resp = 6;
+    }
 }
 
 enum ResultStatus {
     unknown_status = 0;
     succeeded = 1;
     failed = 2; // Exception thrown by user function
-    error = 3;
+    // error = 3;
 }
 
 enum CompletionOperation {
@@ -46,17 +108,17 @@ enum CompletionOperation {
 message AddChainedStageRequest {
     string graph_id = 1;
     CompletionOperation operation = 2;
-    RawDatum closure = 3;
+    BlobDatum closure = 3;
     repeated uint32 deps = 4;
 }
 
-message AddCompletedValueStageRequest  {
+message AddCompletedValueStageRequest {
     string graph_id = 1;
     CompletionResult result = 2;
 }
 
 
-message AddDelayStageRequest{
+message AddDelayStageRequest {
     string graph_id = 1;
     uint64 delay_ms = 2;
 }
@@ -69,7 +131,7 @@ message AddExternalCompletionStageRequest {
 message AddInvokeFunctionStageRequest {
     string graph_id = 1;
     string function_id = 2;
-    RawDatum arg = 3;
+    HttpReqDatum arg = 3;
 }
 
 
@@ -176,11 +238,12 @@ message InvalidStageOperation {
     uint32 stage_id = 3;
 }
 
+// Invoke commands
 message InvokeFunctionRequest {
     string graph_id = 1;
     uint32 stage_id = 2;
     string function_id = 3;
-    RawDatum arg = 4;
+    HttpReqDatum arg = 4;
 }
 
 message InvokeStageRequest {
@@ -188,8 +251,8 @@ message InvokeStageRequest {
     uint32 stage_id = 2;
     string function_id = 3;
     CompletionOperation operation = 4;
-    repeated RawDatum args = 5;
-    RawDatum closure = 6;
+    repeated Datum args = 5;
+    BlobDatum closure = 6;
     bool exceptional = 7;
 }
 
@@ -221,7 +284,7 @@ message GraphCommittedEvent {
 message StageAddedEvent {
     uint32 stage_id = 1;
     CompletionOperation op = 2;
-    RawDatum closure = 3;
+    BlobDatum closure = 3;
     repeated uint32 dependencies = 4;
 }
 

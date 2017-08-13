@@ -6,26 +6,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TriggerStrategy defines when a stage becomes active, and what the incoming status of the trigger is
+// TriggerStrategy defines when a stage becomes active , and what the incoming status of the trigger is
 // each type may or may not depend on the incoming dependencies of the node
 type TriggerStrategy func(deps []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult)
 
 //triggerAll marks node as succeeded if all are succeeded, or if one has failed
 func triggerAll(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	var results []*model.CompletionResult = make([]*model.CompletionResult, 0)
+	var results = make([]*model.CompletionResult, 0)
 	for _, s := range dependencies {
-		if s.isFailed() {
-			return true, TriggerStatus_failed, []*model.CompletionResult{s.result}
-		} else if s.isSuccessful() {
+		if s.IsFailed() {
+			return true, TriggerStatusFailed, []*model.CompletionResult{s.result}
+		} else if s.IsSuccessful() {
 			results = append(results, s.result)
 		}
 	}
 
 	if len(results) == len(dependencies) {
-		return true, TriggerStatus_successful, results
-	} else {
-		return false, TriggerStatus_failed, nil
+		return true, TriggerStatusSuccess, results
 	}
+	return false, TriggerStatusFailed, nil
+
 }
 
 // triggerAny marks a node as succeed if any one is resolved successfully,  or fails with the first error if all are failed
@@ -33,33 +33,33 @@ func triggerAny(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.
 	var haveUnresolved bool
 	var firstFailure *CompletionStage
 	if 0 == len(dependencies) {
-		return false, TriggerStatus_failed, nil
+		return false, TriggerStatusFailed, nil
 	}
 	for _, s := range dependencies {
-		if s.isResolved() {
-			if !s.isFailed() {
-				return true, TriggerStatus_successful, []*model.CompletionResult{s.result}
-			} else {
-				firstFailure = s
+		if s.IsResolved() {
+			if !s.IsFailed() {
+				return true, TriggerStatusSuccess, []*model.CompletionResult{s.result}
 			}
+			firstFailure = s
+			
 		} else {
 			haveUnresolved = true
 		}
 	}
 	if !haveUnresolved {
-		return true, TriggerStatus_failed, []*model.CompletionResult{firstFailure.result}
+		return true, TriggerStatusFailed, []*model.CompletionResult{firstFailure.result}
 	}
-	return false, TriggerStatus_failed, nil
+	return false, TriggerStatusFailed, nil
 }
 
 // triggerImmediateSuccess always marks the node as triggered
 func triggerImmediateSuccess(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	return true, TriggerStatus_successful, []*model.CompletionResult{}
+	return true, TriggerStatusSuccess, []*model.CompletionResult{}
 }
 
 // triggerNever always marks the node as untriggered.
 func triggerNever(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	return false, TriggerStatus_failed, []*model.CompletionResult{}
+	return false, TriggerStatusFailed, []*model.CompletionResult{}
 }
 
 // ExecutionStrategy defines how the node should behave when it is triggered
@@ -162,44 +162,42 @@ func propagateSuccess(stage *CompletionStage, listener CompletionEventListener, 
 type ResultHandlingStrategy func(*CompletionStage, *CompletionGraph, *model.CompletionResult)
 
 func invocationResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
-	graph.eventProcessor.OnCompleteStage(stage, result)
+	graph.eventListener.OnCompleteStage(stage, result)
 }
 
 func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
 
 	if result.Status == model.ResultStatus_failed {
 		// Errors fail the normal way
-		graph.eventProcessor.OnCompleteStage(stage, result)
+		graph.eventListener.OnCompleteStage(stage, result)
 		return
 	}
 	// result must be a stageref
 	if nil == result.Datum.GetStageRef() {
 		//TODO complete stage with an error
-		graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
+		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
 		return
 	}
-	refStage := graph.GetStage(StageId(result.Datum.GetStageRef().StageRef))
+	refStage := graph.GetStage(StageID(result.Datum.GetStageRef().StageRef))
 	if nil == refStage {
-		graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
+		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
 	}
-	log.WithFields(logrus.Fields{"stage_id": stage.Id, "other_id": refStage.Id}).Info("Composing with new stage ")
-	graph.eventProcessor.OnComposeStage(stage, refStage)
+	log.WithFields(logrus.Fields{"stage_id": stage.ID, "other_id": refStage.ID}).Info("Composing with new stage ")
+	graph.eventListener.OnComposeStage(stage, refStage)
 }
 
-func parentStageResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
+func parentStageResult(stage *CompletionStage, graph *CompletionGraph, _ *model.CompletionResult) {
 
 	if len(stage.dependencies) != 1 {
-		log.WithFields(logrus.Fields{"stage_id": stage.Id}).Warn("Got a parent-result when none was expected")
-	} else if !stage.dependencies[0].isResolved() {
-		log.WithFields(logrus.Fields{"stage_id": stage.Id}).Warn("Got a parent-result when parent hadn't completed")
+		log.WithFields(logrus.Fields{"stage_id": stage.ID}).Warn("Got a parent-result when none was expected")
+	} else if !stage.dependencies[0].IsResolved() {
+		log.WithFields(logrus.Fields{"stage_id": stage.ID}).Warn("Got a parent-result when parent hadn't completed")
 	} else {
-		graph.eventProcessor.OnCompleteStage(stage, stage.dependencies[0].result)
+		graph.eventListener.OnCompleteStage(stage, stage.dependencies[0].result)
 	}
 }
 
-func noResultStrategy(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
-
-}
+func noResultStrategy(_ *CompletionStage, _ *CompletionGraph, _ *model.CompletionResult) {}
 
 type strategy struct {
 	TriggerStrategy        TriggerStrategy
@@ -208,8 +206,7 @@ type strategy struct {
 	ResultHandlingStrategy ResultHandlingStrategy
 }
 
-func GetStrategyFromOperation(operation model.CompletionOperation) (strategy, error) {
-
+func getStrategyFromOperation(operation model.CompletionOperation) (strategy, error) {
 	switch operation {
 
 	case model.CompletionOperation_acceptEither:

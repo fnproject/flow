@@ -3,6 +3,7 @@ package graph
 import (
 	"github.com/fnproject/completer/model"
 	"fmt"
+	"github.com/sirupsen/logrus"
 )
 
 // TriggerStrategy defines when a stage becomes active, and what the incoming status of the trigger is
@@ -149,19 +150,48 @@ func propagateSuccess(stage *CompletionStage, listener CompletionEventListener, 
 	listener.OnCompleteStage(stage, result)
 }
 
-// ResultHandlingStrategy defines how the  result value of the stage is derived
-type ResultHandlingStrategy uint8
+// ResultHandlingStrategy defines how the  result value of the stage is derived - and whether or not it actually completes the node
+type ResultHandlingStrategy func(*CompletionStage, *CompletionGraph, *model.CompletionResult)
 
-const (
-	// take success or failed value from closure as value, update status respectively
-	invocationResult = ResultHandlingStrategy(iota)
-	// take successful result as a new stage to compose into this stage, propagate errors normally
-	referencedStageResult = ResultHandlingStrategy(iota)
-	// Take the incoming result from dependencies
-	parentStageResult = ResultHandlingStrategy(iota)
-	// Propagate an empty value on success, propagate the error on failure q
-	noResultStrategy = ResultHandlingStrategy(iota)
-)
+func invocationResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
+	graph.eventProcessor.OnCompleteStage(stage, result)
+}
+
+func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
+
+	if result.Status == model.ResultStatus_failed {
+		// Errors fail the normal way
+		graph.eventProcessor.OnCompleteStage(stage, result)
+		return
+	}
+	// result must be a stageref
+	if nil == result.Datum.GetStageRef() {
+		//TODO complete stage with an error
+		graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
+		return
+	}
+	refStage := graph.GetStage(StageId(result.Datum.GetStageRef().StageRef))
+	if nil == refStage {
+		graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
+	}
+	log.WithFields(logrus.Fields{"stage_id": stage.Id, "other_id": refStage.Id}).Info("Composing with new stage ")
+	graph.eventProcessor.OnComposeStage(stage, refStage)
+}
+
+func parentStageResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
+
+	if len(stage.dependencies) != 1 {
+		log.WithFields(logrus.Fields{"stage_id": stage.Id}).Warn("Got a parent-result when none was expected")
+	} else if !stage.dependencies[0].isResolved() {
+		log.WithFields(logrus.Fields{"stage_id": stage.Id}).Warn("Got a parent-result when parent hadn't completed")
+	} else {
+		graph.eventProcessor.OnCompleteStage(stage, stage.dependencies[0].result)
+	}
+}
+
+func noResultStrategy(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
+
+}
 
 type strategy struct {
 	TriggerStrategy        TriggerStrategy

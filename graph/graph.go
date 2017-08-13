@@ -122,7 +122,7 @@ func (graph *CompletionGraph) AddStage(event *model.StageAddedEvent, shouldTrigg
 		operation:    event.Op,
 		strategy:     strategy,
 		closure:      event.Closure,
-		complete:     make(chan bool),
+		whenComplete: make(chan bool),
 		result:       nil,
 		dependencies: graph.GetStages(toStageIdArray(event.Dependencies)),
 	}
@@ -132,29 +132,39 @@ func (graph *CompletionGraph) AddStage(event *model.StageAddedEvent, shouldTrigg
 	graph.stages[node.Id] = node
 
 	if shouldTrigger {
-		graph.executeCompletableStages([]*CompletionStage{node})
+		graph.executeCompletableStages()
 	}
 	return nil
 }
 
 // External actor triggers state as completed , this may trigger further stages
 func (graph *CompletionGraph) CompleteStage(event *model.StageCompletedEvent, shouldTrigger bool) bool {
-	log := graph.log.WithFields(logrus.Fields{"status": event.Result.Status})
+	log := graph.log.WithFields(logrus.Fields{"status": event.Result.Status, "stage_id": event.StageId})
 	log.Info("Completing node")
 	node := graph.stages[StageId(event.StageId)]
-	success := node.Complete(event.Result)
+	success := node.complete(event.Result)
 
 	if node.composeReference != nil {
 		graph.tryCompleteComposedStage(node.composeReference, node)
 	}
 
 	if shouldTrigger {
-		graph.executeCompletableStages(node.children)
+		graph.executeCompletableStages()
 	}
 
 	graph.checkForCompletion()
 
 	return success
+}
+
+
+// InvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
+// This may signal completion of the stage (in which case a Complete Event is raised
+func (graph *CompletionGraph) InvokeComplete(stageId StageId, result *model.CompletionResult) {
+	log.WithField("stage_id",stageId).Info("Completing stage with faas response");
+	stage := graph.stages[stageId]
+	strategy := stage.strategy
+	strategy.ResultHandlingStrategy(stage,graph,result)
 }
 
 func (graph *CompletionGraph) ComposeNodes(event *model.StageComposedEvent) {
@@ -168,27 +178,11 @@ func (graph *CompletionGraph) ComposeNodes(event *model.StageComposedEvent) {
 	graph.tryCompleteComposedStage(outer, inner)
 }
 
-func (graph *CompletionGraph) executeStage(stage *CompletionStage, status TriggerStatus) {
-
-}
-
-func (graph *CompletionGraph) CompleteWithInvokeResult(stageId uint32, result *model.CompletionResult) {
-
-}
-
-func internalErrorResult(code model.ErrorDatumType, message string) *model.CompletionResult {
-	return &model.CompletionResult{
-		Status: model.ResultStatus_failed,
-		Datum: &model.Datum{
-			Val: &model.Datum_Error{Error: &model.ErrorDatum{Type: code, Message: message}},
-		},
-	}
-}
 
 func (graph *CompletionGraph) Recover() {
 	for _, stage := range graph.stages {
 		if !stage.isResolved() {
-			triggerStatus, _, _ := stage.canTrigger()
+			triggerStatus, _, _ := stage.requestTrigger()
 			if triggerStatus {
 				graph.log.WithFields(logrus.Fields{"stage": stage.Id}).Info("Failing irrecoverable node")
 				graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_stage_lost, "Stage invocation lost - stage may still be executing"))
@@ -203,22 +197,6 @@ func (graph *CompletionGraph) Recover() {
 	graph.checkForCompletion()
 }
 
-func (graph *CompletionGraph) executeExceptionally(target *CompletionStage, input []*model.CompletionResult) error {
-	// TODO
-	return nil
-}
-
-func (graph *CompletionGraph) executeNormally(target *CompletionStage, input []*model.CompletionResult) error {
-	return nil
-	// TODO
-}
-
-func (graph *CompletionGraph) handleStageReferenceCompletion(stage *CompletionStage, result *model.CompletionResult) error {
-	// TODO
-	// RELIES ON JAVA SERIALIZATION
-	return nil
-}
-
 func (graph *CompletionGraph) tryCompleteComposedStage(outer *CompletionStage, inner *CompletionStage) {
 	if inner.isResolved() && !outer.isResolved() {
 		graph.log.WithFields(logrus.Fields{"stage": outer.Id, "inner_stage": inner.Id}).Info("Completing composed stage with inner stage")
@@ -226,10 +204,10 @@ func (graph *CompletionGraph) tryCompleteComposedStage(outer *CompletionStage, i
 	}
 }
 
-func (graph *CompletionGraph) executeCompletableStages(stages []*CompletionStage) {
+func (graph *CompletionGraph) executeCompletableStages() {
 	for _, stage := range graph.stages {
 		if !stage.isResolved() {
-			triggered, status, input := stage.canTrigger()
+			triggered, status, input := stage.requestTrigger()
 			if triggered {
 				log := graph.log.WithFields(logrus.Fields{"stage_id": stage.Id, "status": status})
 				log.Info("Preparing to execute node")

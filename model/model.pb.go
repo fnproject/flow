@@ -53,9 +53,9 @@ It has these top-level messages:
 */
 package model
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import "github.com/golang/protobuf/proto"
+import "fmt"
+import "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -116,6 +116,7 @@ const (
 	ErrorDatumType_function_timeout       ErrorDatumType = 3
 	ErrorDatumType_function_invoke_failed ErrorDatumType = 4
 	ErrorDatumType_stage_lost             ErrorDatumType = 5
+	ErrorDatumType_invalid_stage_response ErrorDatumType = 6
 )
 
 var ErrorDatumType_name = map[int32]string{

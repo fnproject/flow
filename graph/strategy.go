@@ -8,26 +8,34 @@ import (
 
 // TriggerStrategy defines when a stage becomes active, and what the incoming status of the trigger is
 // each type may or may not depend on the incoming dependencies of the node
-type TriggerStrategy func(stage *CompletionStage) (bool, TriggerStatus, []*model.CompletionResult)
+type TriggerStrategy func(deps []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult)
 
 //triggerAll marks node as succeeded if all are succeeded, or if one has failed
-func triggerAll(stage *CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	var results []*model.CompletionResult = make([]*model.CompletionResult, len(stage.dependencies))
-	for _, s := range stage.dependencies {
-		if !s.isResolved() {
-			return false, TriggerStatus_failed, []*model.CompletionResult{}
-		} else {
+func triggerAll(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+	var results []*model.CompletionResult = make([]*model.CompletionResult, 0)
+	for _, s := range dependencies {
+		if s.isFailed() {
+			return true, TriggerStatus_failed, []*model.CompletionResult{s.result}
+		} else if s.isSuccessful() {
 			results = append(results, s.result)
 		}
 	}
-	return true, TriggerStatus_successful, results
+
+	if len(results) == len(dependencies) {
+		return true, TriggerStatus_successful, results
+	} else {
+		return false, TriggerStatus_failed, nil
+	}
 }
 
 // triggerAny marks a node as succeed if any one is resolved successfully,  or fails with the first error if all are failed
-func triggerAny(stage *CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+func triggerAny(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
 	var haveUnresolved bool
 	var firstFailure *CompletionStage
-	for _, s := range stage.dependencies {
+	if 0 == len(dependencies) {
+		return false, TriggerStatus_failed, nil
+	}
+	for _, s := range dependencies {
 		if s.isResolved() {
 			if !s.isFailed() {
 				return true, TriggerStatus_successful, []*model.CompletionResult{s.result}
@@ -45,12 +53,12 @@ func triggerAny(stage *CompletionStage) (bool, TriggerStatus, []*model.Completio
 }
 
 // triggerImmediateSuccess always marks the node as triggered
-func triggerImmediateSuccess(stage *CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+func triggerImmediateSuccess(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
 	return true, TriggerStatus_successful, []*model.CompletionResult{}
 }
 
 // triggerNever always marks the node as untriggered.
-func triggerNever(stage *CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+func triggerNever(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
 	return false, TriggerStatus_failed, []*model.CompletionResult{}
 }
 

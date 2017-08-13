@@ -3,6 +3,7 @@ package graph
 import (
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
+	"fmt"
 )
 
 var log *logrus.Entry = logrus.WithField("logger", "graph")
@@ -113,10 +114,18 @@ func (graph *CompletionGraph) AddStage(event *model.StageAddedEvent, shouldTrigg
 		log.Errorf("invalid/unsupported operation %s", event.Op)
 		return err
 	}
-	log.Info("Adding stage to graph")
-	if event.StageId < uint32(len(graph.stages)) {
-		log.Warn("New stage will overwrite previous stage")
+
+	if graph.IsCompleted(){
+		log.Errorf("Graph already completed")
+		return fmt.Errorf("Graph already completed")
 	}
+	_, hasStage := graph.stages[StageId(event.StageId)]
+
+	if hasStage {
+		log.Error("Duplicate stage")
+		return fmt.Errorf("Duplicate stage %d",event.StageId)
+	}
+	log.Info("Adding stage to graph")
 	node := &CompletionStage{
 		Id:           StageId(event.StageId),
 		operation:    event.Op,
@@ -157,14 +166,13 @@ func (graph *CompletionGraph) CompleteStage(event *model.StageCompletedEvent, sh
 	return success
 }
 
-
 // InvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
 // This may signal completion of the stage (in which case a Complete Event is raised
 func (graph *CompletionGraph) InvokeComplete(stageId StageId, result *model.CompletionResult) {
-	log.WithField("stage_id",stageId).Info("Completing stage with faas response");
+	log.WithField("stage_id", stageId).Info("Completing stage with faas response");
 	stage := graph.stages[stageId]
 	strategy := stage.strategy
-	strategy.ResultHandlingStrategy(stage,graph,result)
+	strategy.ResultHandlingStrategy(stage, graph, result)
 }
 
 func (graph *CompletionGraph) ComposeNodes(event *model.StageComposedEvent) {
@@ -178,14 +186,13 @@ func (graph *CompletionGraph) ComposeNodes(event *model.StageComposedEvent) {
 	graph.tryCompleteComposedStage(outer, inner)
 }
 
-
 func (graph *CompletionGraph) Recover() {
 	for _, stage := range graph.stages {
 		if !stage.isResolved() {
 			triggerStatus, _, _ := stage.requestTrigger()
 			if triggerStatus {
 				graph.log.WithFields(logrus.Fields{"stage": stage.Id}).Info("Failing irrecoverable node")
-				graph.eventProcessor.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_stage_lost, "Stage invocation lost - stage may still be executing"))
+				graph.eventProcessor.OnCompleteStage(stage, stageRecoveryFailedResult)
 			}
 		}
 	}
@@ -196,6 +203,8 @@ func (graph *CompletionGraph) Recover() {
 
 	graph.checkForCompletion()
 }
+
+var stageRecoveryFailedResult *model.CompletionResult = internalErrorResult(model.ErrorDatumType_stage_lost, "Stage invocation lost - stage may still be executing")
 
 func (graph *CompletionGraph) tryCompleteComposedStage(outer *CompletionStage, inner *CompletionStage) {
 	if inner.isResolved() && !outer.isResolved() {
@@ -226,7 +235,7 @@ func (graph *CompletionGraph) executeCompletableStages() {
 func (graph *CompletionGraph) getPendingCount() uint32 {
 	count := uint32(0)
 	for _, s := range graph.stages {
-		if s.isResolved() {
+		if !s.isResolved() {
 			count++
 		}
 	}

@@ -197,6 +197,106 @@ func TestShouldTriggerCompose(t *testing.T) {
 
 }
 
+func TestShouldFailNodeWhenPartiallyRecovered(t *testing.T) {
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	s := withSimpleStage(g, false)
+	m.On("OnCompleteStage", s, stageRecoveryFailedResult).Return()
+
+	g.Recover()
+	m.AssertExpectations(t)
+
+}
+
+func TestShouldGetAllStages(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+
+	assert.Empty(t,g.GetAllStages())
+	s:= withSimpleStage(g,false)
+	assert.Equal(t,[]*CompletionStage{s},g.GetAllStages())
+}
+
+
+
+func TestShouldRejectUnknownStage(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	event := &model.StageAddedEvent{
+		StageId:      g.NextStageId(),
+		Op:           model.CompletionOperation_unknown_operation,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []uint32{},
+	}
+
+	assert.Error(t, g.AddStage(event, false))
+
+}
+
+func TestShouldRejectDuplicateStage(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	s:= withSimpleStage(g,false)
+	event := &model.StageAddedEvent{
+		StageId:      uint32(s.Id),
+		Op:           model.CompletionOperation_thenApply,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []uint32{},
+	}
+
+
+	assert.Error(t, g.AddStage(event, false))
+}
+
+
+
+func TestShouldCompleteEmptyGraph(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	m.On("OnCompleteGraph").Return()
+	g.SetCommitted()
+	m.AssertExpectations(t)
+}
+
+
+func TestShouldNotCompletePendingGraph(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	withSimpleStage(g,false)
+	assert.False(t,g.IsCompleted())
+	g.SetCommitted()
+	m.AssertExpectations(t)
+}
+
+
+
+func TestShouldPreventAddingStageToCompletedGraph(t *testing.T){
+	m := &MockedListener{}
+
+	g := New(GraphId("graph"), "function", m)
+	m.On("OnCompleteGraph").Return()
+	g.SetCommitted()
+	g.SetCompleted()
+
+	event := &model.StageAddedEvent{
+		StageId:      g.NextStageId(),
+		Op:           model.CompletionOperation_supply,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []uint32{},
+	}
+
+	err:= g.AddStage(event, false)
+	assert.Error(t,err)
+	m.AssertExpectations(t)
+}
+
+
 func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageId(),
@@ -232,6 +332,7 @@ func withComposeStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Com
 	g.AddStage(event, trigger)
 	return g.GetStage(StageId(event.StageId))
 }
+
 func assertStagePending(t *testing.T, s *CompletionStage) {
 	assert.False(t, s.isResolved())
 	assert.False(t, s.isFailed())

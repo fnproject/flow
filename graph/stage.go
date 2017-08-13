@@ -21,7 +21,7 @@ type CompletionStage struct {
 	// Parent stage if I'm a child  - this is what I complete when I'm done
 	composeReference *CompletionStage
 	// this only prevents a a stage from triggering twice in the same generation
-	triggered        bool
+	triggered bool
 }
 
 func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
@@ -54,7 +54,7 @@ func (stage *CompletionStage) requestTrigger() (satisfied bool, status TriggerSt
 
 	} else {
 		stage.triggered = true
-		return stage.strategy.TriggerStrategy(stage)
+		return stage.strategy.TriggerStrategy(stage.dependencies)
 
 	}
 }

@@ -29,7 +29,7 @@ func TestUnknownOperationShouldRaiseError(t *testing.T) {
 func TestTriggerAllEmpty(t *testing.T) {
 	trigger, status, inputs := triggerAll([]*CompletionStage{})
 	assert.True(t, trigger)
-	assert.Equal(t, TriggerStatusSuccess, status)
+	assert.Equal(t, true, status)
 	assert.Empty(t, inputs)
 
 }
@@ -39,7 +39,7 @@ func TestTriggerAllCompleted(t *testing.T) {
 	s2 := completedStage()
 	trigger, status, inputs := triggerAll([]*CompletionStage{s1,s2})
 	assert.True(t, trigger)
-	assert.Equal(t, TriggerStatusSuccess, status)
+	assert.Equal(t, true, status)
 	assert.Equal(t, []*model.CompletionResult{s1.result,s2.result},inputs)
 
 }
@@ -53,7 +53,7 @@ func TestTriggerAllPartialOneFailed(t *testing.T) {
 	failed := failedStage()
 	trigger, res, inputs := triggerAll([]*CompletionStage{completedStage(),pendingStage(), failed})
 	assert.True(t, trigger)
-	assert.Equal(t, TriggerStatusFailed,res)
+	assert.Equal(t, false,res)
 	assert.Equal(t,[]*model.CompletionResult{failed.result},inputs)
 }
 
@@ -70,7 +70,7 @@ func TestTriggerAnyPartial(t *testing.T){
 	s1 := completedStage()
 	trigger, status, inputs := triggerAny([]*CompletionStage{s1,pendingStage()})
 	assert.True(t, trigger)
-	assert.Equal(t, TriggerStatusSuccess,status)
+	assert.Equal(t, true,status)
 	assert.Equal(t,[]*model.CompletionResult{s1.result},inputs)
 
 }
@@ -89,7 +89,7 @@ func TestTriggerAnyFail(t *testing.T){
 	s1 := failedStage()
 	trigger, status, inputs := triggerAny([]*CompletionStage{s1})
 	assert.True(t, trigger)
-	assert.Equal(t, TriggerStatusFailed,status)
+	assert.Equal(t, false,status)
 	assert.Equal(t,[]*model.CompletionResult{s1.result},inputs)
 
 }

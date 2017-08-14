@@ -6,39 +6,40 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TriggerStrategy defines when a stage becomes active , and what the incoming status of the trigger is
+// TriggerStrategy defines when a stage becomes active , and what the incoming status of the trigger is (success or fail)
 // each type may or may not depend on the incoming dependencies of the node
-type TriggerStrategy func(deps []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult)
+type TriggerStrategy func(deps []*CompletionStage) (shouldTrigger bool, successfulTrigger bool, inputs []*model.CompletionResult)
 
 //triggerAll marks node as succeeded if all are succeeded, or if one has failed
-func triggerAll(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+func triggerAll(dependencies []*CompletionStage) (bool, bool, []*model.CompletionResult) {
 	var results = make([]*model.CompletionResult, 0)
 	for _, s := range dependencies {
 		if s.IsFailed() {
-			return true, TriggerStatusFailed, []*model.CompletionResult{s.result}
+			return true, false, []*model.CompletionResult{s.result}
 		} else if s.IsSuccessful() {
 			results = append(results, s.result)
 		}
 	}
 
 	if len(results) == len(dependencies) {
-		return true, TriggerStatusSuccess, results
+		return true, true, results
 	}
-	return false, TriggerStatusFailed, nil
+	return false, false, nil
 
 }
 
 // triggerAny marks a node as succeed if any one is resolved successfully,  or fails with the first error if all are failed
-func triggerAny(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
+func triggerAny(dependencies []*CompletionStage) (bool, bool, []*model.CompletionResult) {
 	var haveUnresolved bool
 	var firstFailure *CompletionStage
 	if 0 == len(dependencies) {
-		return false, TriggerStatusFailed, nil
+		// TODO: any({}) -  not clear if we should block here  or error
+		return false, false, nil
 	}
 	for _, s := range dependencies {
 		if s.IsResolved() {
 			if !s.IsFailed() {
-				return true, TriggerStatusSuccess, []*model.CompletionResult{s.result}
+				return true, true, []*model.CompletionResult{s.result}
 			}
 			firstFailure = s
 
@@ -47,19 +48,19 @@ func triggerAny(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.
 		}
 	}
 	if !haveUnresolved {
-		return true, TriggerStatusFailed, []*model.CompletionResult{firstFailure.result}
+		return true, false, []*model.CompletionResult{firstFailure.result}
 	}
-	return false, TriggerStatusFailed, nil
+	return false, false, nil
 }
 
 // triggerImmediateSuccess always marks the node as triggered
-func triggerImmediateSuccess(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	return true, TriggerStatusSuccess, []*model.CompletionResult{}
+func triggerImmediateSuccess(stage []*CompletionStage) (bool, bool, []*model.CompletionResult) {
+	return true, true, []*model.CompletionResult{}
 }
 
 // triggerNever always marks the node as untriggered.
-func triggerNever(stage []*CompletionStage) (bool, TriggerStatus, []*model.CompletionResult) {
-	return false, TriggerStatusFailed, []*model.CompletionResult{}
+func triggerNever(stage []*CompletionStage) (bool, bool, []*model.CompletionResult) {
+	return false, false, []*model.CompletionResult{}
 }
 
 // ExecutionStrategy defines how the node should behave when it is triggered
@@ -67,13 +68,11 @@ func triggerNever(stage []*CompletionStage) (bool, TriggerStatus, []*model.Compl
 // different strategies can be applied when the stage completes successfully or exceptionally
 type ExecutionStrategy func(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult)
 
-
-
 // succeedWithEmpty triggers completion of the stage with an empty success
 func succeedWithEmpty(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	listener.OnCompleteStage(stage, &model.CompletionResult{
-		Status: model.ResultStatus_succeeded,
-		Datum:  emptyDatum(),
+		Successful: true,
+		Datum:      emptyDatum(),
 	})
 }
 
@@ -82,12 +81,12 @@ func invokeWithoutArgs(stage *CompletionStage, listener CompletionEventListener,
 	listener.OnExecuteStage(stage, []*model.Datum{})
 }
 
-// invokeWithoutArgs triggers invoking the closure with no args
+// invokeWithResult triggers invoking the closure with no args
 func invokeWithResult(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	data := make([]*model.Datum, len(results))
 	for i, v := range results {
 		// TODO: propagate these - this is currently an error in the switch below
-		if v.GetStatus() != model.ResultStatus_succeeded {
+		if !v.Successful {
 			panic(fmt.Sprintf("Invalid state - tried to invoke stage  %v successfully with failed upstream result %v", stage, v))
 		}
 		data[i] = v.GetDatum()
@@ -95,13 +94,13 @@ func invokeWithResult(stage *CompletionStage, listener CompletionEventListener, 
 	listener.OnExecuteStage(stage, data)
 }
 
-// invokeWithoutArgs triggers invoking the closure with the error
+// invokeWithError triggers invoking the closure with the error
 func invokeWithError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	// TODO: This is synonymous with invokeResult as Trigger extracts the error as the result
 	data := make([]*model.Datum, len(results))
 	for i, v := range results {
 		// TODO: propagate these - this is currently an error in the switch below
-		if v.GetStatus() != model.ResultStatus_failed {
+		if v.Successful {
 			panic(fmt.Sprintf("Invalid state - tried to invoke stage %v erroneously with failed upstream result %v", stage, v))
 		}
 		data[i] = v.GetDatum()
@@ -109,6 +108,8 @@ func invokeWithError(stage *CompletionStage, listener CompletionEventListener, r
 	listener.OnExecuteStage(stage, data)
 }
 
+// invokeWithResultOrError triggers invoking the closure with a pair consisting of the  (result,<emtpy>) if the result is successful, or (<empty>,error) if the result is an error
+// this can only be used with single-valued result
 func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	if len(results) == 1 {
 		// TODO: Don't panic
@@ -117,11 +118,12 @@ func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventLis
 	result := results[0]
 
 	var args []*model.Datum
-	if result.Status == model.ResultStatus_failed {
-		args = []*model.Datum{emptyDatum(), result.Datum}
-	} else {
+	if result.Successful {
 		args = []*model.Datum{result.Datum, emptyDatum()}
+	} else {
+		args = []*model.Datum{emptyDatum(), result.Datum}
 	}
+
 	listener.OnExecuteStage(stage, args)
 }
 
@@ -135,7 +137,7 @@ func propagateError(stage *CompletionStage, listener CompletionEventListener, re
 	}
 	result := results[0]
 
-	if result.Status != model.ResultStatus_failed {
+	if result.Successful {
 		// TODO: Don't panic
 		panic(fmt.Sprintf("Invalid state - tried to propagate stage %v with a non-error result %v as an error ", stage, results))
 	}
@@ -149,15 +151,17 @@ func propagateSuccess(stage *CompletionStage, listener CompletionEventListener, 
 	}
 	result := results[0]
 
-	if result.Status != model.ResultStatus_succeeded {
+	if !result.Successful {
 		// TODO: Don't panic
 		panic(fmt.Sprintf("Invalid state - tried to propagate stage %v with an error result %v as an success ", stage, results))
 	}
 	listener.OnCompleteStage(stage, result)
 }
 
-// ResultHandlingStrategy defines how the  result value of the stage is derived - and whether or not it actually completes the node
-type ResultHandlingStrategy func(*CompletionStage, *CompletionGraph, *model.CompletionResult)
+// ResultHandlingStrategy defines how the  result value of the stage is derived following execution of the stage
+// if the result completes the node then implementations should signal to the graph that the node is complete (via graph.listener)
+// this operation may moodify the graph (e.g. in a compose)
+type ResultHandlingStrategy func(stage *CompletionStage, graph *CompletionGraph, stageInvokeResult *model.CompletionResult)
 
 func invocationResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
 	graph.eventListener.OnCompleteStage(stage, result)
@@ -165,7 +169,7 @@ func invocationResult(stage *CompletionStage, graph *CompletionGraph, result *mo
 
 func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, result *model.CompletionResult) {
 
-	if result.Status == model.ResultStatus_failed {
+	if !result.Successful {
 		// Errors fail the normal way
 		graph.eventListener.OnCompleteStage(stage, result)
 		return
@@ -261,6 +265,6 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 	case model.CompletionOperation_exceptionally:
 		return strategy{triggerAny, propagateSuccess, invokeWithError, invocationResult}, nil
 	default:
-		return strategy{}, fmt.Errorf("Unrecognised op¬eration %s", operation)
+		return strategy{}, fmt.Errorf("Unrecognised operation %s", operation)
 	}
 }

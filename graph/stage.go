@@ -40,19 +40,19 @@ func (stage *CompletionStage) IsResolved() bool {
 
 // IsSuccessful indicates if the stage was successful
 func (stage *CompletionStage) IsSuccessful() bool {
-	return stage.IsResolved() && stage.result.Status == model.ResultStatus_succeeded
+	return stage.IsResolved() && stage.result.Successful
 }
 
 // IsFailed indicates if the stage failed
 func (stage *CompletionStage) IsFailed() bool {
-	return stage.IsResolved() && (stage.result.Status == model.ResultStatus_failed )
+	return stage.IsResolved() && !stage.result.Successful
 }
 
 // determines if the node can be triggered and returns the trigger type, and pending result if it can be
-func (stage *CompletionStage) requestTrigger() (satisfied bool, status TriggerStatus, satisfyingResults []*model.CompletionResult) {
+func (stage *CompletionStage) requestTrigger() (satisfied bool, status bool, satisfyingResults []*model.CompletionResult) {
 	if stage.triggered {
 		// never trigger a triggered stage
-		return false, TriggerStatusFailed, nil
+		return false, false, nil
 
 	}
 	stage.triggered = true
@@ -65,12 +65,12 @@ func (stage *CompletionStage) handleResult(graph *CompletionGraph, result *model
 }
 
 // triggers the stage  this should produce some event on the listener that eventually updates the grah
-func (stage *CompletionStage) trigger(status TriggerStatus, listener CompletionEventListener, input []*model.CompletionResult) {
+func (stage *CompletionStage) trigger(status bool, listener CompletionEventListener, input []*model.CompletionResult) {
 	var strategy ExecutionStrategy
-	if status == TriggerStatusFailed {
-		strategy = stage.strategy.FailureStrategy
-	} else {
+	if status {
 		strategy = stage.strategy.SuccessStrategy
+	} else {
+		strategy = stage.strategy.FailureStrategy
 	}
 	strategy(stage, listener, input)
 }

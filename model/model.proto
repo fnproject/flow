@@ -5,7 +5,7 @@ package model;
 // Common
 
 message CompletionResult {
-    ResultStatus status = 1;
+    bool successful = 1;
     Datum datum = 2;
 }
 
@@ -30,13 +30,13 @@ enum HttpMethod {
 }
 
 message HttpReqDatum {
-    BlobDatum blob = 1;
+    BlobDatum body = 1;
     repeated HttpHeader headers = 3;
     HttpMethod method = 4;
 }
 
 message HttpRespDatum {
-    BlobDatum blob = 1;
+    BlobDatum body = 1;
     repeated HttpHeader headers = 3;
     uint32 status_code = 4;
 }
@@ -48,7 +48,7 @@ enum ErrorDatumType {
     function_timeout = 3;
     function_invoke_failed = 4;
     stage_lost = 5;
-
+    invalid_stage_response =6;
 }
 
 
@@ -73,13 +73,6 @@ message Datum {
         HttpReqDatum http_req = 5;
         HttpRespDatum http_resp = 6;
     }
-}
-
-enum ResultStatus {
-    unknown_status = 0;
-    succeeded = 1;
-    failed = 2; // Exception thrown by user function
-    // error = 3;
 }
 
 enum CompletionOperation {

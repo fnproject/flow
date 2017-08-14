@@ -4,7 +4,7 @@ import "github.com/fnproject/completer/model"
 
 func internalErrorResult(code model.ErrorDatumType, message string) *model.CompletionResult {
 	return &model.CompletionResult{
-		Status: model.ResultStatus_failed,
+		Successful: false,
 		Datum: &model.Datum{
 			Val: &model.Datum_Error{Error: &model.ErrorDatum{Type: code, Message: message}},
 		},
@@ -37,14 +37,14 @@ func stageRefDatum(stageID uint32) *model.Datum {
 
 func successfulResult(datum *model.Datum) *model.CompletionResult {
 	return &model.CompletionResult{
-		Status: model.ResultStatus_succeeded,
-		Datum:  datum,
+		Successful: true,
+		Datum:      datum,
 	}
 }
 
 func failedResult(datum *model.Datum) *model.CompletionResult {
 	return &model.CompletionResult{
-		Status: model.ResultStatus_failed,
-		Datum:  datum,
+		Successful: false,
+		Datum:      datum,
 	}
 }

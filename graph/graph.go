@@ -15,16 +15,6 @@ type GraphID string
 // StageID identifies a stage
 type StageID uint32
 
-// TriggerStatus is used by TriggerStrategy to indicate if a stage is being triggered successfully or unsuccessfully
-type TriggerStatus bool
-
-const (
-	// TriggerStatusSuccess means the node has triggered with a successful input
-	TriggerStatusSuccess TriggerStatus = true
-	// TriggerStatusFailed means the node has triggered with failed input
-	TriggerStatusFailed  TriggerStatus = false
-)
-
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
 	//OnExecuteStage indicates that  a stage is due to be executed with the given arguments
@@ -67,7 +57,7 @@ func (graph *CompletionGraph) IsCommitted() bool {
 }
 
 // HandleCommitted Commits Graph  - this allows it to complete once all outstanding execution is finished
-// When a graph is Committed stages may still be added but only while at least one other stage of the graph is active
+// When a graph is Committed stages may still be added but only only while at least one stage is executing
 func (graph *CompletionGraph) HandleCommitted() {
 	graph.log.Info("committing graph")
 	graph.committed = true
@@ -173,7 +163,7 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 // HandleStageCompleted Indicates that a stage completion event has been processed and may be incorporated into the graph
 // This should be called when recovering a graph or within an OnStageCompleted event
 func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEvent, shouldTrigger bool) bool {
-	log := graph.log.WithFields(logrus.Fields{"status": event.Result.Status, "stage_id": event.StageId})
+	log := graph.log.WithFields(logrus.Fields{"success": event.Result.Successful, "stage_id": event.StageId})
 	log.Info("Completing node")
 	node := graph.stages[StageID(event.StageId)]
 	success := node.complete(event.Result)
@@ -192,7 +182,7 @@ func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEv
 }
 
 // HandleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
-// This may signal completion of the stage (in which case a Complete Event is raised
+// This may signal completion of the stage (in which case a Complete Event is raised)
 func (graph *CompletionGraph) HandleInvokeComplete(stageID StageID, result *model.CompletionResult) {
 	log.WithField("stage_id", stageID).Info("Completing stage with faas response");
 	stage := graph.stages[stageID]
@@ -217,8 +207,8 @@ func (graph *CompletionGraph) HandleStageComposed(event *model.StageComposedEven
 func (graph *CompletionGraph) Recover() {
 	for _, stage := range graph.stages {
 		if !stage.IsResolved() {
-			triggerStatus, _, _ := stage.requestTrigger()
-			if triggerStatus {
+			triggered, _, _ := stage.requestTrigger()
+			if triggered {
 				graph.log.WithFields(logrus.Fields{"stage": stage.ID}).Info("Failing irrecoverable node")
 				graph.eventListener.OnCompleteStage(stage, stageRecoveryFailedResult)
 			}

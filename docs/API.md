@@ -321,6 +321,16 @@ Content-Type: application/json
 In the Java runtime, this stage's value will be transparently coerced to the `FunctionInvocationException` type, which wraps the body and headers of the original request.
 
 
+## Graph Completion & Committing the graph 
+A graph is completed  (and can no longer be modified) once all stages in the graph that can be executed are completed (note that  some stages may not be run). 
+
+The completer observes the state of the graph to determine when pending work is complete,  to detect this condition, however as the graph is is created by a process that is outside of the completer's control (e.g. a function not run by the completer itself) that process must  indicate to the completer that it has finished modifying the graph by calling the `commit` API call on a graph. 
+
+e.g.: 
+```
+POST /graph/graph-121/commit HTTP/1.1
+```
+
 
 
 ### Completer Client API

@@ -18,3 +18,5 @@ import:
   version: v1.1.0
   subpackages:
   - spew
+- package: github.com/gorilla/mux
+  version: ~1.4.0

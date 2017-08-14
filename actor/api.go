@@ -29,7 +29,7 @@ func NewGraphManager() GraphManager {
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
-	props := actor.FromInstance(newGraphSupervisor()).WithSupervisor(strategy)
+	props := actor.FromInstance(&graphSupervisor{}).WithSupervisor(strategy)
 	pid, _ := actor.SpawnNamed(props, "supervisor")
 	return &actorManager{
 		log: logrus.WithField("logger", "graphManager"),

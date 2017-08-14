@@ -18,5 +18,5 @@ import:
   version: v1.1.0
   subpackages:
   - spew
-- package: github.com/gorilla/mux
-  version: ~1.4.0
+- package: github.com/gin-gonic/gin
+  version: 52c2ed34b3256727a0aeac5e57129eb788bac045

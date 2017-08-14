@@ -7,7 +7,6 @@ import (
 	"net/textproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sort"
 )
 
 func TestRejectsUnrecognisedType(t *testing.T) {
@@ -204,11 +203,13 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	assert.Equal(t, HttpMethod_get, d.GetHttpReq().GetMethod())
 	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpReq().GetBody())
 	require.Equal(t, 3, len(d.GetHttpReq().GetHeaders()))
-	headersSortedByKey := SortableHttpHeaders(d.GetHttpReq().GetHeaders())
-	sort.Stable(headersSortedByKey)
-	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, headersSortedByKey[0])
-	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, headersSortedByKey[1])
-	assert.Equal(t, &HttpHeader{"Single", "FOO"}, headersSortedByKey[2])
+	multiHeaders := d.GetHttpReq().FilterHeaders("Multi")
+	require.Equal(t, 2, len(multiHeaders))
+	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, multiHeaders[0])
+	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, multiHeaders[1])
+	singleHeader := d.GetHttpReq().FilterHeaders("Single")
+	require.Equal(t, 1, len(singleHeader))
+	assert.Equal(t, &HttpHeader{"Single", "FOO"}, singleHeader[0])
 }
 
 func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
@@ -256,11 +257,13 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	assert.Equal(t, uint32(200), d.GetHttpResp().GetStatusCode())
 	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpResp().GetBody())
 	require.Equal(t, 3, len(d.GetHttpResp().GetHeaders()))
-	headersSortedByKey := SortableHttpHeaders(d.GetHttpResp().GetHeaders())
-	sort.Stable(headersSortedByKey)
-	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, headersSortedByKey[0])
-	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, headersSortedByKey[1])
-	assert.Equal(t, &HttpHeader{"Single", "FOO"}, headersSortedByKey[2])
+	multiHeaders := d.GetHttpResp().FilterHeaders("Multi")
+	require.Equal(t, 2, len(multiHeaders))
+	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, multiHeaders[0])
+	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, multiHeaders[1])
+	singleHeader := d.GetHttpResp().FilterHeaders("Single")
+	require.Equal(t, 1, len(singleHeader))
+	assert.Equal(t, &HttpHeader{"Single", "FOO"}, singleHeader[0])
 }
 
 func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {

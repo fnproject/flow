@@ -8,11 +8,13 @@ import (
 )
 
 const (
-	headerDatumType    = "FnProject-DatumType"
-	headerResultStatus = "FnProject-ResultStatus"
-	headerResultCode   = "FnProject-ResultCode"
-	headerHeaderPrefix = "FnProject-Header-"
-	headerErrorType    = "FnProject-ErrorType"
+	headerDatumType    = "Fnproject-Datumtype"
+	headerResultStatus = "Fnproject-Resultstatus"
+	headerResultCode   = "Fnproject-Resultcode"
+	headerStageRef     = "Fnproject-Stageid"
+	headerMethod       = "Fnproject-Method"
+	headerHeaderPrefix = "Fnproject-Header-"
+	headerErrorType    = "Fnproject-Errortype"
 	headerContentType  = "Content-Type"
 
 	datumTypeBlob     = "blob"

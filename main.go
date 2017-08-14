@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"net/http"
 )
+
+var log = logrus.WithField("logger", "api")
 
 func noOpHandler(c *gin.Context) {
 	c.Status(http.StatusNotFound)

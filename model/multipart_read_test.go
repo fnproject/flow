@@ -175,18 +175,6 @@ func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {
 	assert.Contains(t, err.Error(), "parsing \"\": invalid syntax")
 }
 
-// Just to have sortable http headers
-type SortableHttpHeaders []*HttpHeader
-func (s SortableHttpHeaders) Len() int {
-	return len(s)
-}
-func (s SortableHttpHeaders) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-func (s SortableHttpHeaders) Less(i, j int) bool {
-	return s[i].Key < s[j].Key
-}
-
 func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)

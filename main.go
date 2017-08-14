@@ -1,7 +1,9 @@
 package main
 
 import (
+	"github.com/fnproject/completer/model"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -27,6 +29,21 @@ func stageHandler(c *gin.Context) {
 	}
 }
 
+func createGraphHandler(c *gin.Context) {
+	functionID := c.Query("functionId")
+	if functionID != "" {
+		graphID, err := uuid.NewRandom()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+		} else {
+			_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
+			c.Status(http.StatusCreated)
+		}
+	} else {
+		c.Status(http.StatusBadRequest)
+	}
+}
+
 func main() {
 
 	engine := gin.Default()
@@ -37,7 +54,7 @@ func main() {
 
 	graph := engine.Group("/graph")
 	{
-		graph.POST("", noOpHandler)
+		graph.POST("", createGraphHandler)
 		graph.GET("/:graphId", func(c *gin.Context) {
 			log.Info("Requested graph with Id " + c.Param("graphId"))
 			c.Status(http.StatusNotFound)

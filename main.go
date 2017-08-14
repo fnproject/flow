@@ -3,16 +3,18 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 func main() {
 
-	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.Data(200, "text/plain", nil)
+	engine := gin.Default()
+
+	engine.GET("/ping", func(c *gin.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	log.Info("Starting")
 
-	r.Run()
+	engine.Run()
 }

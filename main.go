@@ -14,6 +14,14 @@ func main() {
 		c.Status(http.StatusOK)
 	})
 
+	graph := engine.Group("/graph")
+	{
+		graph.GET("/:graphId", func(c *gin.Context) {
+			log.Info("Requested graph with Id " + c.Param("graphId"))
+			c.Status(http.StatusNotFound)
+		})
+	}
+
 	log.Info("Starting")
 
 	engine.Run()

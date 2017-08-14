@@ -40,6 +40,7 @@ FnProject-DatumType: httpresp
 
 When using _blob_ types, their media type must be defined by including the `Content-Type` header. For example, to transmit a serialized Java value the following headers must be included in the request/response:
 
+
 ```
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob

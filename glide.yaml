@@ -24,3 +24,5 @@ import:
   version: 0.4
 - package: github.com/orcaman/concurrent-map
   version: 2ae17bc4c860c83513ee50feb9746f3e50d7515d
+- package: github.com/gin-gonic/gin
+  version: 52c2ed34b3256727a0aeac5e57129eb788bac045

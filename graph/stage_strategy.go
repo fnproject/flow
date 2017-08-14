@@ -41,7 +41,7 @@ func triggerAny(dependencies []*CompletionStage) (bool, TriggerStatus, []*model.
 				return true, TriggerStatusSuccess, []*model.CompletionResult{s.result}
 			}
 			firstFailure = s
-			
+
 		} else {
 			haveUnresolved = true
 		}
@@ -67,9 +67,7 @@ func triggerNever(stage []*CompletionStage) (bool, TriggerStatus, []*model.Compl
 // different strategies can be applied when the stage completes successfully or exceptionally
 type ExecutionStrategy func(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult)
 
-func emptyDatum() *model.Datum {
-	return &model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}
-}
+
 
 // succeedWithEmpty triggers completion of the stage with an empty success
 func succeedWithEmpty(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {

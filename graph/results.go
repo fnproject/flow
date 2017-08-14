@@ -11,6 +11,10 @@ func internalErrorResult(code model.ErrorDatumType, message string) *model.Compl
 	}
 }
 
+func emptyDatum() *model.Datum {
+	return &model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}
+}
+
 func blob(contentType string, data []byte) *model.BlobDatum {
 	return &model.BlobDatum{ContentType: contentType, DataString: data}
 }

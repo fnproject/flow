@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"bytes"
 	"strings"
+	"strconv"
 )
 
 const (
@@ -80,8 +81,56 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 		}, nil
 
 	case datumTypeStageRef:
+		stageIdString := part.Header.Get(headerStageRef)
+		stageId, err := strconv.ParseUint(stageIdString, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid StageRef Datum in part %s : %s", part.FileName(), err.Error())
+		}
+		return &Datum{Val: &Datum_StageRef{&StageRefDatum{ StageRef: uint32(stageId) }}}, nil
 	case datumTypeHttpReq:
+		methodString := part.Header.Get(headerMethod)
+		if "" == methodString {
+			return nil, fmt.Errorf("Invalid HttpReq Datum in part %s : no %s header defined", part.FileName(), headerMethod)
+		}
+		method, methodRecognized := HttpMethod_value[strings.ToLower(methodString)]
+		if !methodRecognized {
+			return nil, fmt.Errorf("Invalid HttpReq Datum in part %s : http method %s is invalid", part.FileName(), methodString)
+		}
+		var headers []*HttpHeader
+		for hk,hvs := range part.Header {
+			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
+				for _,hv := range hvs {
+					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
+				}
+			}
+		}
+		blob, err := readBlob(part)
+		if err != nil {
+			return nil, err
+		}
+		return &Datum{Val: &Datum_HttpReq{ &HttpReqDatum { blob, headers, HttpMethod(method)}}}, nil
 	case datumTypeHttpResp:
+		resultCodeString := part.Header.Get(headerResultCode)
+		if "" == resultCodeString {
+			return nil, fmt.Errorf("Invalid HttpResp Datum in part %s : no %s header defined", part.FileName(), headerResultCode)
+		}
+		resultCode, err := strconv.ParseUint(resultCodeString, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("Invalid HttpResp Datum in part %s : %s", part.FileName(), err.Error())
+		}
+		var headers []*HttpHeader
+		for hk,hvs := range part.Header {
+			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
+				for _,hv := range hvs {
+					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
+				}
+			}
+		}
+		blob, err := readBlob(part)
+		if err != nil {
+			return nil, err
+		}
+		return &Datum{Val: &Datum_HttpResp{ &HttpRespDatum { blob, headers, uint32(resultCode)}}}, nil
 	default:
 		return nil, fmt.Errorf("Unrecognised datum type")
 	}
@@ -94,8 +143,8 @@ func readBlob(part *multipart.Part) (*BlobDatum, error) {
 		return nil, fmt.Errorf("Mulitpart part %s is missing %s header", part.FileName(), headerContentType)
 	}
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(part)
 	buf.Reset()
+	_, err := buf.ReadFrom(part)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read multipart body from part %s", part.FileName())
 	}

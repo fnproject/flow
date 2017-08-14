@@ -35,6 +35,7 @@ func main() {
 
 	graph := engine.Group("/graph")
 	{
+		graph.POST("", noOpHandler)
 		graph.GET("/:graphId", func(c *gin.Context) {
 			log.Info("Requested graph with Id " + c.Param("graphId"))
 			c.Status(http.StatusNotFound)

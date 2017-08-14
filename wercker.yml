@@ -1,0 +1,15 @@
+box:
+  id: golang:1.7
+
+build:
+  base-path: /go/src/github.com/fnproject/completer
+  steps:
+    - script:
+      name: test
+      code: |
+        go test -v $(go list)/graph
+    - script:
+      name: compile
+      code: |
+        go build -o $WERCKER_OUTPUT_DIR/completer
+

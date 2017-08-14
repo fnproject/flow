@@ -1,7 +1,7 @@
 # Just builds
-.PHONY: all test dep build test-log-datastore
+all: test build
 
-dep:
+dep: glide.yaml
 	glide install --strip-vendor
 
 dep-up:
@@ -9,13 +9,15 @@ dep-up:
 
 protos:  model/model.pb.go
 
+test: protos $(shell find . -name *.go)
+	go test -v $(shell go list)/graph
+
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --go_out=$(@D) $<
 
-build: $(find . -name *.go)
+build: protos $(shell find . -name *.go)
 	go build -o completer
 
 run: build
 	GIN_MODE=debug ./completer
 
-all: dep protos build

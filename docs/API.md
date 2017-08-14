@@ -212,8 +212,10 @@ In the Java runtime, a platform error will be internally converted to a `CloudCo
 | Error Type | Meaning |
 | ---         | ----   |
 | stage-timeout | a completion stage function timed out - the stage may or may not have completed normally'|
-| stage-invoke-failed | a completion stage invocation failed - the stage may or may not have been invoked or and that invocation may or may not have completed |
+| stage-invoke-failed | a completion stage invocation failed  within Fn  - the stage may or may not have been invoked  and that invocation may or may not have completed |
 | function-timeout | A function call timed out | 
+| function-invoke-failed | A function call failed within Fn platform  - the function may or may not have been invoked  and that invocation may or may not have completed | 
+| stage-lost | A stage failed after an internal error in the completer the stage may or may not have been invoked  and that invocation may or may not have completed| 
 
 
 Recipients should accept unknown values for this header.
@@ -318,6 +320,16 @@ Content-Type: application/json
 
 In the Java runtime, this stage's value will be transparently coerced to the `FunctionInvocationException` type, which wraps the body and headers of the original request.
 
+
+## Graph Completion & Committing the graph 
+A graph is completed  (and can no longer be modified) once all stages in the graph that can be executed are completed (note that  some stages may not be run). 
+
+The completer observes the state of the graph to determine when pending work is complete,  to detect this condition, however as the graph is is created by a process that is outside of the completer's control (e.g. a function not run by the completer itself) that process must  indicate to the completer that it has finished modifying the graph by calling the `commit` API call on a graph. 
+
+e.g.: 
+```
+POST /graph/graph-121/commit HTTP/1.1
+```
 
 
 

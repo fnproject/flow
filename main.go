@@ -3,12 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
-
-func ping(w http.ResponseWriter, r *http.Request) {
-	return
-}
 
 func main() {
 

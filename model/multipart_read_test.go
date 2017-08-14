@@ -7,6 +7,7 @@ import (
 	"net/textproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sort"
 )
 
 func TestRejectsUnrecognisedType(t *testing.T) {
@@ -24,7 +25,7 @@ func TestRejectsDatumWithoutTypeHeader(t *testing.T) {
 	part := createPart("p1", emptyHeaders(), "")
 	_, err := DatumFromPart(part)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "the "+headerDatumType+" is not present")
+	assert.Contains(t, err.Error(), "the "+headerDatumType+" header is not present")
 }
 
 func TestRejectsBlobDatumWithNoContentType(t *testing.T) {
@@ -160,7 +161,7 @@ func TestRejectsStageRefDatumWithInvalidStageRef(t *testing.T) {
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid StageRef Datum in part")
+	assert.Contains(t, err.Error(), "Invalid StageRef Datum :")
 	assert.Contains(t, err.Error(), "parsing \"blaaaaah\": invalid syntax")
 }
 
@@ -171,8 +172,20 @@ func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid StageRef Datum in part")
+	assert.Contains(t, err.Error(), "Invalid StageRef Datum :")
 	assert.Contains(t, err.Error(), "parsing \"\": invalid syntax")
+}
+
+// Just to have sortable http headers
+type SortableHttpHeaders []*HttpHeader
+func (s SortableHttpHeaders) Len() int {
+	return len(s)
+}
+func (s SortableHttpHeaders) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s SortableHttpHeaders) Less(i, j int) bool {
+	return s[i].Key < s[j].Key
 }
 
 func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
@@ -191,9 +204,11 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	assert.Equal(t, HttpMethod_get, d.GetHttpReq().GetMethod())
 	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpReq().GetBody())
 	require.Equal(t, 3, len(d.GetHttpReq().GetHeaders()))
-	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, d.GetHttpReq().GetHeaders()[0])
-	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, d.GetHttpReq().GetHeaders()[1])
-	assert.Equal(t, &HttpHeader{"Single", "FOO"}, d.GetHttpReq().GetHeaders()[2])
+	headersSortedByKey := SortableHttpHeaders(d.GetHttpReq().GetHeaders())
+	sort.Stable(headersSortedByKey)
+	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, headersSortedByKey[0])
+	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, headersSortedByKey[1])
+	assert.Equal(t, &HttpHeader{"Single", "FOO"}, headersSortedByKey[2])
 }
 
 func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
@@ -241,9 +256,11 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	assert.Equal(t, uint32(200), d.GetHttpResp().GetStatusCode())
 	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpResp().GetBody())
 	require.Equal(t, 3, len(d.GetHttpResp().GetHeaders()))
-	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, d.GetHttpResp().GetHeaders()[0])
-	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, d.GetHttpResp().GetHeaders()[1])
-	assert.Equal(t, &HttpHeader{"Single", "FOO"}, d.GetHttpResp().GetHeaders()[2])
+	headersSortedByKey := SortableHttpHeaders(d.GetHttpResp().GetHeaders())
+	sort.Stable(headersSortedByKey)
+	assert.Equal(t, &HttpHeader{"Multi", "BAR"}, headersSortedByKey[0])
+	assert.Equal(t, &HttpHeader{"Multi", "BAZ"}, headersSortedByKey[1])
+	assert.Equal(t, &HttpHeader{"Single", "FOO"}, headersSortedByKey[2])
 }
 
 func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
@@ -272,7 +289,7 @@ func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid HttpResp Datum in part")
+	assert.Contains(t, err.Error(), "Invalid HttpResp Datum :")
 	assert.Contains(t, err.Error(), "parsing \"SOME_INVALID_CODE\": invalid syntax")
 }
 

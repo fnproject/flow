@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"strings"
 	"strconv"
+	"io"
+	"net/textproto"
+	"net/http"
 )
 
 const (
@@ -28,16 +31,30 @@ const (
 
 // DatumFromPart reads a model Datum Object from a multipart part
 func DatumFromPart(part *multipart.Part) (*Datum, error) {
+	return readDatum(part, part.Header)
+}
 
-	datumType := part.Header.Get(headerDatumType)
+// DatumFromHttpRequest reads a model Datum Object from an HTTP request
+func DatumFromHttpRequest(r *http.Request) (*Datum, error) {
+	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
+}
+
+// DatumFromHttpResponse reads a model Datum Object from an HTTP response
+func DatumFromHttpResponse(r *http.Response) (*Datum, error) {
+	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
+}
+
+func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
+
+	datumType := header.Get(headerDatumType)
 	if datumType == "" {
-		return nil, fmt.Errorf("Multipart part " + part.FileName() + " cannot be read as a Datum, the " + headerDatumType + " is not present ")
+		return nil, fmt.Errorf("Datum stream cannot be read as a Datum, the " + headerDatumType + " header is not present ")
 	}
 
 	switch datumType {
 	case datumTypeBlob:
 
-		blob, err := readBlob(part)
+		blob, err := readBlob(part, header)
 		if err != nil {
 			return nil, err
 		}
@@ -48,14 +65,14 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 	case datumTypeEmpty:
 		return &Datum{Val: &Datum_Empty{&EmptyDatum{}}}, nil
 	case datumTypeError:
-		errorContentType := part.Header.Get(headerContentType)
+		errorContentType := header.Get(headerContentType)
 		if errorContentType != "text/plain" {
-			return nil, fmt.Errorf("Invalid error datum content type on part %s, must be text/plain", part.FileName())
+			return nil, fmt.Errorf("Invalid error datum content type, must be text/plain")
 		}
 
-		errorTypeString := part.Header.Get(headerErrorType)
+		errorTypeString := header.Get(headerErrorType)
 		if "" == errorTypeString {
-			return nil, fmt.Errorf("Invalid Error Datum in part %s : no %s header defined", part.FileName(), headerErrorType)
+			return nil, fmt.Errorf("Invalid Error Datum : no %s header defined", headerErrorType)
 		}
 
 		pbErrorTypeString := strings.Replace(errorTypeString, "-", "_", -1)
@@ -71,7 +88,7 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 		buf := new(bytes.Buffer)
 		_, err := buf.ReadFrom(part)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to read multipart body for %s ", part.FileName())
+			return nil, fmt.Errorf("Failed to read body")
 		}
 
 		return &Datum{
@@ -81,52 +98,52 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 		}, nil
 
 	case datumTypeStageRef:
-		stageIdString := part.Header.Get(headerStageRef)
+		stageIdString := header.Get(headerStageRef)
 		stageId, err := strconv.ParseUint(stageIdString, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid StageRef Datum in part %s : %s", part.FileName(), err.Error())
+			return nil, fmt.Errorf("Invalid StageRef Datum : %s", err.Error())
 		}
 		return &Datum{Val: &Datum_StageRef{&StageRefDatum{ StageRef: uint32(stageId) }}}, nil
 	case datumTypeHttpReq:
-		methodString := part.Header.Get(headerMethod)
+		methodString := header.Get(headerMethod)
 		if "" == methodString {
-			return nil, fmt.Errorf("Invalid HttpReq Datum in part %s : no %s header defined", part.FileName(), headerMethod)
+			return nil, fmt.Errorf("Invalid HttpReq Datum : no %s header defined", headerMethod)
 		}
 		method, methodRecognized := HttpMethod_value[strings.ToLower(methodString)]
 		if !methodRecognized {
-			return nil, fmt.Errorf("Invalid HttpReq Datum in part %s : http method %s is invalid", part.FileName(), methodString)
+			return nil, fmt.Errorf("Invalid HttpReq Datum : http method %s is invalid", methodString)
 		}
 		var headers []*HttpHeader
-		for hk,hvs := range part.Header {
+		for hk,hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
 				for _,hv := range hvs {
 					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
 				}
 			}
 		}
-		blob, err := readBlob(part)
+		blob, err := readBlob(part, header)
 		if err != nil {
 			return nil, err
 		}
 		return &Datum{Val: &Datum_HttpReq{ &HttpReqDatum { blob, headers, HttpMethod(method)}}}, nil
 	case datumTypeHttpResp:
-		resultCodeString := part.Header.Get(headerResultCode)
+		resultCodeString := header.Get(headerResultCode)
 		if "" == resultCodeString {
-			return nil, fmt.Errorf("Invalid HttpResp Datum in part %s : no %s header defined", part.FileName(), headerResultCode)
+			return nil, fmt.Errorf("Invalid HttpResp Datum : no %s header defined", headerResultCode)
 		}
 		resultCode, err := strconv.ParseUint(resultCodeString, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid HttpResp Datum in part %s : %s", part.FileName(), err.Error())
+			return nil, fmt.Errorf("Invalid HttpResp Datum : %s", err.Error())
 		}
 		var headers []*HttpHeader
-		for hk,hvs := range part.Header {
+		for hk,hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
 				for _,hv := range hvs {
 					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
 				}
 			}
 		}
-		blob, err := readBlob(part)
+		blob, err := readBlob(part, header)
 		if err != nil {
 			return nil, err
 		}
@@ -137,16 +154,16 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 
-func readBlob(part *multipart.Part) (*BlobDatum, error) {
-	contentType := part.Header.Get(headerContentType)
+func readBlob(part io.Reader, header textproto.MIMEHeader) (*BlobDatum, error) {
+	contentType := header.Get(headerContentType)
 	if "" == contentType {
-		return nil, fmt.Errorf("Mulitpart part %s is missing %s header", part.FileName(), headerContentType)
+		return nil, fmt.Errorf("Blob Datum is missing %s header", headerContentType)
 	}
 	buf := new(bytes.Buffer)
 	buf.Reset()
 	_, err := buf.ReadFrom(part)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read multipart body from part %s", part.FileName())
+		return nil, fmt.Errorf("Failed to read blob datum from body")
 	}
 
 	return &BlobDatum{

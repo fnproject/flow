@@ -222,7 +222,7 @@ func (graph *CompletionGraph) Recover() {
 	graph.checkForCompletion()
 }
 
-var stageRecoveryFailedResult = internalErrorResult(model.ErrorDatumType_stage_lost, "Stage invocation lost - stage may still be executing")
+var stageRecoveryFailedResult = InternalErrorResult(model.ErrorDatumType_stage_lost, "Stage invocation lost - stage may still be executing")
 
 func (graph *CompletionGraph) tryCompleteComposedStage(outer *CompletionStage, inner *CompletionStage) {
 	if inner.IsResolved() && !outer.IsResolved() {

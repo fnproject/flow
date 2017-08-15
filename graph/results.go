@@ -2,7 +2,7 @@ package graph
 
 import "github.com/fnproject/completer/model"
 
-func internalErrorResult(code model.ErrorDatumType, message string) *model.CompletionResult {
+func InternalErrorResult(code model.ErrorDatumType, message string) *model.CompletionResult {
 	return &model.CompletionResult{
 		Successful: false,
 		Datum: &model.Datum{
@@ -35,14 +35,14 @@ func stageRefDatum(stageID uint32) *model.Datum {
 	}
 }
 
-func successfulResult(datum *model.Datum) *model.CompletionResult {
+func SuccessfulResult(datum *model.Datum) *model.CompletionResult {
 	return &model.CompletionResult{
 		Successful: true,
 		Datum:      datum,
 	}
 }
 
-func failedResult(datum *model.Datum) *model.CompletionResult {
+func FailedResult(datum *model.Datum) *model.CompletionResult {
 	return &model.CompletionResult{
 		Successful: false,
 		Datum:      datum,

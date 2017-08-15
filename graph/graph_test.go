@@ -78,7 +78,7 @@ func TestShouldCompleteValue(t *testing.T) {
 	s := withSimpleStage(g, true)
 
 	value := blobDatum(blob("text/plain", []byte("hello")))
-	result := successfulResult(value)
+	result := SuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: uint32(s.ID), Result: result}, true)
 
@@ -98,7 +98,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	m.AssertExpectations(t)
 
 	value := blobDatum(blob("text/plain", []byte("hello")))
-	result := successfulResult(value)
+	result := SuccessfulResult(value)
 
 	m.On("OnExecuteStage", s2, []*model.Datum{value}).Return()
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: uint32(s1.ID), Result: result}, true)
@@ -114,7 +114,7 @@ func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 	s1 := withSimpleStage(g, false)
 	value := blobDatum(blob("text/plain", []byte("hello")))
 
-	result := successfulResult(value)
+	result := SuccessfulResult(value)
 	s1.complete(result)
 
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{value}).Return()
@@ -137,7 +137,7 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	m.AssertExpectations(t)
 
 	value := blobDatum(blob("text/plain", []byte("hello")))
-	result := failedResult(value)
+	result := FailedResult(value)
 
 	m.On("OnCompleteStage", s2, result).Return()
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: uint32(s1.ID), Result: result}, true)
@@ -157,7 +157,7 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	m.AssertExpectations(t)
 
 	value := blobDatum(blob("text/plain", []byte("hello")))
-	result := successfulResult(value)
+	result := SuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: uint32(s1.ID), Result: result}, false)
 	m.AssertExpectations(t)
@@ -171,7 +171,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 
 	g := New(GraphID("graph"), "function", m)
 	initial := blobDatum(blob("text/plain", []byte("hello")))
-	result := successfulResult(initial)
+	result := SuccessfulResult(initial)
 	s1 := withSimpleStage(g, false)
 	s1.complete(result)
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{initial}).Return()
@@ -183,10 +183,10 @@ func TestShouldTriggerCompose(t *testing.T) {
 	// complete S2 with a ref to s3
 	m.On("OnComposeStage", s2, s3).Return()
 	g.HandleStageComposed(&model.StageComposedEvent{StageId: uint32(s2.ID), ComposedStageId: uint32(s3.ID)})
-	g.HandleInvokeComplete(s2.ID, successfulResult(stageRefDatum(uint32(s3.ID))))
+	g.HandleInvokeComplete(s2.ID, SuccessfulResult(stageRefDatum(uint32(s3.ID))))
 	assertStagePending(t, s2)
 
-	result2 := successfulResult(blobDatum(blob("text/plain", []byte("hello again"))))
+	result2 := SuccessfulResult(blobDatum(blob("text/plain", []byte("hello again"))))
 	// s2 should now  be completed with s2's result
 	m.On("OnCompleteStage", s2, result2).Return()
 

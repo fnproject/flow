@@ -28,20 +28,18 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 		}
 		child.Request(msg, context.Sender())
 
-	 default:
-		if isGraphMsg(msg) {
+	default:
+		if isGraphMessage(msg) {
 			graphId := getGraphId(msg)
 			found, child := findChild(context, graphId)
 			if !found {
 				log.WithFields(logrus.Fields{"graph_id": graphId}).Warn("No child actor found")
-				context.Respond(NewInvalidGraphOperation(graphId))			
+				context.Respond(NewInvalidGraphOperation(graphId))
 				return
 			}
 			child.Request(msg, context.Sender())
-		}	
+		}
 	}
-
-	case default:
 }
 
 func isGraphMessage(msg interface{}) bool {
@@ -90,6 +88,7 @@ type graphActor struct {
 
 func (g *graphActor) persist(event proto.Message, callback func(*graphActor, proto.Message)) error {
 	g.PersistReceive(event)
+	callback(g, event)
 	return nil
 }
 
@@ -97,7 +96,12 @@ func applyGraphCreatedEvent(g *graphActor, event proto.Message) {
 
 }
 
-func (g *graphActor) Receive(context actor.Context) {
+// process events
+func (g *graphActor) receiveRecover(context actor.Context) {
+}
+
+// process commands
+func (g *graphActor) receiveStandard(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
@@ -152,5 +156,12 @@ func (g *graphActor) Receive(context actor.Context) {
 	default:
 		log.Infof("snapshot internal state %v", reflect.TypeOf(msg))
 	}
+}
 
+func (g *graphActor) Receive(context actor.Context) {
+	if g.Recovering() {
+		g.receiveRecover(context)
+	} else {
+		g.receiveStandard(context)
+	}
 }

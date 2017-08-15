@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -115,14 +116,19 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		return
 	}
 
-	cids := strings.Split(cidList, ",")
-	log.Info(cids)
+	var cids []uint32
+	for _, c := range strings.Split(cidList, ",") {
+		cid, _ := strconv.Atoi(c) // TODO: no error handling
+		cids = append(cids, uint32(cid))
+	}
+
+	log.Infof("Adding chained stage type %s, cids %s", op, cids)
 
 	_ = model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: op,
 		Closure:   nil,
-		Deps:      []uint32{1, 2, 3}, // TODO: This should be `cids` when Deps accepts []string
+		Deps:      cids,
 	}
 
 	// TODO: send to the GraphManager

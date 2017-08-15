@@ -94,6 +94,17 @@ func getGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
+func acceptExternalCompletion(c *gin.Context) {
+
+	graphID := c.Param("graphId")
+
+	_ = model.AddExternalCompletionStageRequest{GraphId: graphID}
+	// TODO: send to the GraphManager
+	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+
+	c.JSON(http.StatusCreated, response)
+}
+
 func main() {
 
 	engine := gin.Default()
@@ -113,7 +124,7 @@ func main() {
 		graph.POST("/:graphId/delay", noOpHandler)
 		graph.POST("/:graphId/allOf", noOpHandler)
 		graph.POST("/:graphId/anyOf", noOpHandler)
-		graph.POST("/:graphId/externalCompletion", noOpHandler)
+		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
 		graph.POST("/:graphId/commit", noOpHandler)
 
 		stage := graph.Group("/:graphId/stage")

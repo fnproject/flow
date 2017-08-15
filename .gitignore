@@ -4,7 +4,7 @@
 *.so
 *.dylib
 completer
-
+data
 # Test binary, build with `go test -c`
 *.test
 
@@ -22,3 +22,5 @@ glide.lock
 
 # IDE stuff
 .idea/
+.wercker
+

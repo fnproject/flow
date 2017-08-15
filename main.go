@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
 )
 
 var log = logrus.WithField("logger", "api")
@@ -105,6 +106,31 @@ func acceptExternalCompletion(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
+func acceptAllOf(c *gin.Context) {
+	cidList := c.Query("cids")
+	graphID := c.Param("graphId")
+
+	if cidList == "" {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	cids := strings.Split(cidList, ",")
+	log.Info(cids)
+
+	_ = model.AddChainedStageRequest{
+		GraphId:   graphID,
+		Operation: model.CompletionOperation_allOf,
+		Closure:   nil,
+		Deps:      []uint32{1, 2, 3}, // TODO: This should be `cids` when Deps accepts []string
+	}
+
+	// TODO: send to the GraphManager
+	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+
+	c.JSON(http.StatusCreated, response)
+}
+
 func main() {
 
 	engine := gin.Default()
@@ -122,7 +148,7 @@ func main() {
 		graph.POST("/:graphId/invokeFunction", noOpHandler)
 		graph.POST("/:graphId/completedValue", noOpHandler)
 		graph.POST("/:graphId/delay", noOpHandler)
-		graph.POST("/:graphId/allOf", noOpHandler)
+		graph.POST("/:graphId/allOf", acceptAllOf)
 		graph.POST("/:graphId/anyOf", noOpHandler)
 		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
 		graph.POST("/:graphId/commit", noOpHandler)

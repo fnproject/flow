@@ -9,6 +9,8 @@ import (
 	"github.com/fnproject/completer/model"
 	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/graph"
+	"time"
 )
 
 var (
@@ -76,13 +78,28 @@ func newInMemoryProvider(snapshotInterval int) persistence.Provider {
 	}
 }
 
+// TODO: Reified completion event listener
+type completionEventListenerImpl struct {
+	actor *graphActor
+}
+func (listener *completionEventListenerImpl) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {}
+func (listener *completionEventListenerImpl) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {}
+func (listener *completionEventListenerImpl) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {}
+func (listener *completionEventListenerImpl) OnCompleteGraph() {}
+
+
+// Graph actor
+
 func spawnGraphActor(graphId string, context actor.Context) (*actor.PID, error) {
+
 	provider := newInMemoryProvider(1)
-	props := actor.FromInstance(&graphActor{}).WithMiddleware(persistence.Using(provider))
-	return context.SpawnNamed(props, graphId)
+	props := actor.FromInstance(&graphActor{graph: nil}).WithMiddleware(persistence.Using(provider))
+	pid, err := context.SpawnNamed(props, graphId)
+	return pid, err
 }
 
 type graphActor struct {
+	graph *graph.CompletionGraph
 	persistence.Mixin
 	graph *graph.CompletionGraph
 }
@@ -93,7 +110,53 @@ func (g *graphActor) persist(event proto.Message) error {
 }
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
+	log.WithFields(logrus.Fields{"graph_id": event.GraphId, "function_id": event.FunctionId}).Debug("Creating completion graph")
+	listener := &completionEventListenerImpl{actor: g}
+	g.graph = graph.New(graph.GraphID(event.GraphId), event.FunctionId, listener)
+}
 
+func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) {
+	log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID}).Debug("Committing graph")
+	g.graph.HandleCommitted()
+}
+
+func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent, context actor.Context) {
+	log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID}).Debug("Completing graph")
+	g.graph.HandleCompleted()
+	// "poison pill"
+	context.Self().Stop()
+}
+
+func (g *graphActor) applyStageAddedEvent(event *model.StageAddedEvent) {
+	log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Adding stage")
+	g.graph.HandleStageAdded(event, !g.Recovering())
+}
+
+func (g *graphActor) applyStageCompletedEvent(event *model.StageCompletedEvent) {
+	log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Completing stage")
+	g.graph.HandleStageCompleted(event, !g.Recovering())
+}
+
+func (g *graphActor) applyStageComposedEvent(event *model.StageComposedEvent) {
+	log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Composing stage")
+	g.graph.HandleStageComposed(event)
+}
+
+func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent, context actor.Context) {
+	// we always need to complete delay nodes from scratch to avoid completing twice
+	delayMs := int64(event.DelayedTs) - time.Now().Unix() // TODO: is this right?
+	if delayMs > 0 {
+		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduled delayed completion of stage")
+		// TODO: How do we actually delay this??
+		context.Self().Tell(model.StageCompletedEvent{
+			event.StageId,
+			graph.SuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+	} else {
+		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
+		context.Self().Tell(model.StageCompletedEvent{
+			event.StageId,
+			graph.SuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+	}
 }
 
 func (g *graphActor) applyNoop(event interface{}) {

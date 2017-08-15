@@ -4,7 +4,9 @@ import (
 	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/completer/model"
+	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,34 +21,36 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		props := actor.FromInstance(&graphActor{})
-		child, err := context.SpawnNamed(props, msg.GraphId)
+		child, err := spawnGraphActor(msg.GraphId, context)
 		if err != nil {
 			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
 			return
 		}
 		child.Request(msg, context.Sender())
 
-	default:
-		isGraphMsg, graphId := getGraphId(msg)
-		if !isGraphMsg {
-			return
-		}
-		found, child := findChild(context, graphId)
-		if !found {
-			log.WithFields(logrus.Fields{"graph_id": graphId}).Warn("No child actor found")
-			return
-		}
-		child.Request(msg, context.Sender())
+	 default:
+		if isGraphMsg(msg) {
+			graphId := getGraphId(msg)
+			found, child := findChild(context, graphId)
+			if !found {
+				log.WithFields(logrus.Fields{"graph_id": graphId}).Warn("No child actor found")
+				context.Respond(NewInvalidGraphOperation(graphId))			
+				return
+			}
+			child.Request(msg, context.Sender())
+		}	
 	}
+
+	case default:
 }
 
-func getGraphId(msg interface{}) (bool, string) {
+func isGraphMessage(msg interface{}) bool {
 	graphId := reflect.ValueOf(msg).Elem().FieldByName("GraphId")
-	if graphId.IsValid() {
-		return true, graphId.String()
-	}
-	return false, ""
+	return graphId.IsValid()
+}
+
+func getGraphId(msg interface{}) string {
+	return reflect.ValueOf(msg).Elem().FieldByName("GraphId").String()
 }
 
 func findChild(context actor.Context, graphId string) (bool, *actor.PID) {
@@ -59,7 +63,38 @@ func findChild(context actor.Context, graphId string) (bool, *actor.PID) {
 	return false, nil
 }
 
+// implements persistence.Provider
+type Provider struct {
+	providerState persistence.ProviderState
+}
+
+func (p *Provider) GetState() persistence.ProviderState {
+	return p.providerState
+}
+
+func newInMemoryProvider(snapshotInterval int) persistence.Provider {
+	return &Provider{
+		providerState: persistence.NewInMemoryProvider(snapshotInterval),
+	}
+}
+
+func spawnGraphActor(graphId string, context actor.Context) (*actor.PID, error) {
+	provider := newInMemoryProvider(1)
+	props := actor.FromInstance(&graphActor{}).WithMiddleware(persistence.Using(provider))
+	return context.SpawnNamed(props, graphId)
+}
+
 type graphActor struct {
+	persistence.Mixin
+}
+
+func (g *graphActor) persist(event proto.Message, callback func(*graphActor, proto.Message)) error {
+	g.PersistReceive(event)
+	return nil
+}
+
+func applyGraphCreatedEvent(g *graphActor, event proto.Message) {
+
 }
 
 func (g *graphActor) Receive(context actor.Context) {
@@ -67,6 +102,7 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Creating graph")
+		g.persist(&model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}, applyGraphCreatedEvent)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.AddChainedStageRequest:
@@ -94,7 +130,7 @@ func (g *graphActor) Receive(context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
 
 	case *model.CommitGraphRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Committing graph")
+		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Committing graph")
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
@@ -112,6 +148,9 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.FaasInvocationResponse:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Received fn invocation response")
+
+	default:
+		log.Infof("snapshot internal state %v", reflect.TypeOf(msg))
 	}
 
 }

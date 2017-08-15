@@ -130,7 +130,7 @@ func (g *graphActor) Receive(context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
 
 	case *model.CommitGraphRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Committing graph")
+		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Committing graph")
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:

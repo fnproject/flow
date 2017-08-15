@@ -10,11 +10,6 @@ import (
 
 var log = logrus.WithField("logger", "graph")
 
-// GraphID identifies a graph
-type GraphID string
-
-// StageID identifies a stage
-type StageID string
 
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
@@ -30,9 +25,9 @@ type CompletionEventListener interface {
 
 // CompletionGraph describes the graph itself
 type CompletionGraph struct {
-	ID            GraphID
+	ID            string
 	FunctionID    string
-	stages        map[StageID]*CompletionStage
+	stages        map[string]*CompletionStage
 	eventListener CompletionEventListener
 	log           *logrus.Entry
 	committed     bool
@@ -40,11 +35,11 @@ type CompletionGraph struct {
 }
 
 // New Creates a new graph
-func New(id GraphID, functionID string, listener CompletionEventListener) *CompletionGraph {
+func New(id string, functionID string, listener CompletionEventListener) *CompletionGraph {
 	return &CompletionGraph{
 		ID:            id,
 		FunctionID:    functionID,
-		stages:        make(map[StageID]*CompletionStage),
+		stages:        make(map[string]*CompletionStage),
 		eventListener: listener,
 		log:           log.WithFields(logrus.Fields{"graph_id": id, "function_id": functionID}),
 		committed:     false,
@@ -78,12 +73,12 @@ func (graph *CompletionGraph) HandleCompleted() {
 }
 
 // GetStage gets a stage from the graph  returns nil if the stage isn't found
-func (graph *CompletionGraph) GetStage(stageID StageID) *CompletionStage {
+func (graph *CompletionGraph) GetStage(stageID string) *CompletionStage {
 	return graph.stages[stageID]
 }
 
 // GetStages Get a list of stages by id, returns nil if any of the stages are not found
-func (graph *CompletionGraph) GetStages(stageIDs []StageID) []*CompletionStage {
+func (graph *CompletionGraph) GetStages(stageIDs []string) []*CompletionStage {
 	res := make([]*CompletionStage, len(stageIDs))
 	for i, id := range stageIDs {
 
@@ -101,13 +96,7 @@ func (graph *CompletionGraph) NextStageID() string {
 	return strconv.Itoa(len(graph.stages))
 }
 
-func toStageIDArray(in []string) []StageID {
-	res := make([]StageID, len(in))
-	for i, s := range in {
-		res[i] = StageID(s)
-	}
-	return res
-}
+
 
 // HandleStageAdded appends a stage into the graph updating the dpendencies of that stage
 // It returns an error if the stage event is invalid, or if another stage exists with the same ID
@@ -125,7 +114,7 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 		log.Errorf("Graph already completed")
 		return fmt.Errorf("Graph already completed")
 	}
-	_, hasStage := graph.stages[StageID(event.StageId)]
+	_, hasStage := graph.stages[event.StageId]
 
 	if hasStage {
 		log.Error("Duplicate stage")
@@ -133,13 +122,13 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 	}
 	log.Info("Adding stage to graph")
 	node := &CompletionStage{
-		ID:           StageID(event.StageId),
+		ID:           event.StageId,
 		operation:    event.Op,
 		strategy:     strategy,
 		closure:      event.Closure,
 		whenComplete: make(chan bool),
 		result:       nil,
-		dependencies: graph.GetStages(toStageIDArray(event.Dependencies)),
+		dependencies: graph.GetStages(event.Dependencies),
 	}
 	for _, dep := range node.dependencies {
 		dep.children = append(dep.children, node)
@@ -157,7 +146,7 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEvent, shouldTrigger bool) bool {
 	log := graph.log.WithFields(logrus.Fields{"success": event.Result.Successful, "stage_id": event.StageId})
 	log.Info("Completing node")
-	node := graph.stages[StageID(event.StageId)]
+	node := graph.stages[event.StageId]
 	success := node.complete(event.Result)
 
 	if node.composeReference != nil {
@@ -175,7 +164,7 @@ func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEv
 
 // HandleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
 // This may signal completion of the stage (in which case a Complete Event is raised)
-func (graph *CompletionGraph) HandleInvokeComplete(stageID StageID, result *model.CompletionResult) {
+func (graph *CompletionGraph) HandleInvokeComplete(stageID string, result *model.CompletionResult) {
 	log.WithField("stage_id", stageID).Info("Completing stage with faas response")
 	stage := graph.stages[stageID]
 	stage.handleResult(graph, result)
@@ -186,8 +175,8 @@ func (graph *CompletionGraph) HandleInvokeComplete(stageID StageID, result *mode
 func (graph *CompletionGraph) HandleStageComposed(event *model.StageComposedEvent) {
 	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "composed_stage": event.ComposedStageId})
 	log.Info("Setting composed reference")
-	outer := graph.stages[StageID(event.StageId)]
-	inner := graph.stages[StageID(event.ComposedStageId)]
+	outer := graph.stages[event.StageId]
+	inner := graph.stages[event.ComposedStageId]
 	inner.composeReference = outer
 
 	// If inner stage is complete, complete outer stage too

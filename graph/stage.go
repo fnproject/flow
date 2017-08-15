@@ -6,7 +6,7 @@ import (
 
 // CompletionStage is a node in  Graph
 type CompletionStage struct {
-	ID        StageID
+	ID        string
 	operation model.CompletionOperation
 	strategy  strategy
 	// optional closure

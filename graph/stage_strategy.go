@@ -180,7 +180,7 @@ func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, resul
 		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
 		return
 	}
-	refStage := graph.GetStage(StageID(result.Datum.GetStageRef().StageRef))
+	refStage := graph.GetStage(result.Datum.GetStageRef().StageRef)
 	if nil == refStage {
 		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
 	}

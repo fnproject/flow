@@ -29,15 +29,15 @@ func (mock *MockedListener) OnComposeStage(stage *CompletionStage, composedStage
 
 func TestShouldCreateGraph(t *testing.T) {
 
-	graph := New(GraphID("graph"), "function", nil)
-	assert.Equal(t, GraphID("graph"), graph.ID)
+	graph := New("graph", "function", nil)
+	assert.Equal(t, "graph", graph.ID)
 	assert.Equal(t, "function", graph.FunctionID)
 
 }
 
 func TestShouldCreateStageIds(t *testing.T) {
 
-	graph := New(GraphID("graph"), "function", nil)
+	graph := New("graph", "function", nil)
 	assert.Equal(t, "0", graph.NextStageID())
 	withSimpleStage(graph, false)
 	assert.Equal(t, "1", graph.NextStageID())
@@ -49,7 +49,7 @@ func TestShouldTriggerNewValueOnAdd(t *testing.T) {
 
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s := withSimpleStage(g, true)
 
@@ -60,7 +60,7 @@ func TestShouldTriggerNewValueOnAdd(t *testing.T) {
 func TestShouldNotTriggerNewValueOnNonTrigger(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s := withSimpleStage(g, false)
 
@@ -72,7 +72,7 @@ func TestShouldNotTriggerNewValueOnNonTrigger(t *testing.T) {
 func TestShouldCompleteValue(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
 	s := withSimpleStage(g, true)
@@ -89,7 +89,7 @@ func TestShouldCompleteValue(t *testing.T) {
 func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
 	s2 := withAppendedStage(g, s1, false)
@@ -109,7 +109,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
 	value := blobDatum(blob("text/plain", []byte("hello")))
@@ -128,7 +128,7 @@ func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
 	s2 := withAppendedStage(g, s1, false)
@@ -148,7 +148,7 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
 	withAppendedStage(g, s1, false)
@@ -169,7 +169,7 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 func TestShouldTriggerCompose(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	initial := blobDatum(blob("text/plain", []byte("hello")))
 	result := successfulResult(initial)
 	s1 := withSimpleStage(g, false)
@@ -200,7 +200,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 func TestShouldFailNodeWhenPartiallyRecovered(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	s := withSimpleStage(g, false)
 	m.On("OnCompleteStage", s, stageRecoveryFailedResult).Return()
 
@@ -212,17 +212,17 @@ func TestShouldFailNodeWhenPartiallyRecovered(t *testing.T) {
 func TestShouldGetAllStages(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 
 	assert.Empty(t, g.stages)
 	s := withSimpleStage(g, false)
-	assert.Equal(t, map[StageID]*CompletionStage{StageID("0"): s}, g.stages)
+	assert.Equal(t, map[string]*CompletionStage{"0": s}, g.stages)
 }
 
 func TestShouldRejectUnknownStage(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_unknown_operation,
@@ -237,7 +237,7 @@ func TestShouldRejectUnknownStage(t *testing.T) {
 func TestShouldRejectDuplicateStage(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	s := withSimpleStage(g, false)
 	event := &model.StageAddedEvent{
 		StageId:      string(s.ID),
@@ -252,7 +252,7 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 func TestShouldCompleteEmptyGraph(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	m.On("OnCompleteGraph").Return()
 	g.HandleCommitted()
 	m.AssertExpectations(t)
@@ -261,7 +261,7 @@ func TestShouldCompleteEmptyGraph(t *testing.T) {
 func TestShouldNotCompletePendingGraph(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	withSimpleStage(g, false)
 	assert.False(t, g.IsCompleted())
 	g.HandleCommitted()
@@ -271,7 +271,7 @@ func TestShouldNotCompletePendingGraph(t *testing.T) {
 func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	m := &MockedListener{}
 
-	g := New(GraphID("graph"), "function", m)
+	g := New("graph", "function", m)
 	m.On("OnCompleteGraph").Return()
 	g.HandleCommitted()
 	g.HandleCompleted()
@@ -297,7 +297,7 @@ func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 	}
 
 	g.HandleStageAdded(event, trigger)
-	return g.GetStage(StageID(event.StageId))
+	return g.GetStage(event.StageId)
 }
 
 func withAppendedStage(g *CompletionGraph, s *CompletionStage, trigger bool) *CompletionStage {
@@ -309,7 +309,7 @@ func withAppendedStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Co
 	}
 
 	g.HandleStageAdded(event, trigger)
-	return g.GetStage(StageID(event.StageId))
+	return g.GetStage(event.StageId)
 }
 
 func withComposeStage(g *CompletionGraph, s *CompletionStage, trigger bool) *CompletionStage {
@@ -321,7 +321,7 @@ func withComposeStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Com
 	}
 
 	g.HandleStageAdded(event, trigger)
-	return g.GetStage(StageID(event.StageId))
+	return g.GetStage(event.StageId)
 }
 
 func assertStagePending(t *testing.T, s *CompletionStage) {

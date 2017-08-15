@@ -19,7 +19,6 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Creating graph")
 		props := actor.FromInstance(&graphActor{})
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {

@@ -40,11 +40,58 @@ func createGraphHandler(c *gin.Context) {
 	graphID, err := uuid.NewRandom()
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
-	} else {
-		_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
-		c.Status(http.StatusCreated)
+		return
 	}
 
+	_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
+	// TODO: pass this request to the GraphManager
+	c.Status(http.StatusCreated)
+
+}
+
+func getFakeGraphStateResponse(req model.GetGraphStateRequest) model.GetGraphStateResponse {
+	// TODO: delete this, obviously
+
+	stage0 := model.GetGraphStateResponse_StageRepresentation{
+		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
+		Status:       "success",
+		Dependencies: []uint32{},
+	}
+
+	stage1 := model.GetGraphStateResponse_StageRepresentation{
+		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
+		Status:       "failure",
+		Dependencies: []uint32{0},
+	}
+
+	stage2 := model.GetGraphStateResponse_StageRepresentation{
+		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_allOf)],
+		Status:       "pending",
+		Dependencies: []uint32{0, 1},
+	}
+
+	response := model.GetGraphStateResponse{
+		FunctionId: "theFunctionId",
+		GraphId:    req.GraphId,
+		Stages: map[uint32]*model.GetGraphStateResponse_StageRepresentation{
+			0: &stage0,
+			1: &stage1,
+			2: &stage2,
+		},
+	}
+
+	return response
+}
+
+func getGraphState(c *gin.Context) {
+
+	graphID := c.Param("graphId")
+	log.Info("Requested graph with Id " + graphID)
+
+	request := model.GetGraphStateRequest{GraphId: graphID}
+
+	// TODO: send to the GraphManager
+	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
 func main() {
@@ -58,10 +105,8 @@ func main() {
 	graph := engine.Group("/graph")
 	{
 		graph.POST("", createGraphHandler)
-		graph.GET("/:graphId", func(c *gin.Context) {
-			log.Info("Requested graph with Id " + c.Param("graphId"))
-			c.Status(http.StatusNotFound)
-		})
+		graph.GET("/:graphId", getGraphState)
+
 		graph.POST("/:graphId/supply", noOpHandler)
 		graph.POST("/:graphId/invokeFunction", noOpHandler)
 		graph.POST("/:graphId/completedValue", noOpHandler)

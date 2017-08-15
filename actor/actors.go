@@ -10,8 +10,6 @@ import (
 	"github.com/fnproject/completer/model"
 	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
-	"github.com/fnproject/completer/graph"
-	"time"
 )
 
 var (
@@ -83,11 +81,14 @@ func newInMemoryProvider(snapshotInterval int) persistence.Provider {
 type completionEventListenerImpl struct {
 	actor *graphActor
 }
-func (listener *completionEventListenerImpl) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {}
-func (listener *completionEventListenerImpl) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {}
-func (listener *completionEventListenerImpl) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {}
-func (listener *completionEventListenerImpl) OnCompleteGraph() {}
 
+func (listener *completionEventListenerImpl) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
+}
+func (listener *completionEventListenerImpl) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
+}
+func (listener *completionEventListenerImpl) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
+}
+func (listener *completionEventListenerImpl) OnCompleteGraph() {}
 
 // Graph actor
 
@@ -102,7 +103,6 @@ func spawnGraphActor(graphId string, context actor.Context) (*actor.PID, error) 
 type graphActor struct {
 	graph *graph.CompletionGraph
 	persistence.Mixin
-	graph *graph.CompletionGraph
 }
 
 func (g *graphActor) persist(event proto.Message) error {

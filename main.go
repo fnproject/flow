@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
+	"os"
 )
 
 var log = logrus.WithField("logger", "api")
@@ -171,5 +172,10 @@ func main() {
 
 	log.Info("Starting")
 
-	engine.Run()
+	listenHost:= os.Getenv("COMPLETER_HOST")
+	var listenPort = os.Getenv("COMPLETER_PORT")
+	if listenPort == "" {
+		listenPort = "8081"
+	}
+	engine.Run(listenHost +":" + listenPort)
 }

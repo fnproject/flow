@@ -34,7 +34,7 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 			found, child := findChild(context, graphId)
 			if !found {
 				log.WithFields(logrus.Fields{"graph_id": graphId}).Warn("No child actor found")
-				context.Respond(NewInvalidGraphOperation(graphId))
+				context.Respond(NewGraphNotFoundError(graphId))
 				return
 			}
 			child.Request(msg, context.Sender())
@@ -86,13 +86,12 @@ type graphActor struct {
 	persistence.Mixin
 }
 
-func (g *graphActor) persist(event proto.Message, callback func(*graphActor, proto.Message)) error {
+func (g *graphActor) persist(event proto.Message) error {
 	g.PersistReceive(event)
-	callback(g, event)
 	return nil
 }
 
-func applyGraphCreatedEvent(g *graphActor, event proto.Message) {
+func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
 
 }
 
@@ -106,7 +105,14 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Creating graph")
-		g.persist(&model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}, applyGraphCreatedEvent)
+		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
+		err := g.persist(event)
+		if err != nil {
+			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Error persisting GraphCreatedEvent")
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyGraphCreatedEvent(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.AddChainedStageRequest:

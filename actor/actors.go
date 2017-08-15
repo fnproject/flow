@@ -66,24 +66,31 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Creating graph")
+		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.AddChainedStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Adding chained stage")
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
 
 	case *model.AddCompletedValueStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Adding completed value stage")
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
 
 	case *model.AddDelayStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Adding delay stage")
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
 
 	case *model.AddExternalCompletionStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Adding external completion stage")
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
 
 	case *model.AddInvokeFunctionStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Adding invoke stage")
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
 
 	case *model.CompleteStageExternallyRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Completing stage externally")
+		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
 
 	case *model.CommitGraphRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Committing graph")
@@ -91,6 +98,13 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.GetStageResultRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Retrieving stage result")
+		datum := &model.Datum{
+			Val: &model.Datum_Blob{
+				Blob: &model.BlobDatum{ContentType: "text", DataString: []byte("foo")},
+			},
+		}
+		result := &model.CompletionResult{Successful: true, Datum: datum}
+		context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
 
 	case *model.CompleteDelayStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Completing delayed stage")

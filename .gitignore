@@ -24,3 +24,6 @@ glide.lock
 .idea/
 .wercker
 
+# MacOSX files
+**/.DS_Store
+

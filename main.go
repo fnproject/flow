@@ -184,6 +184,7 @@ func getGraphStage(c *gin.Context) {
 		}
 		c.Header("FnProject-ResultStatus", resultStatus)
 		c.Header("FnProject-StageID", strconv.FormatUint(uint64(v.StageRef.StageRef), 32))
+		c.Status(http.StatusOK)
 		return
 	case *model.Datum_HttpReq:
 		c.Header("FnProject-DatumType", "httpreq")
@@ -206,7 +207,6 @@ func getGraphStage(c *gin.Context) {
 			resultStatus = "true"
 		}
 		c.Header("FnProject-ResultStatus", resultStatus)
-
 		for _, header := range v.HttpResp.Headers {
 			c.Header("FnProject-Header-"+header.GetKey(), header.GetValue())
 		}

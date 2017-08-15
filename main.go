@@ -31,17 +31,20 @@ func stageHandler(c *gin.Context) {
 
 func createGraphHandler(c *gin.Context) {
 	functionID := c.Query("functionId")
-	if functionID != "" {
-		graphID, err := uuid.NewRandom()
-		if err != nil {
-			c.Status(http.StatusInternalServerError)
-		} else {
-			_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
-			c.Status(http.StatusCreated)
-		}
-	} else {
+
+	if functionID == "" {
 		c.Status(http.StatusBadRequest)
+		return
 	}
+
+	graphID, err := uuid.NewRandom()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+	} else {
+		_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
+		c.Status(http.StatusCreated)
+	}
+
 }
 
 func main() {

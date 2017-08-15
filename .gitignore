@@ -24,6 +24,6 @@ glide.lock
 .idea/
 .wercker
 
-# Silly Mac files
+# MacOSX files
 **/.DS_Store
 

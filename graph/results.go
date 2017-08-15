@@ -27,7 +27,7 @@ func blobDatum(blob *model.BlobDatum) *model.Datum {
 	}
 }
 
-func stageRefDatum(stageID uint32) *model.Datum {
+func stageRefDatum(stageID string) *model.Datum {
 	return &model.Datum{
 		Val: &model.Datum_StageRef{
 			StageRef: &model.StageRefDatum{StageRef: stageID},

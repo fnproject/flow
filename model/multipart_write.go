@@ -1,12 +1,11 @@
 package model
 
 import (
+	"fmt"
 	"mime/multipart"
 	"net/textproto"
-	"fmt"
 	"strings"
 )
-
 
 // WritePartFromDatum emits a datum to an HTTP part
 func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
@@ -49,7 +48,7 @@ func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
 	case *Datum_StageRef:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeStageRef)
-		h.Add(headerStageRef, fmt.Sprintf("%d", datum.GetStageRef().StageRef))
+		h.Add(headerStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
 		_, err := writer.CreatePart(h)
 		if err != nil {
 			return err
@@ -89,7 +88,7 @@ func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
 			h.Add(fmt.Sprintf("%s%s", headerHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
 
-		h.Add(headerResultCode, fmt.Sprintf("%d",httpresp.StatusCode))
+		h.Add(headerResultCode, fmt.Sprintf("%d", httpresp.StatusCode))
 
 		blob := httpresp.Body
 		if blob != nil {

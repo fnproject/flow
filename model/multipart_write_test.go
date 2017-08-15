@@ -1,11 +1,11 @@
 package model
 
 import (
-	"mime/multipart"
-	"testing"
 	"bytes"
 	"github.com/stretchr/testify/assert"
+	"mime/multipart"
 	"net/textproto"
+	"testing"
 )
 
 func TestShouldWriteSimpleBlob(t *testing.T) {
@@ -47,7 +47,7 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 }
 
 func TestShouldWriteStageRefDatum(t *testing.T) {
-	datum := &Datum{Val: &Datum_StageRef{&StageRefDatum{StageRef: 3141}}}
+	datum := &Datum{Val: &Datum_StageRef{&StageRefDatum{StageRef: "3141"}}}
 
 	headers, body := writeDatum(datum)
 	assert.Equal(t, datumTypeStageRef, headers.Get(headerDatumType))
@@ -68,7 +68,7 @@ func TestShouldWriteHttpReqDatum(t *testing.T) {
 			},
 			Body: &BlobDatum{
 				ContentType: "text/plain",
-				DataString:  []byte("test"),},
+				DataString:  []byte("test")},
 		}},
 	}
 
@@ -96,15 +96,14 @@ func TestShouldWriteHttpReqDatumWithNoBody(t *testing.T) {
 
 	headers, body := writeDatum(datum)
 	assert.Equal(t, datumTypeHttpReq, headers.Get(headerDatumType))
-	assert.Empty(t,headers.Get(headerContentType))
-	assert.Empty(t,body)
+	assert.Empty(t, headers.Get(headerContentType))
+	assert.Empty(t, body)
 }
-
 
 func TestShouldWriteHttpRespDatum(t *testing.T) {
 	datum := &Datum{Val: &Datum_HttpResp{
 		HttpResp: &HttpRespDatum{
-			StatusCode:401,
+			StatusCode: 401,
 			Headers: []*HttpHeader{
 				{"h1", "h1val1"},
 				{"h1", "h1val2"},
@@ -114,7 +113,7 @@ func TestShouldWriteHttpRespDatum(t *testing.T) {
 			},
 			Body: &BlobDatum{
 				ContentType: "text/plain",
-				DataString:  []byte("test"),},
+				DataString:  []byte("test")},
 		}},
 	}
 
@@ -135,15 +134,15 @@ func TestShouldWriteHttpRespDatum(t *testing.T) {
 func TestShouldWriteHttpRespDatumWithNoBody(t *testing.T) {
 	datum := &Datum{Val: &Datum_HttpResp{
 		HttpResp: &HttpRespDatum{
-			StatusCode:  401,
-			Headers: []*HttpHeader{},
+			StatusCode: 401,
+			Headers:    []*HttpHeader{},
 		}},
 	}
 
 	headers, body := writeDatum(datum)
 	assert.Equal(t, datumTypeHttpResp, headers.Get(headerDatumType))
-	assert.Empty(t,headers.Get(headerContentType))
-	assert.Empty(t,body)
+	assert.Empty(t, headers.Get(headerContentType))
+	assert.Empty(t, body)
 }
 func writeDatum(datum *Datum) (textproto.MIMEHeader, string) {
 	buf := new(bytes.Buffer)

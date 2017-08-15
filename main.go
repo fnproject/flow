@@ -110,6 +110,13 @@ func getFakeStageResultResponse(request model.GetStageResultRequest) model.GetSt
 	}
 }
 
+func resultStatus(result *model.CompletionResult) string {
+	if result.GetSuccessful() {
+		return "success"
+	}
+	return "failure"
+}
+
 func getGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
@@ -141,77 +148,59 @@ func getGraphStage(c *gin.Context) {
 		return
 	}
 
-	myval := datum.GetVal()
-	if myval == nil {
+	val := datum.GetVal()
+	if val == nil {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
-	switch v := myval.(type) {
+	switch v := val.(type) {
 	case *model.Datum_Error:
 		c.Header("FnProject-DatumType", "error")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
-		c.Header("FnProject-ErrorType", model.ErrorDatumType_name[int32(v.Error.GetType())])
-		c.String(http.StatusOK, v.Error.GetMessage())
+		c.Header("FnProject-ResultStatus", resultStatus(result))
+		error := v.Error
+		c.Header("FnProject-ErrorType", model.ErrorDatumType_name[int32(error.GetType())])
+		c.String(http.StatusOK, error.GetMessage())
 		return
 	case *model.Datum_Empty:
 		c.Header("FnProject-DatumType", "empty")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
+		c.Header("FnProject-ResultStatus", resultStatus(result))
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_Blob:
 		c.Header("FnProject-DatumType", "blob")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
-		c.Data(http.StatusOK, v.Blob.GetContentType(), v.Blob.GetDataString())
+		c.Header("FnProject-ResultStatus", resultStatus(result))
+		blob := v.Blob
+		c.Data(http.StatusOK, blob.GetContentType(), blob.GetDataString())
 		return
 	case *model.Datum_StageRef:
 		c.Header("FnProject-DatumType", "stageref")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
-		c.Header("FnProject-StageID", strconv.FormatUint(uint64(v.StageRef.StageRef), 32))
+		c.Header("FnProject-ResultStatus", resultStatus(result))
+		stageRef := v.StageRef
+		c.Header("FnProject-StageID", strconv.FormatUint(uint64(stageRef.StageRef), 32))
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_HttpReq:
 		c.Header("FnProject-DatumType", "httpreq")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
-
-		for _, header := range v.HttpReq.Headers {
+		c.Header("FnProject-ResultStatus", resultStatus(result))
+		httpReq := v.HttpReq
+		for _, header := range httpReq.Headers {
 			c.Header("FnProject-Header-"+header.GetKey(), header.GetValue())
 		}
-		c.Header("FnProject-Method", model.HttpMethod_name[int32(v.HttpReq.GetMethod())])
-		c.Data(http.StatusOK, v.HttpReq.Body.GetContentType(), v.HttpReq.Body.GetDataString())
+		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
+		c.Header("FnProject-Method", httpMethod)
+		c.Data(http.StatusOK, httpReq.Body.GetContentType(), httpReq.Body.GetDataString())
 		return
 	case *model.Datum_HttpResp:
 		c.Header("FnProject-DatumType", "httpreq")
-		resultStatus := "false"
-		if result.GetSuccessful() {
-			resultStatus = "true"
-		}
-		c.Header("FnProject-ResultStatus", resultStatus)
-		for _, header := range v.HttpResp.Headers {
+		c.Header("FnProject-ResultStatus", resultStatus(result))
+		httpResp := v.HttpResp
+		for _, header := range httpResp.Headers {
 			c.Header("FnProject-Header-"+header.GetKey(), header.GetValue())
 		}
-		c.Header("FnProject-ResultCode", strconv.FormatUint(uint64(v.HttpResp.GetStatusCode()), 32))
-		c.Data(http.StatusOK, v.HttpResp.Body.GetContentType(), v.HttpResp.Body.GetDataString())
+		statusCode := strconv.FormatUint(uint64(httpResp.GetStatusCode()), 32)
+		c.Header("FnProject-ResultCode", statusCode)
+		c.Data(http.StatusOK, httpResp.Body.GetContentType(), httpResp.Body.GetDataString())
 		return
 	default:
 		c.Status(http.StatusInternalServerError)

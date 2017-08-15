@@ -177,12 +177,12 @@ func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, resul
 	// result must be a stageref
 	if nil == result.Datum.GetStageRef() {
 		//TODO complete stage with an error
-		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
+		graph.eventListener.OnCompleteStage(stage, InternalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
 		return
 	}
 	refStage := graph.GetStage(StageID(result.Datum.GetStageRef().StageRef))
 	if nil == refStage {
-		graph.eventListener.OnCompleteStage(stage, internalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
+		graph.eventListener.OnCompleteStage(stage, InternalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
 	}
 	log.WithFields(logrus.Fields{"stage_id": stage.ID, "other_id": refStage.ID}).Info("Composing with new stage ")
 	graph.eventListener.OnComposeStage(stage, refStage)

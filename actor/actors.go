@@ -23,8 +23,10 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 		props := actor.FromInstance(&graphActor{})
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {
-			child.Request(msg, context.Sender())
+			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Info("Failed to spawn graph actor")
+			return
 		}
+		child.Request(msg, context.Sender())
 
 	default:
 		isGraphMsg, graphId := getGraphId(msg)

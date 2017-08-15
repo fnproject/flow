@@ -11,6 +11,16 @@ import (
 
 var log = logrus.WithField("logger", "api")
 
+const (
+	headerDatumType    string = "FnProject-DatumType"
+	headerResultStatus string = "FnProject-ResultStatus"
+	headerErrorType    string = "FnProject-ErrorType"
+	headerStageID      string = "FnProject-StageID"
+	headerHeaderPrefix string = "FnProject-Header"
+	headerMethod       string = "FnProject-Method"
+	headerResultCode   string = "FnProject-ResultCode"
+)
+
 func noOpHandler(c *gin.Context) {
 	c.Status(http.StatusNotFound)
 }
@@ -155,51 +165,52 @@ func getGraphStage(c *gin.Context) {
 	}
 
 	switch v := val.(type) {
+
 	case *model.Datum_Error:
-		c.Header("FnProject-DatumType", "error")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "error")
+		c.Header(headerResultStatus, resultStatus(result))
 		error := v.Error
-		c.Header("FnProject-ErrorType", model.ErrorDatumType_name[int32(error.GetType())])
+		c.Header(headerErrorType, model.ErrorDatumType_name[int32(error.GetType())])
 		c.String(http.StatusOK, error.GetMessage())
 		return
 	case *model.Datum_Empty:
-		c.Header("FnProject-DatumType", "empty")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "empty")
+		c.Header(headerResultStatus, resultStatus(result))
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_Blob:
-		c.Header("FnProject-DatumType", "blob")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "blob")
+		c.Header(headerResultStatus, resultStatus(result))
 		blob := v.Blob
 		c.Data(http.StatusOK, blob.GetContentType(), blob.GetDataString())
 		return
 	case *model.Datum_StageRef:
-		c.Header("FnProject-DatumType", "stageref")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "stageref")
+		c.Header(headerResultStatus, resultStatus(result))
 		stageRef := v.StageRef
-		c.Header("FnProject-StageID", strconv.FormatUint(uint64(stageRef.StageRef), 32))
+		c.Header(headerStageID, strconv.FormatUint(uint64(stageRef.StageRef), 32))
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_HttpReq:
-		c.Header("FnProject-DatumType", "httpreq")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "httpreq")
+		c.Header(headerResultStatus, resultStatus(result))
 		httpReq := v.HttpReq
 		for _, header := range httpReq.Headers {
-			c.Header("FnProject-Header-"+header.GetKey(), header.GetValue())
+			c.Header(headerHeaderPrefix+"-"+header.GetKey(), header.GetValue())
 		}
 		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
-		c.Header("FnProject-Method", httpMethod)
+		c.Header(headerMethod, httpMethod)
 		c.Data(http.StatusOK, httpReq.Body.GetContentType(), httpReq.Body.GetDataString())
 		return
 	case *model.Datum_HttpResp:
-		c.Header("FnProject-DatumType", "httpreq")
-		c.Header("FnProject-ResultStatus", resultStatus(result))
+		c.Header(headerDatumType, "httpreq")
+		c.Header(headerResultStatus, resultStatus(result))
 		httpResp := v.HttpResp
 		for _, header := range httpResp.Headers {
-			c.Header("FnProject-Header-"+header.GetKey(), header.GetValue())
+			c.Header(headerHeaderPrefix+"-"+header.GetKey(), header.GetValue())
 		}
 		statusCode := strconv.FormatUint(uint64(httpResp.GetStatusCode()), 32)
-		c.Header("FnProject-ResultCode", statusCode)
+		c.Header(headerResultCode, statusCode)
 		c.Data(http.StatusOK, httpResp.Body.GetContentType(), httpResp.Body.GetDataString())
 		return
 	default:

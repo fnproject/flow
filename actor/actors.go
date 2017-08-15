@@ -2,6 +2,7 @@ package actor
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/persistence"
@@ -203,16 +204,80 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddDelayStageRequest:
+		if !g.validateCmd(msg, context) {
+			return
+		}
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding delay stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+
+		addedEvent := &model.StageAddedEvent{
+			StageId: g.graph.NextStageID(),
+			Op:      model.CompletionOperation_delay,
+		}
+		err := g.persist(addedEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(addedEvent)
+
+		delayEvent := &model.DelayScheduledEvent{
+			StageId:   g.graph.NextStageID(),
+			DelayedTs: uint64(time.Now().UnixNano()/1000000) + msg.DelayMs,
+		}
+		err = g.persist(delayEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(delayEvent)
+
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddExternalCompletionStageRequest:
+		if !g.validateCmd(msg, context) {
+			return
+		}
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding external completion stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		event := &model.StageAddedEvent{
+			StageId: g.graph.NextStageID(),
+			Op:      model.CompletionOperation_externalCompletion,
+		}
+		err := g.persist(event)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(event)
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddInvokeFunctionStageRequest:
+		if !g.validateCmd(msg, context) {
+			return
+		}
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding invoke stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+
+		event := &model.StageAddedEvent{
+			StageId: g.graph.NextStageID(),
+			Op:      model.CompletionOperation_completedValue,
+		}
+		err := g.persist(event)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(event)
+
+		/* TODO graph executor
+		invokeReq := &model.InvokeFunctionRequest{
+			GraphId:    msg.GraphId,
+			StageId:    event.StageId,
+			FunctionId: msg.FunctionId,
+			Arg:        msg.Arg,
+		}
+		executor.Request(invokeReq)
+		*/
+
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.CompleteStageExternallyRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Completing stage externally")
@@ -239,7 +304,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Received fn invocation response")
 
 	default:
-		log.Infof("snapshot internal state %v", reflect.TypeOf(msg))
+		log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))
 	}
 }
 

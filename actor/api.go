@@ -1,7 +1,6 @@
 package actor
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -25,7 +24,7 @@ type actorManager struct {
 
 func NewGraphManager() GraphManager {
 	decider := func(reason interface{}) actor.Directive {
-		fmt.Println("handling failure for child")
+		log.Warnf("Graph actor child failed %v", reason)
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)

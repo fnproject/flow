@@ -69,7 +69,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 		err := model.WritePartFromDatum(datum, partWriter)
 		if err != nil {
 			log.Error("Failed to create multipart body", err)
-			return stageFailed(msg, "Error creating stage invoke request")
+			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
 
 		}
 	}
@@ -81,25 +81,29 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	req.Header.Set("FnProject-StageID", msg.StageId)
 	resp, err := exec.client.Do(req)
 	if err != nil {
-		return stageFailed(msg, "Http error invoking stage")
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, "Http error invoking stage")
 	}
 
 	if resp.StatusCode != 200 {
 		stageLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
-		return stageFailed(msg, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode))
+
+		if resp.StatusCode == 504 {
+			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out")}
+		}
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode))
 	}
 	result, err := model.CompletionResultFromResponse(resp)
 	if err != nil {
 		stageLog.Error("Failed to read result from functions service", err)
-		return stageFailed(msg, "Failed to read result from functions service")
+		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service")
 
 	}
 	stageLog.WithField("successful", fmt.Sprintf("%s", result.Successful)).Info("Got stage response")
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result}
 }
 
-func stageFailed(msg *model.InvokeStageRequest, errorMessage string) *model.FaasInvocationResponse {
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result:model.NewInternalErrorResult(model.ErrorDatumType_stage_failed, errorMessage)}
+func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, errorMessage string) *model.FaasInvocationResponse {
+	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage)}
 }
 
 func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {

@@ -9,3 +9,7 @@ func NewGraphNotFoundError(graphId string) *model.InvalidGraphOperation {
 func NewGraphEventPersistenceError(graphId string) *model.InvalidGraphOperation {
 	return &model.InvalidGraphOperation{GraphId: graphId, Error: "Failed to persist event"}
 }
+
+func NewGraphCompletedError(graphId string) *model.InvalidGraphOperation {
+	return &model.InvalidGraphOperation{GraphId: graphId, Error: "Graph already completed"}
+}

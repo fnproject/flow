@@ -5,6 +5,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/persistence"
+	"github.com/fnproject/completer/graph"
 	"github.com/fnproject/completer/model"
 	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -83,6 +84,7 @@ func spawnGraphActor(graphId string, context actor.Context) (*actor.PID, error) 
 
 type graphActor struct {
 	persistence.Mixin
+	graph *graph.CompletionGraph
 }
 
 func (g *graphActor) persist(event proto.Message) error {
@@ -94,8 +96,47 @@ func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
 
 }
 
+func (g *graphActor) applyNoop(event interface{}) {
+
+}
+
 // process events
 func (g *graphActor) receiveRecover(context actor.Context) {
+}
+
+func (g *graphActor) validateStages(stageIDs []uint32) bool {
+	stages := make([]graph.StageID, len(stageIDs))
+	for i, id := range stageIDs {
+		stages[i] = graph.StageID(id)
+	}
+	return g.graph.GetStages(stages) != nil
+}
+
+// if validation fails, this method will respond to the request with an appropriate error message
+func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
+	if isGraphMessage(cmd) {
+		graphId := getGraphId(cmd)
+		if g.graph == nil {
+			context.Respond(NewGraphNotFoundError(graphId))
+			return false
+		} else if g.graph.IsCompleted() {
+			context.Respond(NewGraphCompletedError(graphId))
+			return false
+		}
+	}
+
+	switch msg := cmd.(type) {
+
+	case *model.AddDelayStageRequest:
+
+	case *model.AddChainedStageRequest:
+		if g.validateStages(msg.Deps) {
+			context.Respond(NewGraphCompletedError(msg.GraphId))
+			return false
+		}
+	}
+
+	return true
 }
 
 // process commands
@@ -107,7 +148,6 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
 		err := g.persist(event)
 		if err != nil {
-			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Error persisting GraphCreatedEvent")
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
@@ -115,12 +155,52 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.AddChainedStageRequest:
+		if !g.validateCmd(msg, context) {
+			return
+		}
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding chained stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		event := &model.StageAddedEvent{
+			StageId:      g.graph.NextStageID(),
+			Op:           msg.Operation,
+			Closure:      msg.Closure,
+			Dependencies: msg.Deps,
+		}
+		err := g.persist(event)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(event)
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddCompletedValueStageRequest:
+		if !g.validateCmd(msg, context) {
+			return
+		}
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding completed value stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+
+		addedEvent := &model.StageAddedEvent{
+			StageId: g.graph.NextStageID(),
+			Op:      model.CompletionOperation_completedValue,
+		}
+		err := g.persist(addedEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(addedEvent)
+
+		completedEvent := &model.StageCompletedEvent{
+			StageId: g.graph.NextStageID(),
+			Result:  msg.Result,
+		}
+		err = g.persist(completedEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyNoop(completedEvent)
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddDelayStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding delay stage")

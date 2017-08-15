@@ -2,9 +2,10 @@
 package graph
 
 import (
+	"fmt"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
-	"fmt"
+	"strconv"
 )
 
 var log = logrus.WithField("logger", "graph")
@@ -13,7 +14,7 @@ var log = logrus.WithField("logger", "graph")
 type GraphID string
 
 // StageID identifies a stage
-type StageID uint32
+type StageID string
 
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
@@ -95,21 +96,12 @@ func (graph *CompletionGraph) GetStages(stageIDs []StageID) []*CompletionStage {
 	return res
 }
 
-// GetAllStages returns a slice of all stages in the graph
-func (graph *CompletionGraph) GetAllStages() []*CompletionStage {
-	res := make([]*CompletionStage, len(graph.stages))
-	for i, s := range graph.stages {
-		res[i] = s
-	}
-	return res
-}
-
 // NextStageID Returns the next stage ID to use for nodes
-func (graph *CompletionGraph) NextStageID() uint32 {
-	return uint32(len(graph.stages))
+func (graph *CompletionGraph) NextStageID() string {
+	return strconv.Itoa(len(graph.stages))
 }
 
-func toStageIDArray(in []uint32) []StageID {
+func toStageIDArray(in []string) []StageID {
 	res := make([]StageID, len(in))
 	for i, s := range in {
 		res[i] = StageID(s)
@@ -184,7 +176,7 @@ func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEv
 // HandleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
 // This may signal completion of the stage (in which case a Complete Event is raised)
 func (graph *CompletionGraph) HandleInvokeComplete(stageID StageID, result *model.CompletionResult) {
-	log.WithField("stage_id", stageID).Info("Completing stage with faas response");
+	log.WithField("stage_id", stageID).Info("Completing stage with faas response")
 	stage := graph.stages[stageID]
 	stage.handleResult(graph, result)
 }

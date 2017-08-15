@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -102,7 +101,7 @@ func acceptExternalCompletion(c *gin.Context) {
 
 	_ = model.AddExternalCompletionStageRequest{GraphId: graphID}
 	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
 
 	c.JSON(http.StatusCreated, response)
 }
@@ -116,11 +115,7 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		return
 	}
 
-	var cids []uint32
-	for _, c := range strings.Split(cidList, ",") {
-		cid, _ := strconv.Atoi(c) // TODO: no error handling
-		cids = append(cids, uint32(cid))
-	}
+	cids := strings.Split(cidList, ",")
 
 	log.Infof("Adding chained stage type %s, cids %s", op, cids)
 
@@ -132,7 +127,7 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	}
 
 	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
 
 	c.JSON(http.StatusCreated, response)
 }

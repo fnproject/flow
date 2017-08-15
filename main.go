@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 var log = logrus.WithField("logger", "api")
@@ -94,6 +96,55 @@ func getGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
+func acceptExternalCompletion(c *gin.Context) {
+
+	graphID := c.Param("graphId")
+
+	_ = model.AddExternalCompletionStageRequest{GraphId: graphID}
+	// TODO: send to the GraphManager
+	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
+	cidList := c.Query("cids")
+	graphID := c.Param("graphId")
+
+	if cidList == "" {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	var cids []uint32
+	for _, c := range strings.Split(cidList, ",") {
+		cid, _ := strconv.Atoi(c) // TODO: no error handling
+		cids = append(cids, uint32(cid))
+	}
+
+	log.Infof("Adding chained stage type %s, cids %s", op, cids)
+
+	_ = model.AddChainedStageRequest{
+		GraphId:   graphID,
+		Operation: op,
+		Closure:   nil,
+		Deps:      cids,
+	}
+
+	// TODO: send to the GraphManager
+	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+func acceptAllOf(c *gin.Context) {
+	allOrAnyOf(c, model.CompletionOperation_allOf)
+}
+
+func acceptAnyOf(c *gin.Context) {
+	allOrAnyOf(c, model.CompletionOperation_anyOf)
+}
+
 func main() {
 
 	engine := gin.Default()
@@ -111,9 +162,9 @@ func main() {
 		graph.POST("/:graphId/invokeFunction", noOpHandler)
 		graph.POST("/:graphId/completedValue", noOpHandler)
 		graph.POST("/:graphId/delay", noOpHandler)
-		graph.POST("/:graphId/allOf", noOpHandler)
-		graph.POST("/:graphId/anyOf", noOpHandler)
-		graph.POST("/:graphId/externalCompletion", noOpHandler)
+		graph.POST("/:graphId/allOf", acceptAllOf)
+		graph.POST("/:graphId/anyOf", acceptAnyOf)
+		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
 		graph.POST("/:graphId/commit", noOpHandler)
 
 		stage := graph.Group("/:graphId/stage")

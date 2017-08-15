@@ -106,7 +106,7 @@ func acceptExternalCompletion(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
-func acceptAllOf(c *gin.Context) {
+func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	cidList := c.Query("cids")
 	graphID := c.Param("graphId")
 
@@ -120,7 +120,7 @@ func acceptAllOf(c *gin.Context) {
 
 	_ = model.AddChainedStageRequest{
 		GraphId:   graphID,
-		Operation: model.CompletionOperation_allOf,
+		Operation: op,
 		Closure:   nil,
 		Deps:      []uint32{1, 2, 3}, // TODO: This should be `cids` when Deps accepts []string
 	}
@@ -129,6 +129,14 @@ func acceptAllOf(c *gin.Context) {
 	response := model.AddStageResponse{GraphId: graphID, StageId: 5000}
 
 	c.JSON(http.StatusCreated, response)
+}
+
+func acceptAllOf(c *gin.Context) {
+	allOrAnyOf(c, model.CompletionOperation_allOf)
+}
+
+func acceptAnyOf(c *gin.Context) {
+	allOrAnyOf(c, model.CompletionOperation_anyOf)
 }
 
 func main() {
@@ -149,7 +157,7 @@ func main() {
 		graph.POST("/:graphId/completedValue", noOpHandler)
 		graph.POST("/:graphId/delay", noOpHandler)
 		graph.POST("/:graphId/allOf", acceptAllOf)
-		graph.POST("/:graphId/anyOf", noOpHandler)
+		graph.POST("/:graphId/anyOf", acceptAnyOf)
 		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
 		graph.POST("/:graphId/commit", noOpHandler)
 

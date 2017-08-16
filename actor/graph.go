@@ -8,30 +8,40 @@ import (
 )
 
 type graphActor struct {
-	graph graph.CompletionGraph
+	PIDHolder
+	graph    *graph.CompletionGraph
+	log      *logrus.Entry
+	executor *actor.PID
+}
+
+func NewGraphActor(graphId string, functionId string, executor *actor.PID) *graphActor {
+	graphActor := &graphActor{
+		executor: executor,
+		log:      logrus.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": graphId, "function_id": functionId}),
+	}
+
+	graphModel := graph.New(graphId, functionId, graphActor)
+	graphActor.graph = graphModel
+	return graphActor
 }
 
 func (g *graphActor) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 
-	case *model.CreateGraphRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Creating graph")
-		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
-
 	case *model.AddChainedStageRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding chained stage")
+		g.log.Debug("Adding chained stage")
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddCompletedValueStageRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding completed value stage")
+		g.log.Debug("Adding completed value stage")
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddDelayStageRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding delay stage")
+		g.log.Debug("Adding delay stage")
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddExternalCompletionStageRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding external completion stage")
+		g.log.Debug("Adding external completion stage")
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddInvokeFunctionStageRequest:
@@ -39,15 +49,15 @@ func (g *graphActor) Receive(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.CompleteStageExternallyRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Completing stage externally")
+		g.log.Debug("Completing stage externally")
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
 
 	case *model.CommitGraphRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Committing graph")
+		g.log.Debug("Committing graph")
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
-		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Retrieving stage result")
+		g.log.Debug("Retrieving stage result")
 		datum := &model.Datum{
 			Val: &model.Datum_Blob{
 				Blob: &model.BlobDatum{ContentType: "text", DataString: []byte("foo")},
@@ -61,7 +71,32 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.FaasInvocationResponse:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Received fn invocation response")
+		g.graph.HandleInvokeComplete(msg.StageId,msg.Result)
+
 	}
 
 }
 
+func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
+	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
+
+	msg := &model.InvokeStageRequest{FunctionId: g.graph.FunctionID, GraphId: g.graph.ID, StageId: stage.ID, Args: datum, Closure: stage.GetClosure(), Operation: stage.GetOperation()}
+
+	g.executor.Request(msg, g.GetSelf())
+}
+
+//OnCompleteStage indicates that a stage is finished and its result is available
+func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
+	g.graph.HandleStageCompleted(&model.StageCompletedEvent{StageId: stage.ID, Result: result}, true)
+}
+
+//OnCompose Stage indicates that another stage should be composed into this one
+func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
+	g.graph.HandleStageComposed(&model.StageComposedEvent{StageId: stage.ID, ComposedStageId: composedStage.ID})
+
+}
+
+//OnCompleteGraph indicates that the graph is now finished and cannot be modified
+func (*graphActor) OnCompleteGraph() {
+
+}

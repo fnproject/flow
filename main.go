@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/fnproject/completer/model"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -212,7 +213,6 @@ func getGraphStage(c *gin.Context) {
 }
 
 func acceptExternalCompletion(c *gin.Context) {
-
 	graphID := c.Param("graphId")
 
 	_ = model.AddExternalCompletionStageRequest{GraphId: graphID}
@@ -256,6 +256,62 @@ func acceptAnyOf(c *gin.Context) {
 	allOrAnyOf(c, model.CompletionOperation_anyOf)
 }
 
+func supply(c *gin.Context) {
+	graphID := c.Param("graphId")
+
+	body, err := c.GetRawData()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	var cids []string
+
+	_ = withClosure(graphID, cids, model.CompletionOperation_supply, body)
+
+	// TODO: send to the GraphManager
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+func completedValue(c *gin.Context) {
+	graphID := c.Param("graphId")
+
+	body, err := c.GetRawData()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	result := model.CompletionResult{
+		Successful: true,
+		Datum:      model.NewBlobDatum(model.NewBlob("application/java-serialized-object", body)),
+	}
+
+	_ = model.AddCompletedValueStageRequest{
+		GraphId: graphID,
+		Result:  &result,
+	}
+
+	// TODO: Send to GraphManager
+
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+
+	c.JSON(http.StatusCreated, response)
+}
+
+func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte) model.AddChainedStageRequest {
+	log.Info(fmt.Sprintf("Adding chained stage type %s, cids %s", op, cids))
+
+	return model.AddChainedStageRequest{
+		GraphId:   graphID,
+		Operation: op,
+		Closure:   model.NewBlob("application/java-serialized-object", body),
+		Deps:      cids,
+	}
+}
+
 func main() {
 
 	engine := gin.Default()
@@ -269,9 +325,9 @@ func main() {
 		graph.POST("", createGraphHandler)
 		graph.GET("/:graphId", getGraphState)
 
-		graph.POST("/:graphId/supply", noOpHandler)
+		graph.POST("/:graphId/supply", supply)
 		graph.POST("/:graphId/invokeFunction", noOpHandler)
-		graph.POST("/:graphId/completedValue", noOpHandler)
+		graph.POST("/:graphId/completedValue", completedValue)
 		graph.POST("/:graphId/delay", noOpHandler)
 		graph.POST("/:graphId/allOf", acceptAllOf)
 		graph.POST("/:graphId/anyOf", acceptAnyOf)

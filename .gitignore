@@ -4,6 +4,7 @@
 *.so
 *.dylib
 completer
+main
 data
 # Test binary, build with `go test -c`
 *.test

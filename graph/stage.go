@@ -33,6 +33,11 @@ func (stage *CompletionStage) GetClosure() *model.BlobDatum {
 	return stage.closure
 }
 
+// GetResult returns this stage's result if available
+func (stage *CompletionStage) GetResult() *model.CompletionResult {
+	return stage.result
+}
+
 func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
 	stage.triggered = true
 	if stage.result == nil {

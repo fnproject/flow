@@ -27,19 +27,6 @@ func NewGraphActor(graphId string, functionId string, executor *actor.PID) *grap
 	}
 }
 
-// TODO: Reified completion event listener
-type completionEventListenerImpl struct {
-	actor *graphActor
-}
-
-func (listener *completionEventListenerImpl) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
-}
-func (listener *completionEventListenerImpl) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
-}
-func (listener *completionEventListenerImpl) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
-}
-func (listener *completionEventListenerImpl) OnCompleteGraph() {}
-
 func (g *graphActor) persist(event proto.Message) error {
 	g.PersistReceive(event)
 	return nil
@@ -47,8 +34,7 @@ func (g *graphActor) persist(event proto.Message) error {
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
 	g.log.Debug("Creating completion graph")
-	listener := &completionEventListenerImpl{actor: g}
-	g.graph = graph.New(event.GraphId, event.FunctionId, listener)
+	g.graph = graph.New(event.GraphId, event.FunctionId, g)
 }
 
 func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) {
@@ -85,7 +71,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
 		go func() {
-			_ := <-time.After(time.Duration(delayMs) * time.Millisecond)
+			<-time.After(time.Duration(delayMs) * time.Millisecond)
 			g.pid.Tell(model.CompleteDelayStageRequest{
 				string(g.graph.ID),
 				event.StageId,
@@ -412,4 +398,26 @@ func (g *graphActor) Receive(context actor.Context) {
 	} else {
 		g.receiveStandard(context)
 	}
+}
+
+func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
+	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
+
+	msg := &model.InvokeStageRequest{FunctionId: g.graph.FunctionID, GraphId: g.graph.ID, StageId: stage.ID, Args: datum, Closure: stage.GetClosure(), Operation: stage.GetOperation()}
+
+	g.executor.Request(msg, g.GetSelf())
+}
+
+//OnCompleteStage indicates that a stage is finished and its result is available
+func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
+	g.graph.HandleStageCompleted(&model.StageCompletedEvent{StageId: stage.ID, Result: result}, true)
+}
+
+//OnCompose Stage indicates that another stage should be composed into this one
+func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
+	g.graph.HandleStageComposed(&model.StageComposedEvent{StageId: stage.ID, ComposedStageId: composedStage.ID})
+}
+
+//OnCompleteGraph indicates that the graph is now finished and cannot be modified
+func (*graphActor) OnCompleteGraph() {
 }

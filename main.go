@@ -65,15 +65,15 @@ func createGraphHandler(c *gin.Context) {
 
 	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
 
-	f:= graphManager.CreateGraph(req,5 * time.Second)
+	f := graphManager.CreateGraph(req, 5*time.Second)
 
-	result,err:= f.Result()
-	if err !=nil{
+	result, err := f.Result()
+	if err != nil {
 		c.Status(500)
-		return;
+		return
 	}
-	resp:= result.(*model.CreateGraphResponse)
-	c.Header("FnProject-threadid",resp.GraphId)
+	resp := result.(*model.CreateGraphResponse)
+	c.Header("FnProject-threadid", resp.GraphId)
 	c.Status(http.StatusCreated)
 
 }
@@ -150,9 +150,20 @@ func getGraphStage(c *gin.Context) {
 		StageId: stageID,
 	}
 
+	f := graphManager.GetStageResult(&request, 5*time.Second)
+
+	res, err := f.Result()
+	if err != nil {
+		c.Status(500)
+		return
+	}
+	response := res.(*model.GetStageResultResponse)
+
+	c.Header("FnProject-threadid", response.GraphId)
+
 	// TODO: send to the GraphManager
 
-	response := getFakeStageResultResponse(request)
+	//	response := getFakeStageResultResponse(request)
 
 	result := response.GetResult()
 	if result == nil {
@@ -304,15 +315,21 @@ func completedValue(c *gin.Context) {
 		Datum:      model.NewBlobDatum(model.NewBlob("application/java-serialized-object", body)),
 	}
 
-	_ = model.AddCompletedValueStageRequest{
+	request := model.AddCompletedValueStageRequest{
 		GraphId: graphID,
 		Result:  &result,
 	}
 
-	// TODO: Send to GraphManager
+	f := graphManager.AddStage(&request, 5*time.Second)
 
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	res, err := f.Result()
+	if err != nil {
+		c.Status(500)
+		return
+	}
+	response := res.(*model.AddStageResponse)
 
+	c.Header("FnProject-threadid", response.GraphId)
 	c.JSON(http.StatusCreated, response)
 }
 

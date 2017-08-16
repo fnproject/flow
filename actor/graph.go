@@ -27,9 +27,8 @@ func NewGraphActor(graphId string, functionId string, executor *actor.PID) *grap
 	}
 }
 
-func (g *graphActor) persist(event proto.Message) error {
+func (g *graphActor) persist(event proto.Message) {
 	g.PersistReceive(event)
-	return nil
 }
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
@@ -191,11 +190,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
-		err := g.persist(event)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(event)
 		g.applyGraphCreatedEvent(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
@@ -210,11 +205,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 		}
-		err := g.persist(event)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(event)
 		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -228,22 +219,14 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
-		err := g.persist(addedEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 
 		completedEvent := &model.StageCompletedEvent{
 			StageId: g.graph.NextStageID(),
 			Result:  msg.Result,
 		}
-		err = g.persist(completedEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(completedEvent)
 		g.applyStageCompletedEvent(completedEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -257,22 +240,14 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_delay,
 		}
-		err := g.persist(addedEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 
 		delayEvent := &model.DelayScheduledEvent{
 			StageId:   g.graph.NextStageID(),
 			DelayedTs: uint64(timeMillis()) + msg.DelayMs,
 		}
-		err = g.persist(delayEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -285,11 +260,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_externalCompletion,
 		}
-		err := g.persist(event)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(event)
 		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -303,11 +274,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
-		err := g.persist(event)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(event)
 		g.applyStageAddedEvent(event)
 
 		/* TODO graph executor
@@ -330,16 +297,12 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		stage := g.graph.GetStage(msg.StageId)
 		completable := !stage.IsResolved()
 		if completable {
-			completeEvent := &model.StageCompletedEvent{
+			completedEvent := &model.StageCompletedEvent{
 				StageId: msg.StageId,
-				Result: msg.Result,
+				Result:  msg.Result,
 			}
-			err := g.persist(completeEvent)
-			if err != nil {
-				context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-				return
-			}
-			g.applyStageCompletedEvent(completeEvent)
+			g.persist(completedEvent)
+			g.applyStageCompletedEvent(completedEvent)
 
 		}
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
@@ -350,11 +313,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			return
 		}
 		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
-		err := g.persist(committedEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
+		g.persist(committedEvent)
 		g.applyGraphCommittedEvent(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
@@ -373,16 +332,12 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		completeEvent := &model.StageCompletedEvent{
+		completedEvent := &model.StageCompletedEvent{
 			StageId: msg.StageId,
-			Result: msg.Result,
+			Result:  msg.Result,
 		}
-		err := g.persist(completeEvent)
-		if err != nil {
-			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
-			return
-		}
-		g.applyStageCompletedEvent(completeEvent)
+		g.persist(completedEvent)
+		g.applyStageCompletedEvent(completedEvent)
 
 	case *model.FaasInvocationResponse:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
@@ -411,41 +366,32 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model
 //OnCompleteStage indicates that a stage is finished and its result is available
 func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Completing stage in OnCompleteStage")
-	completeEvent := &model.StageCompletedEvent {
+	completedEvent := &model.StageCompletedEvent{
 		StageId: stage.ID,
-		Result: result,
+		Result:  result,
 	}
-	err := g.persist(completeEvent)
-	if err != nil {
-		panic(err)
-	}
-	g.applyStageCompletedEvent(completeEvent)
+	g.persist(completedEvent)
+	g.applyStageCompletedEvent(completedEvent)
 }
 
 //OnCompose Stage indicates that another stage should be composed into this one
 func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
 	g.log.WithField("stage_id", stage.ID).Info("Composing stage in OnComposeStage")
-	composeEvent := &model.StageComposedEvent {
-		StageId: stage.ID,
+	composedEvent := &model.StageComposedEvent{
+		StageId:         stage.ID,
 		ComposedStageId: composedStage.ID,
 	}
-	err := g.persist(composeEvent)
-	if err != nil {
-		panic(err)
-	}
-	g.applyStageComposedEvent(composeEvent)
+	g.persist(composedEvent)
+	g.applyStageComposedEvent(composedEvent)
 }
 
 //OnCompleteGraph indicates that the graph is now finished and cannot be modified
 func (g *graphActor) OnCompleteGraph() {
 	g.log.Info("Completing graph in OnCompleteGraph")
-	completeEvent := &model.GraphCompletedEvent {
-		GraphId: g.graph.ID,
+	completedEvent := &model.GraphCompletedEvent{
+		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 	}
-	err := g.persist(completeEvent)
-	if err != nil {
-		panic(err)
-	}
-	g.applyGraphCompletedEvent(completeEvent)
+	g.persist(completedEvent)
+	g.applyGraphCompletedEvent(completedEvent)
 }

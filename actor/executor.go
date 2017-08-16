@@ -1,17 +1,18 @@
 package actor
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
+	"strings"
+	"time"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/model"
-	"net/http"
 	"github.com/sirupsen/logrus"
-	"time"
-	"bytes"
-	"mime/multipart"
-	"fmt"
-	"strings"
-	"io"
-	"net/textproto"
 )
 
 type graphExecutor struct {
@@ -38,13 +39,13 @@ func NewExecutor(faasAddress string) actor.Actor {
 	client.Timeout = 300 * time.Second
 
 	return &graphExecutor{faasAddr: faasAddress,
-		log: logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
+		log:    logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
 		client: client,
 	}
 }
 
 func (exec *graphExecutor) Receive(context actor.Context) {
-	sender := context.Sender();
+	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
 		go func() {
@@ -98,7 +99,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service")
 
 	}
-	stageLog.WithField("successful", fmt.Sprintf("%s", result.Successful)).Info("Got stage response")
+	stageLog.WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result}
 }
 
@@ -151,7 +152,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	var headers []*model.HttpHeader = make([]*model.HttpHeader, 0)
+	var headers = make([]*model.HttpHeader, 0)
 	for headerName, valList := range resp.Header {
 		// Don't copy content type into headers
 		if textproto.CanonicalMIMEHeaderKey(headerName) == "Content-Type" {

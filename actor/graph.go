@@ -275,16 +275,13 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		g.persist(event)
 		g.applyStageAddedEvent(event)
 
-		/* TODO graph executor
-		invokeReq := &model.InvokeFunctionRequest{
-			GraphId:    msg.GraphId,
+		req := &model.InvokeFunctionRequest{
+			GraphId:    g.graph.ID,
 			StageId:    event.StageId,
-			FunctionId: msg.FunctionId,
+			FunctionId: g.graph.FunctionID,
 			Arg:        msg.Arg,
 		}
-		executor.Request(invokeReq)
-		*/
-
+		g.executor.Request(req, g.GetSelf())
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.CompleteStageExternallyRequest:
@@ -355,9 +352,14 @@ func (g *graphActor) Receive(context actor.Context) {
 
 func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
 	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
-
-	msg := &model.InvokeStageRequest{FunctionId: g.graph.FunctionID, GraphId: g.graph.ID, StageId: stage.ID, Args: datum, Closure: stage.GetClosure(), Operation: stage.GetOperation()}
-
+	msg := &model.InvokeStageRequest{
+		FunctionId: g.graph.FunctionID,
+		GraphId:    g.graph.ID,
+		StageId:    stage.ID,
+		Args:       datum,
+		Closure:    stage.GetClosure(),
+		Operation:  stage.GetOperation(),
+	}
 	g.executor.Request(msg, g.GetSelf())
 }
 

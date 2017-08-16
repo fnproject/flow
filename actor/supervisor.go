@@ -27,7 +27,7 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		provider := newInMemoryProvider(0)
+		provider := newInMemoryProvider(1000)
 		props := actor.FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).WithMiddleware(plugin.Use(&PIDAwarePlugin{}), persistence.Using(provider))
 		log.Info("Creating graph actor")
 		child, err := context.SpawnNamed(props, msg.GraphId)

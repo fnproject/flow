@@ -329,8 +329,10 @@ func commitGraph(c *gin.Context) {
 func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
 	var headers []*model.HttpHeader
 	for k, vs := range hs {
-		if strings.HasPrefix(k, headerHeaderPrefix+"-") {
-			trimmedHeader := strings.TrimPrefix(k, headerHeaderPrefix+"-")
+		canonicalKey := http.CanonicalHeaderKey(k)
+		canonicalPrefix := http.CanonicalHeaderKey(headerHeaderPrefix + "-")
+		if strings.HasPrefix(canonicalKey, canonicalPrefix) {
+			trimmedHeader := strings.TrimPrefix(canonicalKey, canonicalPrefix)
 			for _, v := range vs {
 				headers = append(headers, &model.HttpHeader{
 					Key:   trimmedHeader,

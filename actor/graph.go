@@ -71,17 +71,19 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
 		go func() {
 			<-time.After(time.Duration(delayMs) * time.Millisecond)
-			g.pid.Tell(model.CompleteDelayStageRequest{
-				string(g.graph.ID),
-				event.StageId,
-				model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+			g.pid.Tell(&model.CompleteDelayStageRequest{
+				GraphId: g.graph.ID,
+				StageId: event.StageId,
+				Result:  model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}),
+			})
 		}()
 	} else {
 		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
-		g.pid.Tell(model.CompleteDelayStageRequest{
-			string(g.graph.ID),
-			event.StageId,
-			model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+		g.pid.Tell(&model.CompleteDelayStageRequest{
+			GraphId: g.graph.ID,
+			StageId: event.StageId,
+			Result:  model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}),
+		})
 	}
 }
 

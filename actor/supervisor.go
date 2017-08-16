@@ -33,6 +33,7 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {
 			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
+			context.Respond(NewGraphCreationError(msg.GraphId))
 			return
 		}
 		child.Request(msg, context.Sender())

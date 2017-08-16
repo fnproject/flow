@@ -213,7 +213,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 		completedEvent := &model.StageCompletedEvent{
-			StageId: g.graph.NextStageID(),
+			StageId: addedEvent.StageId,
 			Result:  msg.Result,
 		}
 		g.PersistReceive(completedEvent)
@@ -232,7 +232,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 		delayEvent := &model.DelayScheduledEvent{
-			StageId: g.graph.NextStageID(),
+			StageId: addedEvent.StageId,
 			TimeMs:  timeMillis() + msg.DelayMs,
 		}
 		g.PersistReceive(delayEvent)

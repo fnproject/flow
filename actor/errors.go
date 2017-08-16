@@ -22,7 +22,7 @@ func NewGraphCompletedError(graphId string) *model.InvalidGraphOperation {
 	return &model.InvalidGraphOperation{GraphId: graphId, Error: "Graph already completed"}
 }
 
-func NewInvalidDelayError(graphId string, delayMs uint64) *model.InvalidGraphOperation {
+func NewInvalidDelayError(graphId string, delayMs int64) *model.InvalidGraphOperation {
 	return &model.InvalidGraphOperation{GraphId: graphId, Error: fmt.Sprintf("Invalid delay stage of %d milliseconds", delayMs)}
 }
 

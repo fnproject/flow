@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/model"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/model"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,7 +23,6 @@ const (
 	headerHeaderPrefix string = "FnProject-Header"
 	headerMethod       string = "FnProject-Method"
 	headerResultCode   string = "FnProject-ResultCode"
-
 )
 
 var log = logrus.WithField("logger", "api")
@@ -352,7 +352,7 @@ func delay(c *gin.Context) {
 		return
 	}
 
-	delay, err := strconv.ParseUint(delayMs, 10, 64)
+	delay, err := strconv.ParseInt(delayMs, 10, 64)
 	if err != nil {
 		log.Info("Invalid delay value supplied to add delay stage")
 		c.Status(http.StatusBadRequest)
@@ -470,10 +470,10 @@ func main() {
 
 	log.Info("Starting")
 
-	listenHost:= os.Getenv("COMPLETER_HOST")
+	listenHost := os.Getenv("COMPLETER_HOST")
 	var listenPort = os.Getenv("COMPLETER_PORT")
 	if listenPort == "" {
 		listenPort = "8081"
 	}
-	engine.Run(listenHost +":" + listenPort)
+	engine.Run(listenHost + ":" + listenPort)
 }

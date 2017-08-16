@@ -64,7 +64,7 @@ func (g *graphActor) applyStageComposedEvent(event *model.StageComposedEvent) {
 
 func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) {
 	// we always need to complete delay nodes from scratch to avoid completing twice
-	delayMs := int64(event.DelayedTs) - timeMillis()
+	delayMs := event.TimeMs - timeMillis()
 	if delayMs > 0 {
 		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
@@ -87,7 +87,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 }
 
 func timeMillis() int64 {
-	return time.Now().UnixNano() / 1000000
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
 func (g *graphActor) receiveEvent(context actor.Context) {
@@ -236,8 +236,8 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.applyStageAddedEvent(addedEvent)
 
 		delayEvent := &model.DelayScheduledEvent{
-			StageId:   g.graph.NextStageID(),
-			DelayedTs: uint64(timeMillis()) + msg.DelayMs,
+			StageId: g.graph.NextStageID(),
+			TimeMs:  timeMillis() + msg.DelayMs,
 		}
 		g.PersistReceive(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)

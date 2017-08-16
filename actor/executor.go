@@ -33,6 +33,7 @@ type ExecHandler interface {
 	HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
 }
 
+// NewExecutor creates a new executor actor with the given funcions service endpoint
 func NewExecutor(faasAddress string) actor.Actor {
 	client := &http.Client{}
 	// TODO configure timeouts

@@ -1,16 +1,17 @@
 package actor
 
 import (
-	"github.com/stretchr/testify/mock"
+	"bytes"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
-	"bytes"
-	"io/ioutil"
-	"github.com/sirupsen/logrus"
+
 	"github.com/fnproject/completer/model"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"fmt"
 )
 
 type MockClient struct {
@@ -144,7 +145,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	hasValidResult(t, result)
 	assert.True(t, result.Result.Successful)
 
-	datum := hasValidHttpRespResult(t, result, 201)
+	datum := hasValidHTTPRespResult(t, result, 201)
 
 	blob := datum.Body
 	assert.Equal(t, "response/type", blob.ContentType)
@@ -152,7 +153,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "PUT", outbound.Method)
-	assert.Equal(t, "body/type", outbound.Header.Get("Content-type"), )
+	assert.Equal(t, "body/type", outbound.Header.Get("Content-type"))
 	br := &bytes.Buffer{}
 	br.ReadFrom(outbound.Body)
 	assert.Equal(t, []byte("body"), br.Bytes())
@@ -207,11 +208,10 @@ func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
 	result := givenValidFunctionRequest(m, nil)
-	hasValidHttpRespResult(t, result, 401)
+	hasValidHTTPRespResult(t, result, 401)
 	assert.False(t, result.Result.Successful)
 
 }
-
 
 func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 	m := &MockClient{}
@@ -219,21 +219,21 @@ func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Header: map[string][]string{
-			"RHeader_1":    {"h1val"},
-			"RHeader_2":    {"h2val1", "h2val2"},
+			"RHeader_1": {"h1val"},
+			"RHeader_2": {"h2val1", "h2val2"},
 		},
 		Body: ioutil.NopCloser(bytes.NewReader([]byte("ResultBytes"))),
 	}
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
 	result := givenValidFunctionRequest(m, nil)
-	datum:= hasValidHttpRespResult(t, result, 200)
+	datum := hasValidHTTPRespResult(t, result, 200)
 
-	assert.Equal(t, "application/octet-stream",datum.Body.ContentType)
+	assert.Equal(t, "application/octet-stream", datum.Body.ContentType)
 
 }
 
-func hasValidHttpRespResult(t *testing.T, result *model.FaasInvocationResponse, code uint32) *model.HttpRespDatum {
+func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, code uint32) *model.HttpRespDatum {
 	require.NotNil(t, result.Result.GetDatum().GetHttpResp())
 
 	datum := result.Result.GetDatum().GetHttpResp()

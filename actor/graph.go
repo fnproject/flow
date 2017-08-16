@@ -8,9 +8,11 @@ import (
 	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/completer/graph"
 	"github.com/fnproject/completer/model"
-	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 )
+
+// TODO: read this from configuration!
+const maxDelaySeconds = 900
 
 type graphActor struct {
 	PIDHolder
@@ -20,15 +22,12 @@ type graphActor struct {
 	persistence.Mixin
 }
 
-func NewGraphActor(graphId string, functionId string, executor *actor.PID) *graphActor {
+// NewGraphActor returns a pointer to a new graph actor for the given graph and function
+func NewGraphActor(graphID string, functionID string, executor *actor.PID) actor.Actor {
 	return &graphActor{
 		executor: executor,
-		log:      logrus.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": graphId, "function_id": functionId}),
+		log:      logrus.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": graphID, "function_id": functionID}),
 	}
-}
-
-func (g *graphActor) persist(event proto.Message) {
-	g.PersistReceive(event)
 }
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
@@ -91,11 +90,7 @@ func timeMillis() int64 {
 	return time.Now().UnixNano() / 1000000
 }
 
-// TODO: read this from configuration!
-const maxDelaySeconds = 900
-
-// process events
-func (g *graphActor) receiveRecover(context actor.Context) {
+func (g *graphActor) receiveEvent(context actor.Context) {
 }
 
 // Validate a list of stages. If any of them is missing, returns false and the first stage which is missing.
@@ -112,9 +107,9 @@ func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
 func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	// First check the graph exists
 	if isGraphMessage(cmd) {
-		graphId := getGraphId(cmd)
+		graphID := getGraphID(cmd)
 		if g.graph == nil {
-			context.Respond(NewGraphNotFoundError(graphId))
+			context.Respond(NewGraphNotFoundError(graphID))
 			return false
 		}
 	}
@@ -181,14 +176,13 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	return true
 }
 
-// process commands
-func (g *graphActor) receiveStandard(context actor.Context) {
+func (g *graphActor) receiveCommand(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
-		g.persist(event)
+		g.PersistReceive(event)
 		g.applyGraphCreatedEvent(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
@@ -203,7 +197,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 		}
-		g.persist(event)
+		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -217,14 +211,14 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
-		g.persist(addedEvent)
+		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 
 		completedEvent := &model.StageCompletedEvent{
 			StageId: g.graph.NextStageID(),
 			Result:  msg.Result,
 		}
-		g.persist(completedEvent)
+		g.PersistReceive(completedEvent)
 		g.applyStageCompletedEvent(completedEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -238,14 +232,14 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_delay,
 		}
-		g.persist(addedEvent)
+		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
 
 		delayEvent := &model.DelayScheduledEvent{
 			StageId:   g.graph.NextStageID(),
 			DelayedTs: uint64(timeMillis()) + msg.DelayMs,
 		}
-		g.persist(delayEvent)
+		g.PersistReceive(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -258,7 +252,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_externalCompletion,
 		}
-		g.persist(event)
+		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -272,7 +266,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
-		g.persist(event)
+		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
 
 		req := &model.InvokeFunctionRequest{
@@ -296,7 +290,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 				StageId: msg.StageId,
 				Result:  msg.Result,
 			}
-			g.persist(completedEvent)
+			g.PersistReceive(completedEvent)
 			g.applyStageCompletedEvent(completedEvent)
 
 		}
@@ -308,7 +302,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			return
 		}
 		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
-		g.persist(committedEvent)
+		g.PersistReceive(committedEvent)
 		g.applyGraphCommittedEvent(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
@@ -336,7 +330,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			StageId: msg.StageId,
 			Result:  msg.Result,
 		}
-		g.persist(completedEvent)
+		g.PersistReceive(completedEvent)
 		g.applyStageCompletedEvent(completedEvent)
 
 	case *model.FaasInvocationResponse:
@@ -349,9 +343,9 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 
 func (g *graphActor) Receive(context actor.Context) {
 	if g.Recovering() {
-		g.receiveRecover(context)
+		g.receiveEvent(context)
 	} else {
-		g.receiveStandard(context)
+		g.receiveCommand(context)
 	}
 }
 
@@ -375,7 +369,7 @@ func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model
 		StageId: stage.ID,
 		Result:  result,
 	}
-	g.persist(completedEvent)
+	g.PersistReceive(completedEvent)
 	g.applyStageCompletedEvent(completedEvent)
 }
 
@@ -386,7 +380,7 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 		StageId:         stage.ID,
 		ComposedStageId: composedStage.ID,
 	}
-	g.persist(composedEvent)
+	g.PersistReceive(composedEvent)
 	g.applyStageComposedEvent(composedEvent)
 }
 
@@ -397,6 +391,6 @@ func (g *graphActor) OnCompleteGraph() {
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 	}
-	g.persist(completedEvent)
+	g.PersistReceive(completedEvent)
 	g.applyGraphCompletedEvent(completedEvent)
 }

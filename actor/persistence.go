@@ -2,11 +2,12 @@ package actor
 
 import "github.com/AsynkronIT/protoactor-go/persistence"
 
-// implements persistence.Provider
+// Provider implements persistence.Provider
 type Provider struct {
 	providerState persistence.ProviderState
 }
 
+// GetState returns the persistence.ProviderState associated with this provider
 func (p *Provider) GetState() persistence.ProviderState {
 	return p.providerState
 }

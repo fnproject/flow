@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// GraphManager encapsulates all graph operations
 type GraphManager interface {
 	CreateGraph(*model.CreateGraphRequest, time.Duration) *actor.Future
 	AddStage(interface{}, time.Duration) *actor.Future
@@ -23,14 +24,13 @@ type actorManager struct {
 	executor   *actor.PID
 }
 
+// NewGraphManager creates a new implementation of the GraphManager interface
 func NewGraphManager() GraphManager {
 	decider := func(reason interface{}) actor.Directive {
 		log.Warnf("Graph actor child failed %v", reason)
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
-
-
 
 	executorProps := actor.FromInstance(NewExecutor("http://localhost:8080/r")).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
@@ -41,7 +41,7 @@ func NewGraphManager() GraphManager {
 	return &actorManager{
 		log:        logrus.WithField("logger", "graphManager"),
 		supervisor: supervisor,
-		executor: executor,
+		executor:   executor,
 	}
 }
 

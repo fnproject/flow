@@ -316,6 +316,100 @@ func completedValue(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
+func commitGraph(c *gin.Context) {
+	graphID := c.Param("graphId")
+	_ = model.CommitGraphRequest{GraphId: graphID}
+
+	// TODO: Send to GraphManager
+
+	response := model.CommitGraphProcessed{GraphId: graphID}
+	c.JSON(http.StatusOK, response)
+}
+
+func delay(c *gin.Context) {
+	graphID := c.Param("graphId")
+	delayMs := c.Query("delayMs")
+	if delayMs == "" {
+		log.Info("Empty or missing delay value supplied to add delay stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	delay, err := strconv.ParseUint(delayMs, 10, 64)
+	if err != nil {
+		log.Info("Invalid delay value supplied to add delay stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	_ = model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+
+	// TODO: Send to GraphManager
+
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	c.JSON(http.StatusOK, response)
+}
+
+func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
+	var headers []*model.HttpHeader
+	for k, vs := range hs {
+		canonicalKey := http.CanonicalHeaderKey(k)
+		canonicalPrefix := http.CanonicalHeaderKey(headerHeaderPrefix + "-")
+		if strings.HasPrefix(canonicalKey, canonicalPrefix) {
+			trimmedHeader := strings.TrimPrefix(canonicalKey, canonicalPrefix)
+			for _, v := range vs {
+				headers = append(headers, &model.HttpHeader{
+					Key:   trimmedHeader,
+					Value: v,
+				})
+			}
+		}
+	}
+	return headers
+}
+
+func invokeFunction(c *gin.Context) {
+	graphID := c.Param("graphId")
+
+	functionID := c.Query("functionId")
+	if functionID == "" {
+		log.Info("Empty or missing functionId supplied to add invokeFunction stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	body, err := c.GetRawData()
+	if err != nil {
+		log.Info("Invalid request body supplied to add invokeFunction stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	var method model.HttpMethod
+	if m, found := model.HttpMethod_value[c.Request.Method]; found {
+		method = model.HttpMethod(m)
+	} else {
+		method = model.HttpMethod_unknown_method
+	}
+
+	_ = model.InvokeFunctionRequest{
+		GraphId:    graphID,
+		StageId:    "",
+		FunctionId: functionID,
+		Arg: &model.HttpReqDatum{
+			Body:    model.NewBlob(c.ContentType(), body),
+			Headers: unwrapPrefixedHeaders(c.Request.Header),
+			Method:  method,
+		},
+	}
+
+	// TODO: Send to GraphManager
+
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+
+	c.JSON(http.StatusCreated, response)
+}
+
 func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte) model.AddChainedStageRequest {
 	log.Info(fmt.Sprintf("Adding chained stage type %s, cids %s", op, cids))
 
@@ -342,13 +436,13 @@ func main() {
 		graph.GET("/:graphId", getGraphState)
 
 		graph.POST("/:graphId/supply", supply)
-		graph.POST("/:graphId/invokeFunction", noOpHandler)
+		graph.POST("/:graphId/invokeFunction", invokeFunction)
 		graph.POST("/:graphId/completedValue", completedValue)
-		graph.POST("/:graphId/delay", noOpHandler)
+		graph.POST("/:graphId/delay", delay)
 		graph.POST("/:graphId/allOf", acceptAllOf)
 		graph.POST("/:graphId/anyOf", acceptAnyOf)
 		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
-		graph.POST("/:graphId/commit", noOpHandler)
+		graph.POST("/:graphId/commit", commitGraph)
 
 		stage := graph.Group("/:graphId/stage")
 		{

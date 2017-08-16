@@ -180,7 +180,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(event)
+		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddCompletedValueStageRequest:
@@ -198,7 +198,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(addedEvent)
+		g.applyStageAddedEvent(addedEvent)
 
 		completedEvent := &model.StageCompletedEvent{
 			StageId: g.graph.NextStageID(),
@@ -209,7 +209,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(completedEvent)
+		g.applyStageCompletedEvent(completedEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddDelayStageRequest:
@@ -227,7 +227,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(addedEvent)
+		g.applyStageAddedEvent(addedEvent)
 
 		delayEvent := &model.DelayScheduledEvent{
 			StageId:   g.graph.NextStageID(),
@@ -238,8 +238,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(delayEvent)
-
+		g.applyDelayScheduledEvent(delayEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddExternalCompletionStageRequest:
@@ -256,7 +255,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(event)
+		g.applyStageAddedEvent(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddInvokeFunctionStageRequest:
@@ -274,7 +273,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
 			return
 		}
-		g.applyNoop(event)
+		g.applyStageAddedEvent(event)
 
 		/* TODO graph executor
 		invokeReq := &model.InvokeFunctionRequest{
@@ -290,10 +289,38 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
-		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
+		if !g.validateCmd(msg, context) {
+			return
+		}
+		stage := g.graph.GetStage(msg.StageId)
+		completable := !stage.IsResolved()
+		if completable {
+			completeEvent := &model.StageCompletedEvent{
+				StageId: msg.StageId,
+				Result: msg.Result,
+			}
+			err := g.persist(completeEvent)
+			if err != nil {
+				context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+				return
+			}
+			g.applyStageCompletedEvent(completeEvent)
+
+		}
+		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
 		g.log.Debug("Committing graph")
+		if !g.validateCmd(msg, context) {
+			return
+		}
+		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
+		err := g.persist(committedEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyGraphCommittedEvent(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
@@ -308,6 +335,19 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 
 	case *model.CompleteDelayStageRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
+		if !g.validateCmd(msg, context) {
+			return
+		}
+		completeEvent := &model.StageCompletedEvent{
+			StageId: msg.StageId,
+			Result: msg.Result,
+		}
+		err := g.persist(completeEvent)
+		if err != nil {
+			context.Respond(NewGraphEventPersistenceError(msg.GraphId))
+			return
+		}
+		g.applyStageCompletedEvent(completeEvent)
 
 	case *model.FaasInvocationResponse:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")

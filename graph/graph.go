@@ -3,13 +3,13 @@ package graph
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 var log = logrus.WithField("logger", "graph")
-
 
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
@@ -96,8 +96,6 @@ func (graph *CompletionGraph) NextStageID() string {
 	return strconv.Itoa(len(graph.stages))
 }
 
-
-
 // HandleStageAdded appends a stage into the graph updating the dpendencies of that stage
 // It returns an error if the stage event is invalid, or if another stage exists with the same ID
 func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, shouldTrigger bool) error {
@@ -118,7 +116,7 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 
 	if hasStage {
 		log.Error("Duplicate stage")
-		return fmt.Errorf("Duplicate stage %d", event.StageId)
+		return fmt.Errorf("Duplicate stage %s", event.StageId)
 	}
 	log.Info("Adding stage to graph")
 	node := &CompletionStage{

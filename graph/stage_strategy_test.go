@@ -2,6 +2,7 @@ package graph
 
 import (
 	"testing"
+
 	"github.com/fnproject/completer/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,60 +38,56 @@ func TestTriggerAllEmpty(t *testing.T) {
 func TestTriggerAllCompleted(t *testing.T) {
 	s1 := completedStage()
 	s2 := completedStage()
-	trigger, status, inputs := triggerAll([]*CompletionStage{s1,s2})
+	trigger, status, inputs := triggerAll([]*CompletionStage{s1, s2})
 	assert.True(t, trigger)
 	assert.Equal(t, true, status)
-	assert.Equal(t, []*model.CompletionResult{s1.result,s2.result},inputs)
+	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
 
 }
 
 func TestTriggerAllPartial(t *testing.T) {
-	trigger, _, _ := triggerAll([]*CompletionStage{completedStage(),pendingStage()})
+	trigger, _, _ := triggerAll([]*CompletionStage{completedStage(), pendingStage()})
 	assert.False(t, trigger)
 }
 
 func TestTriggerAllPartialOneFailed(t *testing.T) {
 	failed := failedStage()
-	trigger, res, inputs := triggerAll([]*CompletionStage{completedStage(),pendingStage(), failed})
+	trigger, res, inputs := triggerAll([]*CompletionStage{completedStage(), pendingStage(), failed})
 	assert.True(t, trigger)
-	assert.Equal(t, false,res)
-	assert.Equal(t,[]*model.CompletionResult{failed.result},inputs)
+	assert.Equal(t, false, res)
+	assert.Equal(t, []*model.CompletionResult{failed.result}, inputs)
 }
 
-
-
-func TestTriggerAnyEmpty(t *testing.T){
+func TestTriggerAnyEmpty(t *testing.T) {
 	trigger, _, _ := triggerAny([]*CompletionStage{})
 	assert.False(t, trigger)
 
 }
 
-
-func TestTriggerAnyPartial(t *testing.T){
+func TestTriggerAnyPartial(t *testing.T) {
 	s1 := completedStage()
-	trigger, status, inputs := triggerAny([]*CompletionStage{s1,pendingStage()})
+	trigger, status, inputs := triggerAny([]*CompletionStage{s1, pendingStage()})
 	assert.True(t, trigger)
-	assert.Equal(t, true,status)
-	assert.Equal(t,[]*model.CompletionResult{s1.result},inputs)
+	assert.Equal(t, true, status)
+	assert.Equal(t, []*model.CompletionResult{s1.result}, inputs)
 
 }
 
-
-func TestTriggerAnyPartialFailure(t *testing.T){
+func TestTriggerAnyPartialFailure(t *testing.T) {
 	s1 := failedStage()
-	trigger, _, _ := triggerAny([]*CompletionStage{s1,pendingStage()})
+	trigger, _, _ := triggerAny([]*CompletionStage{s1, pendingStage()})
 	assert.False(t, trigger)
 }
 func completedStage() *CompletionStage {
 	return &CompletionStage{ID: "1", result: model.NewSuccessfulResult(model.NewEmptyDatum())}
 }
 
-func TestTriggerAnyFail(t *testing.T){
+func TestTriggerAnyFail(t *testing.T) {
 	s1 := failedStage()
 	trigger, status, inputs := triggerAny([]*CompletionStage{s1})
 	assert.True(t, trigger)
-	assert.Equal(t, false,status)
-	assert.Equal(t,[]*model.CompletionResult{s1.result},inputs)
+	assert.Equal(t, false, status)
+	assert.Equal(t, []*model.CompletionResult{s1.result}, inputs)
 
 }
 

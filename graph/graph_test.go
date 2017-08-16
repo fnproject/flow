@@ -1,10 +1,11 @@
 package graph
 
 import (
+	"testing"
+
 	"github.com/fnproject/completer/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
 )
 
 type MockedListener struct {

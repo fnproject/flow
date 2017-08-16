@@ -1,8 +1,9 @@
 package graph
 
 import (
-	"github.com/fnproject/completer/model"
 	"fmt"
+
+	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -128,7 +129,8 @@ func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventLis
 }
 
 // noop
-func completeExternally(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {}
+func completeExternally(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
+}
 
 func propagateError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	if len(results) != 1 {

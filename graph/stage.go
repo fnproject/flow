@@ -23,10 +23,12 @@ type CompletionStage struct {
 	triggered bool
 }
 
+// GetOperation returns the operation for this stage
 func (stage *CompletionStage) GetOperation() model.CompletionOperation {
 	return stage.operation
 }
 
+// GetClosure returns the closure for this stage
 func (stage *CompletionStage) GetClosure() *model.BlobDatum {
 	return stage.closure
 }

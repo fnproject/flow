@@ -40,11 +40,11 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 
 	default:
 		if isGraphMessage(msg) {
-			graphId := getGraphId(msg)
-			child, found := findChild(context, graphId)
+			graphID := getGraphID(msg)
+			child, found := findChild(context, graphID)
 			if !found {
-				log.WithFields(logrus.Fields{"graph_id": graphId}).Warn("No child actor found")
-				context.Respond(NewGraphNotFoundError(graphId))
+				log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("No child actor found")
+				context.Respond(NewGraphNotFoundError(graphID))
 				return
 			}
 			child.Request(msg, context.Sender())
@@ -56,14 +56,14 @@ func isGraphMessage(msg interface{}) bool {
 	return reflect.ValueOf(msg).Elem().FieldByName("GraphId").IsValid()
 }
 
-func getGraphId(msg interface{}) string {
+func getGraphID(msg interface{}) string {
 	return reflect.ValueOf(msg).Elem().FieldByName("GraphId").String()
 }
 
-func findChild(context actor.Context, graphId string) (*actor.PID, bool) {
-	fullId := context.Self().Id + "/" + graphId
+func findChild(context actor.Context, graphID string) (*actor.PID, bool) {
+	fullID := context.Self().Id + "/" + graphID
 	for _, pid := range context.Children() {
-		if pid.Id == fullId {
+		if pid.Id == fullID {
 			return pid, true
 		}
 	}

@@ -410,14 +410,42 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model
 
 //OnCompleteStage indicates that a stage is finished and its result is available
 func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
-	g.graph.HandleStageCompleted(&model.StageCompletedEvent{StageId: stage.ID, Result: result}, true)
+	g.log.WithField("stage_id", stage.ID).Info("Completing stage in OnCompleteStage")
+	completeEvent := &model.StageCompletedEvent {
+		StageId: stage.ID,
+		Result: result,
+	}
+	err := g.persist(completeEvent)
+	if err != nil {
+		panic(err)
+	}
+	g.applyStageCompletedEvent(completeEvent)
 }
 
 //OnCompose Stage indicates that another stage should be composed into this one
 func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
-	g.graph.HandleStageComposed(&model.StageComposedEvent{StageId: stage.ID, ComposedStageId: composedStage.ID})
+	g.log.WithField("stage_id", stage.ID).Info("Composing stage in OnComposeStage")
+	composeEvent := &model.StageComposedEvent {
+		StageId: stage.ID,
+		ComposedStageId: composedStage.ID,
+	}
+	err := g.persist(composeEvent)
+	if err != nil {
+		panic(err)
+	}
+	g.applyStageComposedEvent(composeEvent)
 }
 
 //OnCompleteGraph indicates that the graph is now finished and cannot be modified
-func (*graphActor) OnCompleteGraph() {
+func (g *graphActor) OnCompleteGraph() {
+	g.log.Info("Completing graph in OnCompleteGraph")
+	completeEvent := &model.GraphCompletedEvent {
+		GraphId: g.graph.ID,
+		FunctionId: g.graph.FunctionID,
+	}
+	err := g.persist(completeEvent)
+	if err != nil {
+		panic(err)
+	}
+	g.applyGraphCompletedEvent(completeEvent)
 }

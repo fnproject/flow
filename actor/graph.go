@@ -10,7 +10,6 @@ import (
 	"github.com/fnproject/completer/model"
 	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
-	"context"
 )
 
 type graphActor struct {

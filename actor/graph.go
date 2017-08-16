@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/completer/model"
 	proto "github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"context"
 )
 
 type graphActor struct {
@@ -56,11 +57,11 @@ func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) 
 	g.graph.HandleCommitted()
 }
 
-func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent, context actor.Context) {
+func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent) {
 	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID}).Debug("Completing graph")
 	g.graph.HandleCompleted()
 	// "poison pill"
-	context.Self().Stop()
+	g.pid.Stop()
 }
 
 func (g *graphActor) applyStageAddedEvent(event *model.StageAddedEvent) {
@@ -78,11 +79,11 @@ func (g *graphActor) applyStageComposedEvent(event *model.StageComposedEvent) {
 	g.graph.HandleStageComposed(event)
 }
 
-func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent, context actor.Context) {
+func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) {
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := int64(event.DelayedTs) - timeMillis()
 	if delayMs > 0 {
-		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
+		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
 		go func() {
 			timer := make(chan bool, 1)
@@ -91,15 +92,15 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent, 
 				timer <- true
 			}()
 			if <-timer {
-				context.Self().Tell(model.CompleteDelayStageRequest{
+				g.pid.Tell(model.CompleteDelayStageRequest{
 					string(g.graph.ID),
 					event.StageId,
 					model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
 			}
 		}()
 	} else {
-		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
-		context.Self().Tell(model.CompleteDelayStageRequest{
+		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
+		g.pid.Tell(model.CompleteDelayStageRequest{
 			string(g.graph.ID),
 			event.StageId,
 			model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})

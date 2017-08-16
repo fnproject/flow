@@ -113,11 +113,7 @@ func getFakeStageResultResponse(request model.GetStageResultRequest) model.GetSt
 		StageId: request.StageId,
 		Result: &model.CompletionResult{
 			Successful: true,
-			Datum: &model.Datum{
-				Val: &model.Datum_Empty{
-					Empty: &model.EmptyDatum{},
-				},
-			},
+			Datum:      model.NewEmptyDatum(),
 		},
 	}
 }

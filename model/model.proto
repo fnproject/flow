@@ -66,12 +66,12 @@ message ErrorDatum {
 
 message Datum {
     oneof val {
-        EmptyDatum empty = 1;
-        BlobDatum blob = 2;
-        ErrorDatum error = 3;
-        StageRefDatum stage_ref = 4;
-        HttpReqDatum http_req = 5;
-        HttpRespDatum http_resp = 6;
+	EmptyDatum empty = 1;
+	BlobDatum blob = 2;
+	ErrorDatum error = 3;
+	StageRefDatum stage_ref = 4;
+	HttpReqDatum http_req = 5;
+	HttpRespDatum http_resp = 6;
     }
 }
 
@@ -139,6 +139,19 @@ message CompleteDelayStageRequest {
     CompletionResult result = 3;
 }
 
+message CommitGraphRequest {
+    string graph_id = 1;
+}
+
+message CommitGraphProcessed {
+    string graph_id = 1;
+}
+
+message CompleteStageExternallyRequest {
+    string graph_id = 1;
+    string stage_id = 2;
+    CompletionResult result = 3;
+}
 
 message CompleteStageExternallyResponse {
     string graph_id = 1;
@@ -168,9 +181,9 @@ message GetGraphStateRequest {
 
 message GetGraphStateResponse {
     message StageRepresentation {
-        string type = 1;
-        string status = 2;
-        repeated uint32 dependencies = 3;
+	string type = 1;
+	string status = 2;
+	repeated uint32 dependencies = 3;
     }
     map<uint32, StageRepresentation> stages = 1;
     string function_id = 2;

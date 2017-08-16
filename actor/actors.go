@@ -71,23 +71,23 @@ func (g *graphActor) Receive(context actor.Context) {
 
 	case *model.AddChainedStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding chained stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddCompletedValueStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding completed value stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddDelayStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding delay stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddExternalCompletionStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding external completion stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.AddInvokeFunctionStageRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding invoke stage")
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: 1})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: "1"})
 
 	case *model.CompleteStageExternallyRequest:
 		log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Completing stage externally")

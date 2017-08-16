@@ -206,14 +206,12 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			return
 		}
 		g.log.Debug("Adding completed value stage")
-
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
-
 		completedEvent := &model.StageCompletedEvent{
 			StageId: g.graph.NextStageID(),
 			Result:  msg.Result,
@@ -227,14 +225,12 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			return
 		}
 		g.log.Debug("Adding delay stage")
-
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_delay,
 		}
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
-
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: g.graph.NextStageID(),
 			TimeMs:  timeMillis() + msg.DelayMs,
@@ -261,14 +257,12 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			return
 		}
 		g.log.Debug("Adding invoke stage")
-
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_completedValue,
 		}
 		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
-
 		req := &model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    event.StageId,
@@ -335,6 +329,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.FaasInvocationResponse:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
+		g.graph.HandleInvokeComplete(msg.StageId, msg.Result)
 
 	default:
 		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))

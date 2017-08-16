@@ -301,6 +301,16 @@ func completedValue(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
+func commitGraph(c *gin.Context) {
+	graphID := c.Param("graphId")
+	_ = model.CommitGraphRequest{GraphId: graphID}
+
+	// TODO: Send to GraphManager
+
+	response := model.CommitGraphProcessed{GraphId: graphID}
+	c.JSON(http.StatusOK, response)
+}
+
 func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte) model.AddChainedStageRequest {
 	log.Info(fmt.Sprintf("Adding chained stage type %s, cids %s", op, cids))
 
@@ -332,7 +342,7 @@ func main() {
 		graph.POST("/:graphId/allOf", acceptAllOf)
 		graph.POST("/:graphId/anyOf", acceptAnyOf)
 		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)
-		graph.POST("/:graphId/commit", noOpHandler)
+		graph.POST("/:graphId/commit", commitGraph)
 
 		stage := graph.Group("/:graphId/stage")
 		{

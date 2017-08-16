@@ -47,35 +47,35 @@ func (g *graphActor) persist(event proto.Message) error {
 }
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": event.GraphId, "function_id": event.FunctionId}).Debug("Creating completion graph")
+	g.log.Debug("Creating completion graph")
 	listener := &completionEventListenerImpl{actor: g}
 	g.graph = graph.New(event.GraphId, event.FunctionId, listener)
 }
 
 func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID}).Debug("Committing graph")
+	g.log.Debug("Committing graph")
 	g.graph.HandleCommitted()
 }
 
 func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID}).Debug("Completing graph")
+	g.log.Debug("Completing graph")
 	g.graph.HandleCompleted()
 	// "poison pill"
 	g.pid.Stop()
 }
 
 func (g *graphActor) applyStageAddedEvent(event *model.StageAddedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Adding stage")
+	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Adding stage")
 	g.graph.HandleStageAdded(event, !g.Recovering())
 }
 
 func (g *graphActor) applyStageCompletedEvent(event *model.StageCompletedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Completing stage")
+	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Completing stage")
 	g.graph.HandleStageCompleted(event, !g.Recovering())
 }
 
 func (g *graphActor) applyStageComposedEvent(event *model.StageComposedEvent) {
-	g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Composing stage")
+	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Composing stage")
 	g.graph.HandleStageComposed(event)
 }
 
@@ -83,7 +83,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := int64(event.DelayedTs) - timeMillis()
 	if delayMs > 0 {
-		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
+		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
 		go func() {
 			timer := make(chan bool, 1)
@@ -99,7 +99,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 			}
 		}()
 	} else {
-		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
+		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
 		g.pid.Tell(model.CompleteDelayStageRequest{
 			string(g.graph.ID),
 			event.StageId,
@@ -155,7 +155,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Creating graph")
+		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
 		err := g.persist(event)
 		if err != nil {
@@ -169,7 +169,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding chained stage")
+		g.log.Debug("Adding chained stage")
 		event := &model.StageAddedEvent{
 			StageId:      g.graph.NextStageID(),
 			Op:           msg.Operation,
@@ -188,7 +188,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding completed value stage")
+		g.log.Debug("Adding completed value stage")
 
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -217,7 +217,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding delay stage")
+		g.log.Debug("Adding delay stage")
 
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -247,7 +247,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding external completion stage")
+		g.log.Debug("Adding external completion stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      model.CompletionOperation_externalCompletion,
@@ -264,7 +264,7 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Adding invoke stage")
+		g.log.Debug("Adding invoke stage")
 
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -290,15 +290,15 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.CompleteStageExternallyRequest:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Completing stage externally")
+		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: true})
 
 	case *model.CommitGraphRequest:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Committing graph")
+		g.log.Debug("Committing graph")
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Retrieving stage result")
+		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
 		datum := &model.Datum{
 			Val: &model.Datum_Blob{
 				Blob: &model.BlobDatum{ContentType: "text", DataString: []byte("foo")},
@@ -308,10 +308,10 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 		context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
 
 	case *model.CompleteDelayStageRequest:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Completing delayed stage")
+		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
 
 	case *model.FaasInvocationResponse:
-		g.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Debug("Received fn invocation response")
+		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
 
 	default:
 		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))

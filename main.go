@@ -196,7 +196,7 @@ func getGraphStage(c *gin.Context) {
 		c.Data(http.StatusOK, httpReq.Body.GetContentType(), httpReq.Body.GetDataString())
 		return
 	case *model.Datum_HttpResp:
-		c.Header(headerDatumType, "httpreq")
+		c.Header(headerDatumType, "httpresp")
 		c.Header(headerResultStatus, resultStatus(result))
 		httpResp := v.HttpResp
 		for _, header := range httpResp.Headers {

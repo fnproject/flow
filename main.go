@@ -6,8 +6,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
-	"strings"
 	"os"
+	"strconv"
+	"strings"
+)
+
+const (
+	headerDatumType    string = "FnProject-DatumType"
+	headerResultStatus string = "FnProject-ResultStatus"
+	headerErrorType    string = "FnProject-ErrorType"
+	headerStageID      string = "FnProject-StageID"
+	headerHeaderPrefix string = "FnProject-Header"
+	headerMethod       string = "FnProject-Method"
+	headerResultCode   string = "FnProject-ResultCode"
 )
 
 var log = logrus.WithField("logger", "api")
@@ -96,6 +107,114 @@ func getGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
+func getFakeStageResultResponse(request model.GetStageResultRequest) model.GetStageResultResponse {
+	return model.GetStageResultResponse{
+		GraphId: request.GraphId,
+		StageId: request.StageId,
+		Result: &model.CompletionResult{
+			Successful: true,
+			Datum: &model.Datum{
+				Val: &model.Datum_Empty{
+					Empty: &model.EmptyDatum{},
+				},
+			},
+		},
+	}
+}
+
+func resultStatus(result *model.CompletionResult) string {
+	if result.GetSuccessful() {
+		return "success"
+	}
+	return "failure"
+}
+
+func getGraphStage(c *gin.Context) {
+	graphID := c.Param("graphId")
+	stageID := c.Param("stageId")
+
+	request := model.GetStageResultRequest{
+		GraphId: graphID,
+		StageId: stageID,
+	}
+
+	// TODO: send to the GraphManager
+
+	response := getFakeStageResultResponse(request)
+
+	result := response.GetResult()
+	if result == nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	datum := result.GetDatum()
+	if datum == nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	val := datum.GetVal()
+	if val == nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	switch v := val.(type) {
+
+	case *model.Datum_Error:
+		c.Header(headerDatumType, "error")
+		c.Header(headerResultStatus, resultStatus(result))
+		error := v.Error
+		c.Header(headerErrorType, model.ErrorDatumType_name[int32(error.GetType())])
+		c.String(http.StatusOK, error.GetMessage())
+		return
+	case *model.Datum_Empty:
+		c.Header(headerDatumType, "empty")
+		c.Header(headerResultStatus, resultStatus(result))
+		c.Status(http.StatusOK)
+		return
+	case *model.Datum_Blob:
+		c.Header(headerDatumType, "blob")
+		c.Header(headerResultStatus, resultStatus(result))
+		blob := v.Blob
+		c.Data(http.StatusOK, blob.GetContentType(), blob.GetDataString())
+		return
+	case *model.Datum_StageRef:
+		c.Header(headerDatumType, "stageref")
+		c.Header(headerResultStatus, resultStatus(result))
+		stageRef := v.StageRef
+		c.Header(headerStageID, stageRef.StageRef)
+		c.Status(http.StatusOK)
+		return
+	case *model.Datum_HttpReq:
+		c.Header(headerDatumType, "httpreq")
+		c.Header(headerResultStatus, resultStatus(result))
+		httpReq := v.HttpReq
+		for _, header := range httpReq.Headers {
+			c.Header(headerHeaderPrefix+"-"+header.GetKey(), header.GetValue())
+		}
+		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
+		c.Header(headerMethod, httpMethod)
+		c.Data(http.StatusOK, httpReq.Body.GetContentType(), httpReq.Body.GetDataString())
+		return
+	case *model.Datum_HttpResp:
+		c.Header(headerDatumType, "httpreq")
+		c.Header(headerResultStatus, resultStatus(result))
+		httpResp := v.HttpResp
+		for _, header := range httpResp.Headers {
+			c.Header(headerHeaderPrefix+"-"+header.GetKey(), header.GetValue())
+		}
+		statusCode := strconv.FormatUint(uint64(httpResp.GetStatusCode()), 32)
+		c.Header(headerResultCode, statusCode)
+		c.Data(http.StatusOK, httpResp.Body.GetContentType(), httpResp.Body.GetDataString())
+		return
+	default:
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+}
+
 func acceptExternalCompletion(c *gin.Context) {
 
 	graphID := c.Param("graphId")
@@ -165,7 +284,7 @@ func main() {
 
 		stage := graph.Group("/:graphId/stage")
 		{
-			stage.GET("/:stageId", noOpHandler)
+			stage.GET("/:stageId", getGraphStage)
 			stage.POST("/:stageId/:operation", stageHandler)
 		}
 	}

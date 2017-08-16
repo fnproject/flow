@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
+	"os"
 )
 
 var log = logrus.WithField("logger", "api")
@@ -56,28 +57,28 @@ func getFakeGraphStateResponse(req model.GetGraphStateRequest) model.GetGraphSta
 	stage0 := model.GetGraphStateResponse_StageRepresentation{
 		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
 		Status:       "success",
-		Dependencies: []uint32{},
+		Dependencies: []string{},
 	}
 
 	stage1 := model.GetGraphStateResponse_StageRepresentation{
 		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
 		Status:       "failure",
-		Dependencies: []uint32{0},
+		Dependencies: []string{"0"},
 	}
 
 	stage2 := model.GetGraphStateResponse_StageRepresentation{
 		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_allOf)],
 		Status:       "pending",
-		Dependencies: []uint32{0, 1},
+		Dependencies: []string{"0", "1"},
 	}
 
 	response := model.GetGraphStateResponse{
 		FunctionId: "theFunctionId",
 		GraphId:    req.GraphId,
-		Stages: map[uint32]*model.GetGraphStateResponse_StageRepresentation{
-			0: &stage0,
-			1: &stage1,
-			2: &stage2,
+		Stages: map[string]*model.GetGraphStateResponse_StageRepresentation{
+			"0": &stage0,
+			"1": &stage1,
+			"2": &stage2,
 		},
 	}
 
@@ -171,5 +172,10 @@ func main() {
 
 	log.Info("Starting")
 
-	engine.Run()
+	listenHost:= os.Getenv("COMPLETER_HOST")
+	var listenPort = os.Getenv("COMPLETER_PORT")
+	if listenPort == "" {
+		listenPort = "8081"
+	}
+	engine.Run(listenHost +":" + listenPort)
 }

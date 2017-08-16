@@ -82,7 +82,7 @@ func TestTriggerAnyPartialFailure(t *testing.T){
 	assert.False(t, trigger)
 }
 func completedStage() *CompletionStage {
-	return &CompletionStage{ID: "1", result: successfulResult(emptyDatum())}
+	return &CompletionStage{ID: "1", result: model.NewSuccessfulResult(model.NewEmptyDatum())}
 }
 
 func TestTriggerAnyFail(t *testing.T){
@@ -95,7 +95,7 @@ func TestTriggerAnyFail(t *testing.T){
 }
 
 func failedStage() *CompletionStage {
-	return &CompletionStage{ID: "1", result: failedResult(emptyDatum())}
+	return &CompletionStage{ID: "1", result: model.NewFailedResult(model.NewEmptyDatum())}
 }
 
 func pendingStage() *CompletionStage {

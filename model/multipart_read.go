@@ -39,6 +39,26 @@ func DatumFromHttpRequest(r *http.Request) (*Datum, error) {
 	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
 }
 
+func CompletionResultFromResponse(r *http.Response) (*CompletionResult, error) {
+	datum, err := DatumFromHttpResponse(r)
+	if err != nil {
+		return nil, err
+	}
+	statusString := r.Header.Get(headerResultStatus)
+
+	var resultStatus bool
+	switch (statusString) {
+	case "success":
+		resultStatus = true
+	case "failure":
+		resultStatus = false
+	default:
+		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", headerResultStatus, statusString)
+	}
+
+	return &CompletionResult{Successful: resultStatus, Datum: datum}, nil
+}
+
 // DatumFromHttpResponse reads a model Datum Object from an HTTP response
 func DatumFromHttpResponse(r *http.Response) (*Datum, error) {
 	return readDatum(r.Body, textproto.MIMEHeader(r.Header))

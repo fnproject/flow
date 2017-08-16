@@ -1,0 +1,49 @@
+package model
+
+
+func NewInternalErrorResult(code ErrorDatumType, message string) *CompletionResult {
+	return &CompletionResult{
+		Successful: false,
+		Datum: &Datum{
+			Val: &Datum_Error{Error: &ErrorDatum{Type: code, Message: message}},
+		},
+	}
+}
+
+func NewEmptyDatum() *Datum {
+	return &Datum{Val: &Datum_Empty{Empty: &EmptyDatum{}}}
+}
+
+func NewBlob(contentType string, data []byte) *BlobDatum {
+	return &BlobDatum{ContentType: contentType, DataString: data}
+}
+
+func NewBlobDatum(blob *BlobDatum) *Datum {
+	return &Datum{
+		Val: &Datum_Blob{
+			Blob: blob,
+		},
+	}
+}
+
+func NewStageRefDatum(stageID string) *Datum {
+	return &Datum{
+		Val: &Datum_StageRef{
+			StageRef: &StageRefDatum{StageRef: stageID},
+		},
+	}
+}
+
+func NewSuccessfulResult(datum *Datum) *CompletionResult {
+	return &CompletionResult{
+		Successful: true,
+		Datum:      datum,
+	}
+}
+
+func NewFailedResult(datum *Datum) *CompletionResult {
+	return &CompletionResult{
+		Successful: false,
+		Datum:      datum,
+	}
+}

@@ -133,7 +133,23 @@ message AddStageResponse {
     string stage_id = 2;
 }
 
+message CommitGraphRequest {
+    string graph_id = 1;
+}
+
+message CommitGraphProcessed {
+    string graph_id = 1;
+}
+
+
 message CompleteDelayStageRequest {
+    string graph_id = 1;
+    string stage_id = 2;
+    CompletionResult result = 3;
+}
+
+
+message CompleteStageExternallyRequest {
     string graph_id = 1;
     string stage_id = 2;
     CompletionResult result = 3;
@@ -170,9 +186,9 @@ message GetGraphStateResponse {
     message StageRepresentation {
         string type = 1;
         string status = 2;
-        repeated uint32 dependencies = 3;
+        repeated string dependencies = 3;
     }
-    map<uint32, StageRepresentation> stages = 1;
+    map<string, StageRepresentation> stages = 1;
     string function_id = 2;
     string graph_id = 3;
 }

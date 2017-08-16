@@ -23,6 +23,14 @@ type CompletionStage struct {
 	triggered bool
 }
 
+func (stage *CompletionStage) GetOperation() model.CompletionOperation {
+	return stage.operation
+}
+
+func (stage *CompletionStage) GetClosure() *model.BlobDatum {
+	return stage.closure
+}
+
 func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
 	stage.triggered = true
 	if stage.result == nil {

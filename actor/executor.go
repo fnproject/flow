@@ -38,7 +38,7 @@ func NewExecutor(faasAddress string) actor.Actor {
 	client.Timeout = 300 * time.Second
 
 	return &graphExecutor{faasAddr: faasAddress,
-		log: logrus.WithField("logger", "executor").WithField("execUrl", faasAddress),
+		log: logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
 		client: client,
 	}
 }

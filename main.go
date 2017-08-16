@@ -8,9 +8,13 @@ import (
 	"net/http"
 	"strings"
 	"os"
+	"github.com/fnproject/completer/actor"
+	"time"
 )
 
 var log = logrus.WithField("logger", "api")
+
+var graphManager actor.GraphManager
 
 func noOpHandler(c *gin.Context) {
 	c.Status(http.StatusNotFound)
@@ -32,6 +36,7 @@ func stageHandler(c *gin.Context) {
 }
 
 func createGraphHandler(c *gin.Context) {
+	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
 	if functionID == "" {
@@ -45,8 +50,17 @@ func createGraphHandler(c *gin.Context) {
 		return
 	}
 
-	_ = model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
-	// TODO: pass this request to the GraphManager
+	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
+
+	f:= graphManager.CreateGraph(req,5 * time.Second)
+
+	result,err:= f.Result()
+	if err !=nil{
+		c.Status(500)
+		return;
+	}
+	resp:= result.(*model.CreateGraphResponse)
+	c.Header("FnProject-threadid",resp.GraphId)
 	c.Status(http.StatusCreated)
 
 }
@@ -143,6 +157,7 @@ func acceptAnyOf(c *gin.Context) {
 
 func main() {
 
+	graphManager = actor.NewGraphManager()
 	engine := gin.Default()
 
 	engine.GET("/ping", func(c *gin.Context) {

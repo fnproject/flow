@@ -104,6 +104,9 @@ func timeMillis() int64 {
 	return time.Now().UnixNano() / 1000000
 }
 
+// TODO: read this from configuration!
+const maxDelaySeconds = 900
+
 func (g *graphActor) applyNoop(event interface{}) {
 
 }
@@ -112,30 +115,82 @@ func (g *graphActor) applyNoop(event interface{}) {
 func (g *graphActor) receiveRecover(context actor.Context) {
 }
 
-func (g *graphActor) validateStages(stageIDs []string) bool {
-	return g.graph.GetStages(stageIDs) != nil
+// Validate a list of stages. If any of them is missing, returns false and the first stage which is missing.
+func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
+	for _,stage := range stageIDs {
+		if g.graph.GetStage(stage) == nil {
+			return false, stage
+		}
+	}
+	return true, ""
 }
 
 // if validation fails, this method will respond to the request with an appropriate error message
 func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
+	// First check the graph exists
 	if isGraphMessage(cmd) {
 		graphId := getGraphId(cmd)
 		if g.graph == nil {
 			context.Respond(NewGraphNotFoundError(graphId))
 			return false
-		} else if g.graph.IsCompleted() {
-			context.Respond(NewGraphCompletedError(graphId))
-			return false
 		}
 	}
 
+	// Then do individual checks dependent on type
 	switch msg := cmd.(type) {
-
 	case *model.AddDelayStageRequest:
+		if g.graph.IsCompleted() {
+			context.Respond(NewGraphCompletedError(msg.GraphId))
+			return false
+		}
+		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds * 1000 {
+			context.Respond(NewInvalidDelayError(msg.GraphId, msg.DelayMs))
+			return false
+		}
 
 	case *model.AddChainedStageRequest:
-		if g.validateStages(msg.Deps) {
+		if g.graph.IsCompleted() {
 			context.Respond(NewGraphCompletedError(msg.GraphId))
+			return false
+		}
+		valid, missing := g.validateStages(msg.Deps)
+		if !valid {
+			context.Respond(NewStageNotFoundError(msg.GraphId, missing))
+			return false
+		}
+
+    case *model.CompleteDelayStageRequest:
+		if g.graph.IsCompleted() {
+			// Don't respond, just ignore this message. This is intentional.
+			return false
+		}
+
+	case *model.CompleteStageExternallyRequest:
+		if g.graph.IsCompleted() {
+			context.Respond(NewGraphCompletedError(msg.GraphId))
+			return false
+		}
+		stage := g.graph.GetStage(msg.StageId)
+		if stage == nil {
+			context.Respond(NewStageNotFoundError(msg.GraphId, msg.StageId))
+			return false
+		}
+		if stage.GetOperation() != model.CompletionOperation_externalCompletion {
+			g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Stage is not externally completable")
+			context.Respond(NewStageNotCompletableError(msg.GraphId, msg.StageId))
+			return false
+		}
+
+	case *model.GetStageResultRequest:
+		valid, missing := g.validateStages(append(make([]string, 0), msg.StageId))
+		if !valid {
+			context.Respond(NewStageNotFoundError(msg.GraphId, missing))
+			return false
+		}
+
+	case *model.CommitGraphRequest:
+		if g.graph.IsCompleted() || g.graph.IsCommitted() {
+			context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 			return false
 		}
 	}

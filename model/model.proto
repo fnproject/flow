@@ -57,7 +57,7 @@ message EmptyDatum {
 }
 
 message StageRefDatum {
-    uint32 stage_ref = 1;
+    string stage_ref = 1;
 }
 message ErrorDatum {
     ErrorDatumType type = 1;
@@ -102,7 +102,7 @@ message AddChainedStageRequest {
     string graph_id = 1;
     CompletionOperation operation = 2;
     BlobDatum closure = 3;
-    repeated uint32 deps = 4;
+    repeated string deps = 4;
 }
 
 message AddCompletedValueStageRequest {
@@ -130,12 +130,7 @@ message AddInvokeFunctionStageRequest {
 
 message AddStageResponse {
     string graph_id = 1;
-    uint32 stage_id = 2;
-}
-
-message CompleteDelayStageRequest {
-    string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
 }
 
 message CommitGraphRequest {
@@ -146,16 +141,24 @@ message CommitGraphProcessed {
     string graph_id = 1;
 }
 
+
+message CompleteDelayStageRequest {
+    string graph_id = 1;
+    string stage_id = 2;
+    CompletionResult result = 3;
+}
+
+
 message CompleteStageExternallyRequest {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     CompletionResult result = 3;
 }
 
 
 message CompleteStageExternallyResponse {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     bool successful = 3;
 }
 
@@ -170,7 +173,7 @@ message CreateGraphResponse {
 
 message FaasInvocationResponse {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     string function_id = 3;
     CompletionResult result = 4;
 }
@@ -183,9 +186,9 @@ message GetGraphStateResponse {
     message StageRepresentation {
         string type = 1;
         string status = 2;
-        repeated uint32 dependencies = 3;
+        repeated string dependencies = 3;
     }
-    map<uint32, StageRepresentation> stages = 1;
+    map<string, StageRepresentation> stages = 1;
     string function_id = 2;
     string graph_id = 3;
 }
@@ -211,12 +214,12 @@ message ListGraphsResponse {
 
 message GetStageResultRequest {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
 }
 
 message GetStageResultResponse {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     CompletionResult result = 3;
 }
 
@@ -228,20 +231,20 @@ message InvalidGraphOperation {
 message InvalidStageOperation {
     string graph_id = 1;
     string error = 2;
-    uint32 stage_id = 3;
+    string stage_id = 3;
 }
 
 // Invoke commands
 message InvokeFunctionRequest {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     string function_id = 3;
     HttpReqDatum arg = 4;
 }
 
 message InvokeStageRequest {
     string graph_id = 1;
-    uint32 stage_id = 2;
+    string stage_id = 2;
     string function_id = 3;
     CompletionOperation operation = 4;
     repeated Datum args = 5;
@@ -256,7 +259,7 @@ message AddGraphEntity {
 // Events
 
 message DelayScheduledEvent {
-    uint32 stage_id = 1;
+    string stage_id = 1;
     uint64 delayed_ts = 2;
 }
 
@@ -275,18 +278,18 @@ message GraphCommittedEvent {
 }
 
 message StageAddedEvent {
-    uint32 stage_id = 1;
+    string stage_id = 1;
     CompletionOperation op = 2;
     BlobDatum closure = 3;
-    repeated uint32 dependencies = 4;
+    repeated string dependencies = 4;
 }
 
 message StageCompletedEvent {
-    uint32 stage_id = 1;
+    string stage_id = 1;
     CompletionResult result = 2;
 }
 
 message StageComposedEvent {
-    uint32 stage_id = 1;
-    uint32 composed_stage_id = 2;
+    string stage_id = 1;
+    string composed_stage_id = 2;
 }

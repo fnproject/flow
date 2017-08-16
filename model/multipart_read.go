@@ -1,14 +1,14 @@
 package model
 
 import (
-	"mime/multipart"
-	"fmt"
 	"bytes"
-	"strings"
-	"strconv"
+	"fmt"
 	"io"
-	"net/textproto"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -37,6 +37,26 @@ func DatumFromPart(part *multipart.Part) (*Datum, error) {
 // DatumFromHttpRequest reads a model Datum Object from an HTTP request
 func DatumFromHttpRequest(r *http.Request) (*Datum, error) {
 	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
+}
+
+func CompletionResultFromResponse(r *http.Response) (*CompletionResult, error) {
+	datum, err := DatumFromHttpResponse(r)
+	if err != nil {
+		return nil, err
+	}
+	statusString := r.Header.Get(headerResultStatus)
+
+	var resultStatus bool
+	switch (statusString) {
+	case "success":
+		resultStatus = true
+	case "failure":
+		resultStatus = false
+	default:
+		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", headerResultStatus, statusString)
+	}
+
+	return &CompletionResult{Successful: resultStatus, Datum: datum}, nil
 }
 
 // DatumFromHttpResponse reads a model Datum Object from an HTTP response
@@ -98,12 +118,11 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 		}, nil
 
 	case datumTypeStageRef:
-		stageIdString := header.Get(headerStageRef)
-		stageId, err := strconv.ParseUint(stageIdString, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid StageRef Datum : %s", err.Error())
+		stageId := header.Get(headerStageRef)
+		if stageId == "" {
+			return nil, fmt.Errorf("Invalid StageRef Datum")
 		}
-		return &Datum{Val: &Datum_StageRef{&StageRefDatum{ StageRef: uint32(stageId) }}}, nil
+		return &Datum{Val: &Datum_StageRef{&StageRefDatum{StageRef: string(stageId)}}}, nil
 	case datumTypeHttpReq:
 		methodString := header.Get(headerMethod)
 		if "" == methodString {
@@ -114,10 +133,10 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 			return nil, fmt.Errorf("Invalid HttpReq Datum : http method %s is invalid", methodString)
 		}
 		var headers []*HttpHeader
-		for hk,hvs := range header {
+		for hk, hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
-				for _,hv := range hvs {
-					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
+				for _, hv := range hvs {
+					headers = append(headers, &HttpHeader{Key: hk[len(headerHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -125,7 +144,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Datum{Val: &Datum_HttpReq{ &HttpReqDatum { blob, headers, HttpMethod(method)}}}, nil
+		return &Datum{Val: &Datum_HttpReq{&HttpReqDatum{blob, headers, HttpMethod(method)}}}, nil
 	case datumTypeHttpResp:
 		resultCodeString := header.Get(headerResultCode)
 		if "" == resultCodeString {
@@ -136,10 +155,10 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 			return nil, fmt.Errorf("Invalid HttpResp Datum : %s", err.Error())
 		}
 		var headers []*HttpHeader
-		for hk,hvs := range header {
+		for hk, hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
-				for _,hv := range hvs {
-					headers = append(headers, &HttpHeader{ Key: hk[len(headerHeaderPrefix):], Value: hv})
+				for _, hv := range hvs {
+					headers = append(headers, &HttpHeader{Key: hk[len(headerHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -147,7 +166,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Datum{Val: &Datum_HttpResp{ &HttpRespDatum { blob, headers, uint32(resultCode)}}}, nil
+		return &Datum{Val: &Datum_HttpResp{&HttpRespDatum{blob, headers, uint32(resultCode)}}}, nil
 	default:
 		return nil, fmt.Errorf("Unrecognised datum type")
 	}

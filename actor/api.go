@@ -18,8 +18,9 @@ type GraphManager interface {
 }
 
 type actorManager struct {
-	log *logrus.Entry
-	pid *actor.PID
+	log        *logrus.Entry
+	supervisor *actor.PID
+	executor   *actor.PID
 }
 
 func NewGraphManager() GraphManager {
@@ -28,11 +29,19 @@ func NewGraphManager() GraphManager {
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
-	props := actor.FromInstance(&graphSupervisor{}).WithSupervisor(strategy)
-	pid, _ := actor.SpawnNamed(props, "supervisor")
+
+
+
+	executorProps := actor.FromInstance(NewExecutor("http://localhost:8080/r")).WithSupervisor(strategy)
+	executor, _ := actor.SpawnNamed(executorProps, "executor")
+
+	supervisorProps := actor.FromInstance(NewSupervisor(executor)).WithSupervisor(strategy)
+	supervisor, _ := actor.SpawnNamed(supervisorProps, "supervisor")
+
 	return &actorManager{
-		log: logrus.WithField("logger", "graphManager"),
-		pid: pid,
+		log:        logrus.WithField("logger", "graphManager"),
+		supervisor: supervisor,
+		executor: executor,
 	}
 }
 
@@ -61,5 +70,5 @@ func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Durati
 }
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) *actor.Future {
-	return m.pid.RequestFuture(req, timeout)
+	return m.supervisor.RequestFuture(req, timeout)
 }

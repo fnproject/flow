@@ -1,8 +1,9 @@
 package graph
 
 import (
-	"github.com/fnproject/completer/model"
 	"fmt"
+
+	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -72,7 +73,7 @@ type ExecutionStrategy func(stage *CompletionStage, listener CompletionEventList
 func succeedWithEmpty(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	listener.OnCompleteStage(stage, &model.CompletionResult{
 		Successful: true,
-		Datum:      emptyDatum(),
+		Datum:      model.NewEmptyDatum(),
 	})
 }
 
@@ -119,16 +120,17 @@ func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventLis
 
 	var args []*model.Datum
 	if result.Successful {
-		args = []*model.Datum{result.Datum, emptyDatum()}
+		args = []*model.Datum{result.Datum, model.NewEmptyDatum()}
 	} else {
-		args = []*model.Datum{emptyDatum(), result.Datum}
+		args = []*model.Datum{model.NewEmptyDatum(), result.Datum}
 	}
 
 	listener.OnExecuteStage(stage, args)
 }
 
 // noop
-func completeExternally(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {}
+func completeExternally(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
+}
 
 func propagateError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	if len(results) != 1 {
@@ -177,12 +179,12 @@ func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, resul
 	// result must be a stageref
 	if nil == result.Datum.GetStageRef() {
 		//TODO complete stage with an error
-		graph.eventListener.OnCompleteStage(stage, InternalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
+		graph.eventListener.OnCompleteStage(stage, model.NewInternalErrorResult(model.ErrorDatumType_invalid_stage_response, "stage returned a non-stageref response"))
 		return
 	}
-	refStage := graph.GetStage(StageID(result.Datum.GetStageRef().StageRef))
+	refStage := graph.GetStage(result.Datum.GetStageRef().StageRef)
 	if nil == refStage {
-		graph.eventListener.OnCompleteStage(stage, InternalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
+		graph.eventListener.OnCompleteStage(stage, model.NewInternalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
 	}
 	log.WithFields(logrus.Fields{"stage_id": stage.ID, "other_id": refStage.ID}).Info("Composing with new stage ")
 	graph.eventListener.OnComposeStage(stage, refStage)

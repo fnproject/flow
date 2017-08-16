@@ -6,7 +6,7 @@ import (
 
 // CompletionStage is a node in  Graph
 type CompletionStage struct {
-	ID        StageID
+	ID        string
 	operation model.CompletionOperation
 	strategy  strategy
 	// optional closure
@@ -21,6 +21,16 @@ type CompletionStage struct {
 	composeReference *CompletionStage
 	// this only prevents a a stage from triggering twice in the same generation
 	triggered bool
+}
+
+// GetOperation returns the operation for this stage
+func (stage *CompletionStage) GetOperation() model.CompletionOperation {
+	return stage.operation
+}
+
+// GetClosure returns the closure for this stage
+func (stage *CompletionStage) GetClosure() *model.BlobDatum {
+	return stage.closure
 }
 
 func (stage *CompletionStage) complete(result *model.CompletionResult) bool {

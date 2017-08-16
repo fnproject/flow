@@ -1,12 +1,12 @@
 package model
 
 import (
-	"testing"
-	"mime/multipart"
 	"bytes"
-	"net/textproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"mime/multipart"
+	"net/textproto"
+	"testing"
 )
 
 func TestRejectsUnrecognisedType(t *testing.T) {
@@ -50,7 +50,7 @@ func TestReadsEmptyBlobDatum(t *testing.T) {
 	assert.Equal(t, []byte(""), d.GetBlob().DataString)
 }
 
-func TestReadsBlobDatum(t *testing.T)   {
+func TestReadsBlobDatum(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeBlob)
 	h.Add(headerContentType, "text/plain")
@@ -74,7 +74,7 @@ func TestReadsActuallyEmptyDatum(t *testing.T) {
 }
 
 func TestReadErrorDatumAllTypes(t *testing.T) {
-	for _,errName := range ErrorDatumType_name {
+	for _, errName := range ErrorDatumType_name {
 		h := emptyHeaders()
 		h.Add(headerDatumType, datumTypeError)
 		h.Add(headerContentType, "text/plain")
@@ -109,10 +109,10 @@ func TestRejectsErrorDatumIfNoErrorType(t *testing.T) {
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no " + headerErrorType + " header defined")
+	assert.Contains(t, err.Error(), "no "+headerErrorType+" header defined")
 }
 
-func TestReadErrorTypeEmptyBody(t *testing.T)    {
+func TestReadErrorTypeEmptyBody(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeError)
 	h.Add(headerContentType, "text/plain")
@@ -149,39 +149,27 @@ func TestReadsStageRefDatum(t *testing.T) {
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetStageRef())
-	assert.Equal(t, uint32(123), d.GetStageRef().GetStageRef())
-}
-
-func TestRejectsStageRefDatumWithInvalidStageRef(t *testing.T) {
-	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeStageRef)
-	h.Add(headerStageRef, "blaaaaah")
-	part := createPart("p1", h, "")
-	_, err := DatumFromPart(part)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid StageRef Datum :")
-	assert.Contains(t, err.Error(), "parsing \"blaaaaah\": invalid syntax")
+	assert.Equal(t, "123", d.GetStageRef().GetStageRef())
 }
 
 func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeStageRef)
+	h.Add(headerStageRef, "")
 	part := createPart("p1", h, "")
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid StageRef Datum :")
-	assert.Contains(t, err.Error(), "parsing \"\": invalid syntax")
+	assert.Contains(t, err.Error(), "Invalid StageRef")
 }
 
 func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
 	h.Add(headerMethod, "GET")
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	d, err := DatumFromPart(part)
@@ -203,24 +191,24 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no " + headerMethod + " header defined")
+	assert.Contains(t, err.Error(), "no "+headerMethod+" header defined")
 }
 
 func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
 	h.Add(headerMethod, "SOME_INVALID_METHOD")
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	_, err := DatumFromPart(part)
@@ -233,9 +221,9 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
 	h.Add(headerResultCode, "200")
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	d, err := DatumFromPart(part)
@@ -257,24 +245,24 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	_, err := DatumFromPart(part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no " + headerResultCode + " header defined")
+	assert.Contains(t, err.Error(), "no "+headerResultCode+" header defined")
 }
 
 func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
 	h.Add(headerResultCode, "SOME_INVALID_CODE")
-	h.Add(headerHeaderPrefix + "single", "FOO")
-	h.Add(headerHeaderPrefix + "multi", "BAR")
-	h.Add(headerHeaderPrefix + "multi", "BAZ")
+	h.Add(headerHeaderPrefix+"single", "FOO")
+	h.Add(headerHeaderPrefix+"multi", "BAR")
+	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
 	part := createPart("p1", h, "WOMBAT")
 	_, err := DatumFromPart(part)
@@ -283,7 +271,6 @@ func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid HttpResp Datum :")
 	assert.Contains(t, err.Error(), "parsing \"SOME_INVALID_CODE\": invalid syntax")
 }
-
 
 func emptyHeaders() textproto.MIMEHeader {
 	return textproto.MIMEHeader(make(map[string][]string))

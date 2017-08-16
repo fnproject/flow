@@ -326,6 +326,30 @@ func commitGraph(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func delay(c *gin.Context) {
+	graphID := c.Param("graphId")
+	delayMs := c.Query("delayMs")
+	if delayMs == "" {
+		log.Info("Empty or missing delay value supplied to add delay stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	delay, err := strconv.ParseUint(delayMs, 10, 64)
+	if err != nil {
+		log.Info("Invalid delay value supplied to add delay stage")
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	_ = model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+
+	// TODO: Send to GraphManager
+
+	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	c.JSON(http.StatusOK, response)
+}
+
 func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
 	var headers []*model.HttpHeader
 	for k, vs := range hs {
@@ -414,7 +438,7 @@ func main() {
 		graph.POST("/:graphId/supply", supply)
 		graph.POST("/:graphId/invokeFunction", invokeFunction)
 		graph.POST("/:graphId/completedValue", completedValue)
-		graph.POST("/:graphId/delay", noOpHandler)
+		graph.POST("/:graphId/delay", delay)
 		graph.POST("/:graphId/allOf", acceptAllOf)
 		graph.POST("/:graphId/anyOf", acceptAnyOf)
 		graph.POST("/:graphId/externalCompletion", acceptExternalCompletion)

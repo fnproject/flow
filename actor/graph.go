@@ -94,17 +94,13 @@ func timeMillis() int64 {
 // TODO: read this from configuration!
 const maxDelaySeconds = 900
 
-func (g *graphActor) applyNoop(event interface{}) {
-
-}
-
 // process events
 func (g *graphActor) receiveRecover(context actor.Context) {
 }
 
 // Validate a list of stages. If any of them is missing, returns false and the first stage which is missing.
 func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
-	for _,stage := range stageIDs {
+	for _, stage := range stageIDs {
 		if g.graph.GetStage(stage) == nil {
 			return false, stage
 		}
@@ -130,7 +126,7 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 			context.Respond(NewGraphCompletedError(msg.GraphId))
 			return false
 		}
-		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds * 1000 {
+		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds*1000 {
 			context.Respond(NewInvalidDelayError(msg.GraphId, msg.DelayMs))
 			return false
 		}
@@ -146,7 +142,7 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 			return false
 		}
 
-    case *model.CompleteDelayStageRequest:
+	case *model.CompleteDelayStageRequest:
 		if g.graph.IsCompleted() {
 			// Don't respond, just ignore this message. This is intentional.
 			return false

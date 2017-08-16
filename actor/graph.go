@@ -82,14 +82,25 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent, 
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := int64(event.DelayedTs) - timeMillis()
 	if delayMs > 0 {
-		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduled delayed completion of stage")
-		// TODO: How do we actually delay this??
-		context.Self().Tell(model.StageCompletedEvent{
-			event.StageId,
-			model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
+		// Wait for the delay in a goroutine so we can complete the request in the meantime
+		go func() {
+			timer := make(chan bool, 1)
+			go func() {
+				time.Sleep(time.Duration(delayMs) * time.Millisecond)
+				timer <- true
+			}()
+			if <-timer {
+				context.Self().Tell(model.CompleteDelayStageRequest{
+					string(g.graph.ID),
+					event.StageId,
+					model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
+			}
+		}()
 	} else {
-		g.log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
-		context.Self().Tell(model.StageCompletedEvent{
+		log.WithFields(logrus.Fields{"graph_id": g.graph.ID, "function_id": g.graph.FunctionID, "stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
+		context.Self().Tell(model.CompleteDelayStageRequest{
+			string(g.graph.ID),
 			event.StageId,
 			model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}})})
 	}

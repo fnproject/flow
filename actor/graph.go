@@ -314,12 +314,17 @@ func (g *graphActor) receiveStandard(context actor.Context) {
 
 	case *model.GetStageResultRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
-		datum := &model.Datum{
-			Val: &model.Datum_Blob{
-				Blob: &model.BlobDatum{ContentType: "text", DataString: []byte("foo")},
-			},
+		if !g.validateCmd(msg, context) {
+			return
 		}
-		result := &model.CompletionResult{Successful: true, Datum: datum}
+		var result *model.CompletionResult
+		stage := g.graph.GetStage(msg.StageId)
+		if stage.IsResolved() {
+			result = &model.CompletionResult{
+				Successful: stage.GetResult().Successful,
+				Datum:      stage.GetResult().Datum,
+			}
+		}
 		context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
 
 	case *model.CompleteDelayStageRequest:

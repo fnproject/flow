@@ -30,6 +30,10 @@ func NewStageNotFoundError(graphId string, stageId string) *model.InvalidStageOp
 	return &model.InvalidStageOperation{GraphId: graphId, StageId: stageId, Error: "Stage not found"}
 }
 
+func NewStageCompletionError(graphId string, stageId string) *model.InvalidStageOperation {
+	return &model.InvalidStageOperation{GraphId: graphId, StageId: stageId, Error: "Stage failed to complete"}
+}
+
 func NewStageNotCompletableError(graphId string, stageId string) *model.InvalidStageOperation {
 	return &model.InvalidStageOperation{GraphId: graphId, StageId: stageId, Error: "Stage not completable externally"}
 }

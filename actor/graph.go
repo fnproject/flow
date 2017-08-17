@@ -331,15 +331,14 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		go func() {
-			stage := g.graph.GetStage(msg.StageId)
-			<-stage.CompleteChan()
-			result := &model.CompletionResult{
-				Successful: stage.GetResult().Successful,
-				Datum:      stage.GetResult().Datum,
+		stage := g.graph.GetStage(msg.StageId)
+		context.AwaitFuture(stage.WhenComplete(), func(resp interface{}, err error) {
+			if err != nil {
+				context.Respond(NewStageCompletionError(msg.GraphId, msg.StageId))
+				return
 			}
-			context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
-		}()
+			context.Respond(resp)
+		})
 
 	case *model.CompleteDelayStageRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")

@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/model"
 )
 
@@ -14,9 +15,8 @@ type CompletionStage struct {
 	result       *model.CompletionResult
 	dependencies []*CompletionStage
 	// Composed children
-	children []*CompletionStage
-	// TODO "when complete" future
-	whenComplete chan struct{}
+	children     []*CompletionStage
+	whenComplete *actor.Future
 	// Parent stage if I'm a child  - this is what I complete when I'm done
 	composeReference *CompletionStage
 	// this only prevents a a stage from triggering twice in the same generation
@@ -38,9 +38,8 @@ func (stage *CompletionStage) GetResult() *model.CompletionResult {
 	return stage.result
 }
 
-// WhenComplete returns a channel that is closed when this stage has completed
-// at which point it is safe to retrieve a value using GetResult
-func (stage *CompletionStage) CompleteChan() chan struct{} {
+// WhenComplete returns a Future returning a *model.CompletionResult
+func (stage *CompletionStage) WhenComplete() *actor.Future {
 	return stage.whenComplete
 }
 
@@ -48,7 +47,7 @@ func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
 	stage.triggered = true
 	if stage.result == nil {
 		stage.result = result
-		close(stage.whenComplete)
+		stage.whenComplete.PID().Tell(result)
 		return true
 	}
 	return false

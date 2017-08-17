@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.8 
-    working_directory: /go/src/github.com/fn/completer
+    working_directory: /go/src/github.com/fnproject/completer
     environment:
           TEST_RESULTS: /tmp/test-results
     steps:

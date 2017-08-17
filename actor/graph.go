@@ -114,10 +114,6 @@ func (g *graphActor) receiveEvent(context actor.Context) {
 			g.graph.Recover()
 		}
 
-	case *persistence.OfferSnapshot:
-		// snapshots are currently not supported
-		g.log.Warn("Received unexpected snapshot message!")
-
 	default:
 		g.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
 	}

@@ -482,7 +482,7 @@ func invokeFunction(c *gin.Context) {
 		method = model.HttpMethod_unknown_method
 	}
 
-	_ = model.InvokeFunctionRequest{
+	request := model.InvokeFunctionRequest{
 		GraphId:    graphID,
 		StageId:    "",
 		FunctionId: functionID,
@@ -493,10 +493,11 @@ func invokeFunction(c *gin.Context) {
 		},
 	}
 
-	// TODO: Send to GraphManager
-
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
-
+	response, err := addStage(&request)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 

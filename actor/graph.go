@@ -292,7 +292,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		req := &model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    event.StageId,
-			FunctionId: g.graph.FunctionID,
+			FunctionId: msg.FunctionId,
 			Arg:        msg.Arg,
 		}
 		g.executor.Request(req, g.GetSelf())

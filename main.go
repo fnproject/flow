@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
 	"github.com/gin-gonic/gin"

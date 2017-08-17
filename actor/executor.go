@@ -77,7 +77,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	}
 	partWriter.Close()
 
-	req, _ := http.NewRequest("POST", exec.faasAddr+msg.FunctionId, buf)
+	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
 	req.Header.Set("FnProject-ThreadID", msg.GraphId)
 	req.Header.Set("FnProject-StageID", msg.StageId)
@@ -123,7 +123,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 		bodyReader = http.NoBody
 	}
 
-	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+msg.FunctionId, bodyReader)
+	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+"/"+msg.FunctionId, bodyReader)
 	if err != nil {
 		log.Error("Failed to create http request:", err)
 		return invokeFailed(msg, "Failed to create HTTP request")

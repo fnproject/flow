@@ -515,8 +515,15 @@ func withClosure(graphID string, cids []string, op model.CompletionOperation, bo
 }
 
 func main() {
-
-	graphManager = actor.NewGraphManager()
+	fnHost := os.Getenv("FN_HOST")
+	if fnHost == "" {
+		fnHost = "localhost"
+	}
+	var fnPort = os.Getenv("FN_PORT")
+	if fnPort == "" {
+		fnPort = "8080"
+	}
+	graphManager = actor.NewGraphManager(fnHost, fnPort)
 	engine := gin.Default()
 
 	engine.GET("/ping", func(c *gin.Context) {

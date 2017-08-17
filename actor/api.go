@@ -25,14 +25,14 @@ type actorManager struct {
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
-func NewGraphManager() GraphManager {
+func NewGraphManager(fnHost string, fnPort string) GraphManager {
 	decider := func(reason interface{}) actor.Directive {
 		log.Warnf("Graph actor child failed %v", reason)
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
-	executorProps := actor.FromInstance(NewExecutor("http://localhost:8080/r")).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor("http://" + fnHost + ":" + fnPort + "/r")).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 
 	supervisorProps := actor.FromInstance(NewSupervisor(executor)).WithSupervisor(strategy)

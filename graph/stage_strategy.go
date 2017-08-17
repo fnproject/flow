@@ -54,11 +54,6 @@ func triggerAny(dependencies []*CompletionStage) (bool, bool, []*model.Completio
 	return false, false, nil
 }
 
-// triggerImmediateSuccess always marks the node as triggered
-func triggerImmediateSuccess(stage []*CompletionStage) (bool, bool, []*model.CompletionResult) {
-	return true, true, []*model.CompletionResult{}
-}
-
 // triggerNever always marks the node as untriggered.
 func triggerNever(stage []*CompletionStage) (bool, bool, []*model.CompletionResult) {
 	return false, false, []*model.CompletionResult{}
@@ -86,24 +81,6 @@ func invokeWithoutArgs(stage *CompletionStage, listener CompletionEventListener,
 func invokeWithResult(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	data := make([]*model.Datum, len(results))
 	for i, v := range results {
-		// TODO: propagate these - this is currently an error in the switch below
-		if !v.Successful {
-			panic(fmt.Sprintf("Invalid state - tried to invoke stage  %v successfully with failed upstream result %v", stage, v))
-		}
-		data[i] = v.GetDatum()
-	}
-	listener.OnExecuteStage(stage, data)
-}
-
-// invokeWithError triggers invoking the closure with the error
-func invokeWithError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
-	// TODO: This is synonymous with invokeResult as Trigger extracts the error as the result
-	data := make([]*model.Datum, len(results))
-	for i, v := range results {
-		// TODO: propagate these - this is currently an error in the switch below
-		if v.Successful {
-			panic(fmt.Sprintf("Invalid state - tried to invoke stage %v erroneously with failed upstream result %v", stage, v))
-		}
 		data[i] = v.GetDatum()
 	}
 	listener.OnExecuteStage(stage, data)
@@ -112,7 +89,7 @@ func invokeWithError(stage *CompletionStage, listener CompletionEventListener, r
 // invokeWithResultOrError triggers invoking the closure with a pair consisting of the  (result,<emtpy>) if the result is successful, or (<empty>,error) if the result is an error
 // this can only be used with single-valued result
 func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
-	if len(results) == 1 {
+	if len(results) != 1 {
 		// TODO: Don't panic
 		panic(fmt.Sprintf("Invalid state - tried to invoke single-valued stage %v with incorrect number of inputs %v", stage, results))
 	}
@@ -128,36 +105,17 @@ func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventLis
 	listener.OnExecuteStage(stage, args)
 }
 
-// noop
+// completeExternally is a noop
 func completeExternally(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 }
 
-func propagateError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
+// propagateResult passes a single value from an upstream dependency to the stage result
+func propagateResult(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	if len(results) != 1 {
 		// TODO: Don't panic
 		panic(fmt.Sprintf("Invalid state - tried to invoke single-valued stage %v with incorrect number of inputs %v", stage, results))
 	}
-	result := results[0]
-
-	if result.Successful {
-		// TODO: Don't panic
-		panic(fmt.Sprintf("Invalid state - tried to propagate stage %v with a non-error result %v as an error ", stage, results))
-	}
-	listener.OnCompleteStage(stage, result)
-}
-
-func propagateSuccess(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
-	if len(results) != 1 {
-		// TODO: Don't panic
-		panic(fmt.Sprintf("Invalid state - tried to invoke single-valued stage %v with incorrect number of inputs %v", stage, results))
-	}
-	result := results[0]
-
-	if !result.Successful {
-		// TODO: Don't panic
-		panic(fmt.Sprintf("Invalid state - tried to propagate stage %v with an error result %v as an success ", stage, results))
-	}
-	listener.OnCompleteStage(stage, result)
+	listener.OnCompleteStage(stage, results[0])
 }
 
 // ResultHandlingStrategy defines how the  result value of the stage is derived following execution of the stage
@@ -185,25 +143,34 @@ func referencedStageResult(stage *CompletionStage, graph *CompletionGraph, resul
 	refStage := graph.GetStage(result.Datum.GetStageRef().StageRef)
 	if nil == refStage {
 		graph.eventListener.OnCompleteStage(stage, model.NewInternalErrorResult(model.ErrorDatumType_invalid_stage_response, "referenced stage not found "))
+		return
 	}
 	log.WithFields(logrus.Fields{"stage_id": stage.ID, "other_id": refStage.ID}).Info("Composing with new stage ")
 	graph.eventListener.OnComposeStage(stage, refStage)
 }
 
+// parentStageResult completes the stage the the first parent's result
 func parentStageResult(stage *CompletionStage, graph *CompletionGraph, _ *model.CompletionResult) {
 
 	if len(stage.dependencies) != 1 {
-		log.WithFields(logrus.Fields{"stage_id": stage.ID}).Warn("Got a parent-result when none was expected")
-	} else if !stage.dependencies[0].IsResolved() {
-		log.WithFields(logrus.Fields{"stage_id": stage.ID}).Warn("Got a parent-result when parent hadn't completed")
-	} else {
-		graph.eventListener.OnCompleteStage(stage, stage.dependencies[0].result)
+		log.WithField("stage_id", stage.ID).Errorf("Invalid stage action  - trying to get parent result when stage does not have one parent got %d", len(stage.dependencies))
+		panic("Trying to get a parent result with invalid parent deps")
 	}
+	if !stage.dependencies[0].IsResolved() {
+		log.WithField("stage_id", stage.ID).Errorf("Invalid stage action  - trying to get parent result when stage parent has not completed ")
+		panic("Trying to get a parent result with invalid parent deps")
+	}
+
+	graph.eventListener.OnCompleteStage(stage, stage.dependencies[0].GetResult())
+
 }
 
 func noResultStrategy(_ *CompletionStage, _ *CompletionGraph, _ *model.CompletionResult) {}
 
 type strategy struct {
+	// -1 for unlimited
+	MaxDependencies        int
+	MinDependencies        int
 	TriggerStrategy        TriggerStrategy
 	SuccessStrategy        ExecutionStrategy
 	FailureStrategy        ExecutionStrategy
@@ -214,58 +181,58 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 	switch operation {
 
 	case model.CompletionOperation_acceptEither:
-		return strategy{triggerAny, invokeWithResult, propagateError, invocationResult}, nil
+		return strategy{2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_applyToEither:
-		return strategy{triggerAny, invokeWithResult, propagateError, invocationResult}, nil
+		return strategy{2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenAcceptBoth:
-		return strategy{triggerAll, invokeWithResultOrError, propagateError, invocationResult}, nil
+		return strategy{2, 2, triggerAll, invokeWithResultOrError, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenApply:
-		return strategy{triggerAny, invokeWithResult, propagateError, invocationResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenRun:
-		return strategy{triggerAny, invokeWithoutArgs, propagateError, invocationResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithoutArgs, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenAccept:
-		return strategy{triggerAny, invokeWithResult, propagateError, invocationResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenCompose:
-		return strategy{triggerAny, invokeWithResult, propagateError, referencedStageResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithResult, propagateResult, referencedStageResult}, nil
 
 	case model.CompletionOperation_thenCombine:
-		return strategy{triggerAll, invokeWithResultOrError, propagateError, invocationResult}, nil
+		return strategy{2, 2, triggerAll, invokeWithResultOrError, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_whenComplete:
-		return strategy{triggerAny, invokeWithResultOrError, invokeWithResultOrError, parentStageResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, parentStageResult}, nil
 
 	case model.CompletionOperation_handle:
-		return strategy{triggerAny, invokeWithResultOrError, invokeWithResultOrError, invocationResult}, nil
+		return strategy{1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, invocationResult}, nil
 
 	case model.CompletionOperation_supply:
-		return strategy{triggerImmediateSuccess, invokeWithoutArgs, propagateError, invocationResult}, nil
+		return strategy{0, 0, triggerAll, invokeWithoutArgs, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_invokeFunction:
-		return strategy{triggerImmediateSuccess, completeExternally, completeExternally, invocationResult}, nil
+		return strategy{0, 0, triggerAll, completeExternally, completeExternally, invocationResult}, nil
 
 	case model.CompletionOperation_completedValue:
-		return strategy{triggerNever, completeExternally, propagateError, noResultStrategy}, nil
+		return strategy{0, 0, triggerNever, completeExternally, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_delay:
-		return strategy{triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
+		return strategy{0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_allOf:
-		return strategy{triggerAll, succeedWithEmpty, propagateError, noResultStrategy}, nil
+		return strategy{0, -1, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_anyOf:
-		return strategy{triggerAny, propagateSuccess, propagateError, noResultStrategy}, nil
+		return strategy{1, -1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_externalCompletion:
-		return strategy{triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
+		return strategy{0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_exceptionally:
-		return strategy{triggerAny, propagateSuccess, invokeWithError, invocationResult}, nil
+		return strategy{1, 1, triggerAny, propagateResult, invokeWithResult, invocationResult}, nil
 	default:
 		return strategy{}, fmt.Errorf("Unrecognised operation %s", operation)
 	}

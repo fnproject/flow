@@ -438,11 +438,15 @@ func delay(c *gin.Context) {
 		return
 	}
 
-	_ = model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+	request := model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
 
-	// TODO: Send to GraphManager
+	response, err := addStage(&request)
 
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	if err != nil {
+		log.Error(err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusOK, response)
 }
 

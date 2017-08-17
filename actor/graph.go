@@ -73,7 +73,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 			g.pid.Tell(&model.CompleteDelayStageRequest{
 				GraphId: g.graph.ID,
 				StageId: event.StageId,
-				Result:  model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}),
+				Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
 			})
 		}()
 	} else {
@@ -81,7 +81,7 @@ func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) 
 		g.pid.Tell(&model.CompleteDelayStageRequest{
 			GraphId: g.graph.ID,
 			StageId: event.StageId,
-			Result:  model.NewSuccessfulResult(&model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}),
+			Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
 		})
 	}
 }

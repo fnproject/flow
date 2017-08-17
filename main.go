@@ -33,17 +33,73 @@ func noOpHandler(c *gin.Context) {
 	c.Status(http.StatusNotFound)
 }
 
+func completeExternally(graphID string, stageID string, body []byte, headers http.Header, method string, contentType string, b bool) (*model.CompleteStageExternallyResponse, error) {
+	var hs []*model.HttpHeader
+	for k, vs := range headers {
+		for _, v := range vs {
+			hs = append(hs, &model.HttpHeader{
+				Key:   k,
+				Value: v,
+			})
+		}
+	}
+
+	var m model.HttpMethod
+	if methodValue, found := model.HttpMethod_value[method]; found {
+		m = model.HttpMethod(methodValue)
+	} else {
+		m = model.HttpMethod_unknown_method
+	}
+
+	httpReqDatum := model.HttpReqDatum{
+		Body:    model.NewBlob(contentType, body),
+		Headers: hs,
+		Method:  m,
+	}
+
+	request := model.CompleteStageExternallyRequest{
+		GraphId: graphID,
+		StageId: stageID,
+		Result: &model.CompletionResult{
+			Successful: b,
+			Datum:      model.NewHttpReqDatum(&httpReqDatum),
+		},
+	}
+
+	f := graphManager.CompleteStageExternally(&request, 5*time.Second)
+
+	res, err := f.Result()
+
+	response := res.(*model.CompleteStageExternallyResponse)
+
+	return response, err
+}
+
 func stageHandler(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 	operation := c.Param("operation")
+	body, err := c.GetRawData()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
 	switch operation {
 	case "complete":
-		log.Info("Completing stage " + stageID)
-		noOpHandler(c)
+		response, err := completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.JSON(http.StatusOK, response)
 	case "fail":
-		log.Info("Failing stage " + stageID)
-		noOpHandler(c)
+		response, err := completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.JSON(http.StatusOK, response)
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}
@@ -57,19 +113,12 @@ func stageHandler(c *gin.Context) {
 			return
 		}
 
-		body, err := c.GetRawData()
+		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body)
+		response, err := addStage(&request)
 		if err != nil {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
-
-		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body)
-		response, err := addStage(&request)
-		if err != nil {
-			c.Status(500)
-			return
-		}
-
 		c.JSON(http.StatusCreated, response)
 	}
 }

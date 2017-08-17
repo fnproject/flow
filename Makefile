@@ -1,3 +1,6 @@
+GOFILES = $(shell find . -name '*.go' -not -path './vendor/*')
+GOPACKAGES = $(shell go list ./...  | grep -v /vendor/)
+
 # Just builds
 all: test build
 
@@ -10,12 +13,13 @@ dep-up:
 protos:  model/model.pb.go
 
 test: protos $(shell find . -name *.go)
-	go test -v $(shell glide nv)
+	@go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --go_out=$(@D) $<
 
-build: protos $(shell find . -name *.go)
+
+build:  $(GOFILES)
 	go build -o completer
 
 run: build

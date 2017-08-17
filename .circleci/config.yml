@@ -1,0 +1,18 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circlci/golang:1.8
+    working_directory: /go/src/github.com/fn/completer
+    environment:
+          TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run: mkdir -p  $TEST_RESULTS
+      - run: go get github.com/jstemmer/go-junit-report
+      - run:
+          name: Unit tests
+          command: |
+              trap "go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml" EXIT
+              make test | tee ${TEST_RESULTS}/go-test.out
+

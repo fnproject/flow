@@ -70,7 +70,6 @@ func stageHandler(c *gin.Context) {
 			return
 		}
 
-		c.Header("FnProject-threadid", response.GraphId)
 		c.JSON(http.StatusCreated, response)
 	}
 }
@@ -352,7 +351,6 @@ func completedValue(c *gin.Context) {
 		c.Status(500)
 		return
 	}
-	c.Header("FnProject-threadid", response.GraphId)
 	c.JSON(http.StatusCreated, response)
 }
 

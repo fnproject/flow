@@ -480,7 +480,9 @@ func invokeFunction(c *gin.Context) {
 	if m, found := model.HttpMethod_value[requestMethod]; found {
 		method = model.HttpMethod(m)
 	} else {
-		method = model.HttpMethod_unknown_method
+		log.Info("Empty, missing, or invalid HTTP method supplied to add invokeFunction stage")
+		c.Status(http.StatusBadRequest)
+		return
 	}
 
 	request := model.AddInvokeFunctionStageRequest{

@@ -108,12 +108,6 @@ func (g *graphActor) receiveEvent(context actor.Context) {
 	case *model.GraphCompletedEvent:
 		g.applyGraphCompletedEvent(msg)
 
-	case *persistence.ReplayComplete:
-		if g.graph != nil {
-			g.log.Debug("Replay completed")
-			g.graph.Recover()
-		}
-
 	default:
 		g.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
 	}
@@ -332,12 +326,17 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			return
 		}
 		stage := g.graph.GetStage(msg.StageId)
-		context.AwaitFuture(stage.WhenComplete(), func(resp interface{}, err error) {
+		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
 				context.Respond(NewStageCompletionError(msg.GraphId, msg.StageId))
 				return
 			}
-			context.Respond(resp)
+			response := &model.GetStageResultResponse{
+				GraphId: msg.GraphId,
+				StageId: msg.StageId,
+				Result:  result.(*model.CompletionResult),
+			}
+			context.Respond(response)
 		})
 
 	case *model.CompleteDelayStageRequest:
@@ -360,6 +359,15 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		// snapshots are currently not supported
 		// NOOP
 		g.log.Debug("Ignoring snapshot request")
+
+	case *actor.Started:
+		g.log.Debugf("Started actor %s", g.GetSelf().Id)
+
+	case *persistence.ReplayComplete:
+		if g.graph != nil {
+			g.log.Debug("Replay completed")
+			g.graph.Recover()
+		}
 
 	default:
 		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))

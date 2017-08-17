@@ -29,13 +29,13 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 	case *model.CreateGraphRequest:
 		provider := newInMemoryProvider(1000)
 		props := actor.FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).WithMiddleware(plugin.Use(&PIDAwarePlugin{}), persistence.Using(provider))
-		log.Info("Creating graph actor")
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {
 			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
 			context.Respond(NewGraphCreationError(msg.GraphId))
 			return
 		}
+		log.Infof("Created graph actor %s", child.Id)
 		child.Request(msg, context.Sender())
 
 	default:

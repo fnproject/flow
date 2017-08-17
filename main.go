@@ -261,10 +261,14 @@ func getGraphStage(c *gin.Context) {
 func acceptExternalCompletion(c *gin.Context) {
 	graphID := c.Param("graphId")
 
-	_ = model.AddExternalCompletionStageRequest{GraphId: graphID}
-	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	request := model.AddExternalCompletionStageRequest{GraphId: graphID}
 
+	response, err := addStage(&request)
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 

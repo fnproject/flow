@@ -144,7 +144,7 @@ func createGraphHandler(c *gin.Context) {
 
 	result, err := f.Result()
 	if err != nil {
-		c.Status(500)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	resp := result.(*model.CreateGraphResponse)
@@ -361,7 +361,7 @@ func supply(c *gin.Context) {
 
 	response, err := addStage(&request)
 	if err != nil {
-		c.Status(500)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	c.JSON(http.StatusCreated, response)
@@ -388,7 +388,7 @@ func completedValue(c *gin.Context) {
 
 	response, err := addStage(&request)
 	if err != nil {
-		c.Status(500)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	c.JSON(http.StatusCreated, response)

@@ -404,11 +404,17 @@ func addStage(request interface{}) (*model.AddStageResponse, error) {
 
 func commitGraph(c *gin.Context) {
 	graphID := c.Param("graphId")
-	_ = model.CommitGraphRequest{GraphId: graphID}
+	request := model.CommitGraphRequest{GraphId: graphID}
 
-	// TODO: Send to GraphManager
+	f := graphManager.Commit(&request, 5*time.Second)
 
-	response := model.CommitGraphProcessed{GraphId: graphID}
+	result, err := f.Result()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	response := result.(*model.CommitGraphProcessed)
 	c.JSON(http.StatusOK, response)
 }
 

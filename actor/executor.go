@@ -67,6 +67,14 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 	partWriter := multipart.NewWriter(buf)
 
+	if msg.Closure != nil {
+		err := model.WritePartFromDatum(&model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
+		if err != nil {
+			log.Error("Failed to create multipart body", err)
+			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
+
+		}
+	}
 	for _, datum := range msg.Args {
 		err := model.WritePartFromDatum(datum, partWriter)
 		if err != nil {

@@ -34,6 +34,7 @@ func noOpHandler(c *gin.Context) {
 }
 
 func stageHandler(c *gin.Context) {
+	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 	operation := c.Param("operation")
 	switch operation {
@@ -44,7 +45,33 @@ func stageHandler(c *gin.Context) {
 		log.Info("Failing stage " + stageID)
 		noOpHandler(c)
 	default:
-		log.Info("Stage operation " + operation)
+		other := c.Query("other")
+		cids := []string{stageID}
+		if other != "" {
+			cids = append(cids, other)
+		}
+
+		completionOperation, found := model.CompletionOperation_value[operation]
+		if !found {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		body, err := c.GetRawData()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+
+		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body)
+		response, err := addStage(&request)
+		if err != nil {
+			c.Status(500)
+			return
+		}
+
+		c.Header("FnProject-threadid", response.GraphId)
+		c.JSON(http.StatusCreated, response)
 	}
 }
 

@@ -322,18 +322,19 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 
 	cids := strings.Split(cidList, ",")
 
-	log.Infof("Adding chained stage type %s, cids %s", op, cids)
-
-	_ = model.AddChainedStageRequest{
+	request := model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: op,
 		Closure:   nil,
 		Deps:      cids,
 	}
 
-	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	response, err := addStage(&request)
 
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 

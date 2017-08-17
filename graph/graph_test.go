@@ -242,7 +242,7 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 	s := withSimpleStage(g, false)
 	event := &model.StageAddedEvent{
 		StageId:      string(s.ID),
-		Op:           model.CompletionOperation_thenApply,
+		Op:           model.CompletionOperation_supply,
 		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
@@ -250,6 +250,56 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 	assert.Error(t, g.HandleStageAdded(event, false))
 }
 
+func TestShouldRejectStageWithInsufficientDependencies(t *testing.T){
+	m := &MockedListener{}
+
+
+	g := New("graph", "function", m)
+
+	event := &model.StageAddedEvent{
+		StageId:      string("stage"),
+		Op:           model.CompletionOperation_thenApply,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []string{},
+	}
+
+	assert.Error(t,g.HandleStageAdded(event,false))
+}
+
+
+func TestShouldRejectStageWithTooManyDependencies(t *testing.T){
+	m := &MockedListener{}
+
+
+	g := New("graph", "function", m)
+
+	event := &model.StageAddedEvent{
+		StageId:      string("stage"),
+		Op:           model.CompletionOperation_thenApply,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []string{"s1","s2"},
+	}
+
+	assert.Error(t,g.HandleStageAdded(event,false))
+
+}
+
+
+
+func TestShouldRejectStageWithUnknownDependency(t *testing.T){
+	m := &MockedListener{}
+	g := New("graph", "function", m)
+
+	event := &model.StageAddedEvent{
+		StageId:      string("stage"),
+		Op:           model.CompletionOperation_thenApply,
+		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Dependencies: []string{"unknown"},
+	}
+
+	assert.Error(t,g.HandleStageAdded(event,false))
+
+}
 func TestShouldCompleteEmptyGraph(t *testing.T) {
 	m := &MockedListener{}
 

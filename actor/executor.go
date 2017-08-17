@@ -33,6 +33,7 @@ type ExecHandler interface {
 	HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
 }
 
+// NewExecutor creates a new executor actor with the given funcions service endpoint
 func NewExecutor(faasAddress string) actor.Actor {
 	client := &http.Client{}
 	// TODO configure timeouts
@@ -66,6 +67,14 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 	partWriter := multipart.NewWriter(buf)
 
+	if msg.Closure != nil {
+		err := model.WritePartFromDatum(&model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
+		if err != nil {
+			log.Error("Failed to create multipart body", err)
+			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
+
+		}
+	}
 	for _, datum := range msg.Args {
 		err := model.WritePartFromDatum(datum, partWriter)
 		if err != nil {
@@ -76,7 +85,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	}
 	partWriter.Close()
 
-	req, _ := http.NewRequest("POST", exec.faasAddr+msg.FunctionId, buf)
+	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
 	req.Header.Set("FnProject-ThreadID", msg.GraphId)
 	req.Header.Set("FnProject-StageID", msg.StageId)
@@ -122,7 +131,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 		bodyReader = http.NoBody
 	}
 
-	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+msg.FunctionId, bodyReader)
+	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+"/"+msg.FunctionId, bodyReader)
 	if err != nil {
 		log.Error("Failed to create http request:", err)
 		return invokeFailed(msg, "Failed to create HTTP request")

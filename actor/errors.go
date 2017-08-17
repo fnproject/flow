@@ -22,12 +22,16 @@ func NewGraphCompletedError(graphId string) *model.InvalidGraphOperation {
 	return &model.InvalidGraphOperation{GraphId: graphId, Error: "Graph already completed"}
 }
 
-func NewInvalidDelayError(graphId string, delayMs uint64) *model.InvalidGraphOperation {
+func NewInvalidDelayError(graphId string, delayMs int64) *model.InvalidGraphOperation {
 	return &model.InvalidGraphOperation{GraphId: graphId, Error: fmt.Sprintf("Invalid delay stage of %d milliseconds", delayMs)}
 }
 
 func NewStageNotFoundError(graphId string, stageId string) *model.InvalidStageOperation {
 	return &model.InvalidStageOperation{GraphId: graphId, StageId: stageId, Error: "Stage not found"}
+}
+
+func NewStageCompletionError(graphId string, stageId string) *model.InvalidStageOperation {
+	return &model.InvalidStageOperation{GraphId: graphId, StageId: stageId, Error: "Stage failed to complete"}
 }
 
 func NewStageNotCompletableError(graphId string, stageId string) *model.InvalidStageOperation {

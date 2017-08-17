@@ -4,7 +4,9 @@ package graph
 import (
 	"fmt"
 	"strconv"
+	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
@@ -77,20 +79,6 @@ func (graph *CompletionGraph) GetStage(stageID string) *CompletionStage {
 	return graph.stages[stageID]
 }
 
-// GetStages Get a list of stages by id, returns nil if any of the stages are not found
-func (graph *CompletionGraph) GetStages(stageIDs []string) []*CompletionStage {
-	res := make([]*CompletionStage, len(stageIDs))
-	for i, id := range stageIDs {
-
-		stage := graph.GetStage(id)
-		if stage == nil {
-			return nil
-		}
-		res[i] = stage
-	}
-	return res
-}
-
 // NextStageID Returns the next stage ID to use for nodes
 func (graph *CompletionGraph) NextStageID() string {
 	return strconv.Itoa(len(graph.stages))
@@ -112,23 +100,49 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 		log.Errorf("Graph already completed")
 		return fmt.Errorf("Graph already completed")
 	}
+
+	if len(event.Dependencies) < strategy.MinDependencies {
+		msg := fmt.Sprintf("Invalid Stage - insufficient dependencies for operation, need %d got %d", strategy.MinDependencies, len(event.Dependencies))
+		log.Error(msg)
+		return fmt.Errorf(msg)
+	}
+
+	if strategy.MaxDependencies >= 0 && len(event.Dependencies) > strategy.MaxDependencies {
+		msg := fmt.Sprintf("Invalid Stage - too many dependencies for operation, max %d got %d", strategy.MaxDependencies, len(event.Dependencies))
+		log.Error(msg)
+		return fmt.Errorf(msg)
+	}
+
 	_, hasStage := graph.stages[event.StageId]
 
 	if hasStage {
 		log.Error("Duplicate stage")
 		return fmt.Errorf("Duplicate stage %s", event.StageId)
 	}
+
+	depStages := make([]*CompletionStage, len(event.Dependencies))
+
+	for i, id := range event.Dependencies {
+		stage := graph.GetStage(id)
+		if stage == nil {
+			msg := fmt.Sprintf("Dependent stage %s not found", id)
+			log.Errorf(msg)
+			return fmt.Errorf(msg)
+		}
+		depStages[i] = stage
+	}
+
 	log.Info("Adding stage to graph")
 	node := &CompletionStage{
 		ID:           event.StageId,
 		operation:    event.Op,
 		strategy:     strategy,
 		closure:      event.Closure,
-		whenComplete: make(chan bool),
+		whenComplete: actor.NewFuture(10000 * time.Hour), // can take indefinitely long
 		result:       nil,
-		dependencies: graph.GetStages(event.Dependencies),
+		dependencies: depStages,
 	}
-	for _, dep := range node.dependencies {
+	for _, dep := range depStages {
 		dep.children = append(dep.children, node)
 	}
 	graph.stages[node.ID] = node

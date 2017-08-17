@@ -1,6 +1,5 @@
 package model
 
-
 func NewInternalErrorResult(code ErrorDatumType, message string) *CompletionResult {
 	return &CompletionResult{
 		Successful: false,
@@ -45,5 +44,13 @@ func NewFailedResult(datum *Datum) *CompletionResult {
 	return &CompletionResult{
 		Successful: false,
 		Datum:      datum,
+	}
+}
+
+func NewHttpReqDatum(httpreq *HttpReqDatum) *Datum {
+	return &Datum{
+		Val: &Datum_HttpReq{
+			HttpReq: httpreq,
+		},
 	}
 }

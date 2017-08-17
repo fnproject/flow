@@ -198,17 +198,6 @@ func getGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
-func getFakeStageResultResponse(request model.GetStageResultRequest) model.GetStageResultResponse {
-	return model.GetStageResultResponse{
-		GraphId: request.GraphId,
-		StageId: request.StageId,
-		Result: &model.CompletionResult{
-			Successful: true,
-			Datum:      model.NewEmptyDatum(),
-		},
-	}
-}
-
 func resultStatus(result *model.CompletionResult) string {
 	if result.GetSuccessful() {
 		return "success"
@@ -229,14 +218,15 @@ func getGraphStage(c *gin.Context) {
 
 	res, err := f.Result()
 	if err != nil {
-		c.Status(500)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	response := res.(*model.GetStageResultResponse)
 
 	result := response.GetResult()
 	if result == nil {
-		c.Status(http.StatusInternalServerError)
+		log.Info("CompletionResult in response is nil. Perhaps the stage hasn't completed yet.")
+		c.Status(http.StatusPartialContent)
 		return
 	}
 
@@ -332,18 +322,19 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 
 	cids := strings.Split(cidList, ",")
 
-	log.Infof("Adding chained stage type %s, cids %s", op, cids)
-
-	_ = model.AddChainedStageRequest{
+	request := model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: op,
 		Closure:   nil,
 		Deps:      cids,
 	}
 
-	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	response, err := addStage(&request)
 
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -366,11 +357,13 @@ func supply(c *gin.Context) {
 
 	var cids []string
 
-	_ = withClosure(graphID, cids, model.CompletionOperation_supply, body)
+	request := withClosure(graphID, cids, model.CompletionOperation_supply, body)
 
-	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
-
+	response, err := addStage(&request)
+	if err != nil {
+		c.Status(500)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -435,11 +428,15 @@ func delay(c *gin.Context) {
 		return
 	}
 
-	_ = model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+	request := model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
 
-	// TODO: Send to GraphManager
+	response, err := addStage(&request)
 
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
+	if err != nil {
+		log.Error(err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusOK, response)
 }
 
@@ -478,16 +475,16 @@ func invokeFunction(c *gin.Context) {
 		return
 	}
 
+	requestMethod := strings.ToLower(c.GetHeader(http.CanonicalHeaderKey(headerMethod)))
 	var method model.HttpMethod
-	if m, found := model.HttpMethod_value[c.Request.Method]; found {
+	if m, found := model.HttpMethod_value[requestMethod]; found {
 		method = model.HttpMethod(m)
 	} else {
 		method = model.HttpMethod_unknown_method
 	}
 
-	_ = model.InvokeFunctionRequest{
+	request := model.AddInvokeFunctionStageRequest{
 		GraphId:    graphID,
-		StageId:    "",
 		FunctionId: functionID,
 		Arg: &model.HttpReqDatum{
 			Body:    model.NewBlob(c.ContentType(), body),
@@ -496,10 +493,11 @@ func invokeFunction(c *gin.Context) {
 		},
 	}
 
-	// TODO: Send to GraphManager
-
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
-
+	response, err := addStage(&request)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 

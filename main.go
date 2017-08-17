@@ -113,7 +113,7 @@ func stageHandler(c *gin.Context) {
 			return
 		}
 
-		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body)
+		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body, c.ContentType())
 		response, err := addStage(&request)
 		if err != nil {
 			c.Status(http.StatusInternalServerError)
@@ -357,7 +357,7 @@ func supply(c *gin.Context) {
 
 	var cids []string
 
-	request := withClosure(graphID, cids, model.CompletionOperation_supply, body)
+	request := withClosure(graphID, cids, model.CompletionOperation_supply, body, c.ContentType())
 
 	response, err := addStage(&request)
 	if err != nil {
@@ -378,7 +378,7 @@ func completedValue(c *gin.Context) {
 
 	result := model.CompletionResult{
 		Successful: true,
-		Datum:      model.NewBlobDatum(model.NewBlob("application/java-serialized-object", body)),
+		Datum:      model.NewBlobDatum(model.NewBlob(c.ContentType(), body)),
 	}
 
 	request := model.AddCompletedValueStageRequest{
@@ -503,13 +503,13 @@ func invokeFunction(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
-func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte) model.AddChainedStageRequest {
+func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte, contentType string) model.AddChainedStageRequest {
 	log.Info(fmt.Sprintf("Adding chained stage type %s, cids %s", op, cids))
 
 	return model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: op,
-		Closure:   model.NewBlob("application/java-serialized-object", body),
+		Closure:   model.NewBlob(contentType, body),
 		Deps:      cids,
 	}
 }

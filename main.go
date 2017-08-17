@@ -366,11 +366,13 @@ func supply(c *gin.Context) {
 
 	var cids []string
 
-	_ = withClosure(graphID, cids, model.CompletionOperation_supply, body)
+	request := withClosure(graphID, cids, model.CompletionOperation_supply, body)
 
-	// TODO: send to the GraphManager
-	response := model.AddStageResponse{GraphId: graphID, StageId: "5000"}
-
+	response, err := addStage(&request)
+	if err != nil {
+		c.Status(500)
+		return
+	}
 	c.JSON(http.StatusCreated, response)
 }
 

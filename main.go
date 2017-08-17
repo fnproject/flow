@@ -475,16 +475,16 @@ func invokeFunction(c *gin.Context) {
 		return
 	}
 
+	requestMethod := strings.ToLower(c.GetHeader(http.CanonicalHeaderKey(headerMethod)))
 	var method model.HttpMethod
-	if m, found := model.HttpMethod_value[c.Request.Method]; found {
+	if m, found := model.HttpMethod_value[requestMethod]; found {
 		method = model.HttpMethod(m)
 	} else {
 		method = model.HttpMethod_unknown_method
 	}
 
-	request := model.InvokeFunctionRequest{
+	request := model.AddInvokeFunctionStageRequest{
 		GraphId:    graphID,
-		StageId:    "",
 		FunctionId: functionID,
 		Arg: &model.HttpReqDatum{
 			Body:    model.NewBlob(c.ContentType(), body),

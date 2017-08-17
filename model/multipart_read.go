@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
+	"bufio"
 )
 
 const (
@@ -40,7 +41,7 @@ func DatumFromHttpRequest(r *http.Request) (*Datum, error) {
 }
 
 func CompletionResultFromResponse(r *http.Response) (*CompletionResult, error) {
-	datum, err := DatumFromHttpResponse(r)
+	datum, err := DatumFromEncapsulatedHttpResponse(r)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +63,15 @@ func CompletionResultFromResponse(r *http.Response) (*CompletionResult, error) {
 // DatumFromHttpResponse reads a model Datum Object from an HTTP response
 func DatumFromHttpResponse(r *http.Response) (*Datum, error) {
 	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
+}
+
+// DatumFromEncapsulatedHttpResponse reads a model Datum Object from an HTTP response encapsulated in the body of a wrapper HTTP response
+func DatumFromEncapsulatedHttpResponse(r *http.Response) (*Datum, error) {
+	actualResponse, err := http.ReadResponse(bufio.NewReader(r.Body), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid encapsulated HTTP frame: %s", err.Error())
+	}
+	return readDatum(actualResponse.Body, textproto.MIMEHeader(actualResponse.Header))
 }
 
 func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {

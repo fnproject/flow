@@ -53,6 +53,10 @@ The _stageref_ type is used to return the stage ID of a composed stage reference
 
 Finally, the _httpreq_  and _httpresp__ types encapsulate an HTTP request or response (such as a function call or response). They include the body of the HTTP message and  any headers present in the original response by prefixing them with `FnProject-Header-`. HTTP requests must specify an HTTP Method  for the requested call via `FnProject-Method` Additionally, HTTP responses must include the header `FnProject-ResultCode` with the HTTP status code. The `Content-type` header is preserved as per a `blob` datum. 
 
+## Encapsulation due to `fn` contract
+
+When receiving a response from a function invocation, the HTTP response cannot have additional headers because of the `fn` contract. Therefore, HTTP responses from Fn Threads runtimes implementing this contract shall serialize the entire HTTP frame of their response, _including_ the initial `HTTP/1.1 ...` line, as the body of a wrapper HTTP frame which is handled by `fn`.
+
 ## Cloud Threads Application Lifecycle
 
 The following sections define the request/response protocol for the lifetime of a Cloud Threads application.
@@ -149,6 +153,10 @@ FnProject-DatumType: empty
 --01ead4a5-7a67-4703-ad02-589886e00923--
 ```
 
+#### Encapsulation of the result
+
+As explained above, because of the `fn` contract the actual HTTP response that the completer will see is serialized in the body of the 'wrapper' HTTP response returned by the functions platform.
+
 #### Successful Result
 
 If the execution of the closure succeeds, the runtime must include the header `FnProject-ResultStatus: success`.
@@ -224,6 +232,10 @@ Recipients should accept unknown values for this header.
 ### Completer Invokes a Function
 
 Completion stages that invoke an external function via a call to _invokeFunction_ may also complete successfully or with an error. They may also fail to complete due to a platform error.
+
+#### The result is not encapsulated
+
+In this case, the invoked function is external and thus does not need to conform to the encapsulation rule above.
 
 #### Successful Response
 
@@ -405,10 +417,16 @@ FnProject-DatumType: empty
 --01ead4a5-7a67-4703-ad02-589886e00923
 ```
 
+The response is encapsulated in a wrapper HTTP frame due to the `fn` contract.
+
 Example of successful stage response: 
 
 ```
-HTTP/1.1 200 OK 
+HTTP/1.1 200 OK
+Content-Type:
+Content-Length: ...
+
+HTTP/1.1 200 OK
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
 FnProject-ResultStatus: success
@@ -419,7 +437,11 @@ FnProject-ResultStatus: success
 Example of failed stage response: 
 
 ```
-HTTP/1.1 200 OK 
+HTTP/1.1 200 OK
+Content-Type:
+Content-Length: ...
+
+HTTP/1.1 200 OK
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
 FnProject-ResultStatus: failure
@@ -441,6 +463,8 @@ Custom-Header: SomeValue
 
 ...request body from stage...
 ```
+
+The response from `fn` is not encapsulated because external functions do not need to conform to this contract.
 
 Example response:
 

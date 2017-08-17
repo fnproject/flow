@@ -102,7 +102,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 		}
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode))
 	}
-	result, err := model.CompletionResultFromResponse(resp)
+	result, err := model.CompletionResultFromEncapsulatedResponse(resp)
 	if err != nil {
 		stageLog.Error("Failed to read result from functions service", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service")

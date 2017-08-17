@@ -108,6 +108,16 @@ func (g *graphActor) receiveEvent(context actor.Context) {
 	case *model.GraphCompletedEvent:
 		g.applyGraphCompletedEvent(msg)
 
+	case *persistence.ReplayComplete:
+		if g.graph != nil {
+			g.log.Debug("Replay completed")
+			g.graph.Recover()
+		}
+
+	case *Snapshot:
+		// snapshots are currently not supported
+		g.log.Warn("Received unexpected snapshot message!")
+
 	default:
 		g.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
 	}
@@ -350,6 +360,11 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *model.FaasInvocationResponse:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
 		g.graph.HandleInvokeComplete(msg.StageId, msg.Result)
+
+	case *persistence.RequestSnapshot:
+		// snapshots are currently not supported
+		// NOOP
+		g.log.Debug("Ignoring snapshot request")
 
 	default:
 		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))

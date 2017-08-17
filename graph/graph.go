@@ -124,7 +124,7 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 		operation:    event.Op,
 		strategy:     strategy,
 		closure:      event.Closure,
-		whenComplete: make(chan bool),
+		whenComplete: make(chan struct{}),
 		result:       nil,
 		dependencies: graph.GetStages(event.Dependencies),
 	}

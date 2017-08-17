@@ -16,7 +16,7 @@ type CompletionStage struct {
 	// Composed children
 	children []*CompletionStage
 	// TODO "when complete" future
-	whenComplete chan bool
+	whenComplete chan struct{}
 	// Parent stage if I'm a child  - this is what I complete when I'm done
 	composeReference *CompletionStage
 	// this only prevents a a stage from triggering twice in the same generation
@@ -36,6 +36,12 @@ func (stage *CompletionStage) GetClosure() *model.BlobDatum {
 // GetResult returns this stage's result if available
 func (stage *CompletionStage) GetResult() *model.CompletionResult {
 	return stage.result
+}
+
+// WhenComplete returns a channel that is closed when this stage has completed
+// at which point it is safe to retrieve a value using GetResult
+func (stage *CompletionStage) CompleteChan() chan struct{} {
+	return stage.whenComplete
 }
 
 func (stage *CompletionStage) complete(result *model.CompletionResult) bool {

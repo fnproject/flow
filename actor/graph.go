@@ -305,15 +305,15 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		if !g.validateCmd(msg, context) {
 			return
 		}
-		var result *model.CompletionResult
-		stage := g.graph.GetStage(msg.StageId)
-		if stage.IsResolved() {
-			result = &model.CompletionResult{
+		go func() {
+			stage := g.graph.GetStage(msg.StageId)
+			<-stage.CompleteChan()
+			result := &model.CompletionResult{
 				Successful: stage.GetResult().Successful,
 				Datum:      stage.GetResult().Datum,
 			}
-		}
-		context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
+			context.Respond(&model.GetStageResultResponse{GraphId: msg.GraphId, StageId: msg.StageId, Result: result})
+		}()
 
 	case *model.CompleteDelayStageRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")

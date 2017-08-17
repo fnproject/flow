@@ -91,6 +91,26 @@ func timeMillis() int64 {
 }
 
 func (g *graphActor) receiveEvent(context actor.Context) {
+	switch msg := context.Message().(type) {
+
+	case *model.GraphCreatedEvent:
+		g.applyGraphCreatedEvent(msg)
+	case *model.StageAddedEvent:
+		g.applyStageAddedEvent(msg)
+	case *model.StageCompletedEvent:
+		g.applyStageCompletedEvent(msg)
+	case *model.DelayScheduledEvent:
+		g.applyDelayScheduledEvent(msg)
+	case *model.StageComposedEvent:
+		g.applyStageComposedEvent(msg)
+	case *model.GraphCommittedEvent:
+		g.applyGraphCommittedEvent(msg)
+	case *model.GraphCompletedEvent:
+		g.applyGraphCompletedEvent(msg)
+
+	default:
+		g.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
+	}
 }
 
 // Validate a list of stages. If any of them is missing, returns false and the first stage which is missing.

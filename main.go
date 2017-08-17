@@ -198,17 +198,6 @@ func getGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, getFakeGraphStateResponse(request))
 }
 
-func getFakeStageResultResponse(request model.GetStageResultRequest) model.GetStageResultResponse {
-	return model.GetStageResultResponse{
-		GraphId: request.GraphId,
-		StageId: request.StageId,
-		Result: &model.CompletionResult{
-			Successful: true,
-			Datum:      model.NewEmptyDatum(),
-		},
-	}
-}
-
 func resultStatus(result *model.CompletionResult) string {
 	if result.GetSuccessful() {
 		return "success"

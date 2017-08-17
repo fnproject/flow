@@ -320,17 +320,21 @@ func completedValue(c *gin.Context) {
 		Result:  &result,
 	}
 
-	f := graphManager.AddStage(&request, 5*time.Second)
-
-	res, err := f.Result()
+	response, err := addStage(&request)
 	if err != nil {
 		c.Status(500)
 		return
 	}
-	response := res.(*model.AddStageResponse)
-
 	c.Header("FnProject-threadid", response.GraphId)
 	c.JSON(http.StatusCreated, response)
+}
+
+func addStage(request interface{}) (*model.AddStageResponse, error) {
+	f := graphManager.AddStage(request, 5*time.Second)
+
+	res, err := f.Result()
+
+	return res.(*model.AddStageResponse), err
 }
 
 func commitGraph(c *gin.Context) {

@@ -279,7 +279,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:      model.CompletionOperation_completedValue,
+			Op:      model.CompletionOperation_invokeFunction,
 		}
 		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)

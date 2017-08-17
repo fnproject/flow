@@ -185,12 +185,6 @@ func getGraphStage(c *gin.Context) {
 	}
 	response := res.(*model.GetStageResultResponse)
 
-	c.Header("FnProject-threadid", response.GraphId)
-
-	// TODO: send to the GraphManager
-
-	//	response := getFakeStageResultResponse(request)
-
 	result := response.GetResult()
 	if result == nil {
 		c.Status(http.StatusInternalServerError)

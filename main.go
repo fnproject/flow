@@ -229,14 +229,15 @@ func getGraphStage(c *gin.Context) {
 
 	res, err := f.Result()
 	if err != nil {
-		c.Status(500)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	response := res.(*model.GetStageResultResponse)
 
 	result := response.GetResult()
 	if result == nil {
-		c.Status(http.StatusInternalServerError)
+		log.Info("CompletionResult in response is nil. Perhaps the stage hasn't completed yet.")
+		c.Status(http.StatusPartialContent)
 		return
 	}
 

@@ -1,72 +1,65 @@
 package actor
 
 import (
-	"reflect"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/AsynkronIT/protoactor-go/stream"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	log = logrus.WithField("logger", "actor")
-)
-
 type graphSupervisor struct {
-	executor    *actor.PID
-	eventStream *stream.UntypedStream
+	executor            *actor.PID
+	persistenceProvider persistence.Provider
+	log         *logrus.Entry
 }
 
 // NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(executor *actor.PID, eventStream *stream.UntypedStream) actor.Actor {
-	return &graphSupervisor{executor: executor, eventStream: eventStream}
+func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+	return &graphSupervisor{executor: executor, persistenceProvider: persistenceProvider,log: logrus.New().WithField("logger", "graph_supervisor")}
 }
 
 func (s *graphSupervisor) Receive(context actor.Context) {
+
+	if gm, ok := context.Message().(**model.CreateGraphRequest); ok {
+		s.log.Infof("Created graph actor %s", (*gm).GetGraphId())
+	}
+
+	if gm, ok := context.Message().(*model.GraphMessage); ok {
+		s.log.Infof("Yup actor %s", (*gm).GetGraphId())
+
+	}
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		provider := newInMemoryProvider(1000)
 		props := actor.
-			FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
+		FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
 			WithMiddleware(
 				plugin.Use(&PIDAwarePlugin{}),
-				persistence.Using(provider),
-				plugin.Use(&EventStreamPlugin{stream: s.eventStream}),
+				persistence.Using( s.persistenceProvider),
 			)
 
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {
-			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
+			s.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
 			context.Respond(NewGraphCreationError(msg.GraphId))
 			return
 		}
-		log.Infof("Created graph actor %s", child.Id)
+		s.log.Infof("Created graph actor %s", child.Id)
 		child.Request(msg, context.Sender())
 
-	default:
-		if isGraphMessage(msg) {
-			graphID := getGraphID(msg)
-			child, found := findChild(context, graphID)
-			if !found {
-				log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("No child actor found")
-				context.Respond(NewGraphNotFoundError(graphID))
-				return
-			}
-			child.Request(msg, context.Sender())
+	case model.GraphMessage:
+
+		graphID := msg.GetGraphId()
+		child, found := findChild(context, graphID)
+		if !found {
+			s.log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("No child actor found")
+			context.Respond(NewGraphNotFoundError(graphID))
+			return
 		}
+		child.Request(msg, context.Sender())
+
 	}
-}
-
-func isGraphMessage(msg interface{}) bool {
-	return reflect.ValueOf(msg).Elem().FieldByName("GraphId").IsValid()
-}
-
-func getGraphID(msg interface{}) string {
-	return reflect.ValueOf(msg).Elem().FieldByName("GraphId").String()
 }
 
 func findChild(context actor.Context, graphID string) (*actor.PID, bool) {

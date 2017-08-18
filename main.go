@@ -82,6 +82,8 @@ func stageHandler(c *gin.Context) {
 	operation := c.Param("operation")
 	body, err := c.GetRawData()
 	if err != nil {
+		message := "stageHandler can't get raw data from the request"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -90,6 +92,8 @@ func stageHandler(c *gin.Context) {
 	case "complete":
 		response, err := completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
 		if err != nil {
+			message := "completeExternally returned an error trying to complete with success"
+			log.WithError(err).Error(message)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
@@ -97,6 +101,8 @@ func stageHandler(c *gin.Context) {
 	case "fail":
 		response, err := completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
 		if err != nil {
+			message := "completeExternally returned an error trying to complete with failure"
+			log.WithError(err).Error(message)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
@@ -117,6 +123,8 @@ func stageHandler(c *gin.Context) {
 		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body, c.ContentType())
 		response, err := addStage(&request)
 		if err != nil {
+			message := "stageHandler got an error from addStage"
+			log.WithError(err).Error(message)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
@@ -136,6 +144,8 @@ func createGraphHandler(c *gin.Context) {
 
 	graphID, err := uuid.NewRandom()
 	if err != nil {
+		message := "can't get a UUID for the new graph"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -146,6 +156,8 @@ func createGraphHandler(c *gin.Context) {
 
 	result, err := f.Result()
 	if err != nil {
+		message := "failed to create new graph"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -220,8 +232,9 @@ func getGraphStage(c *gin.Context) {
 
 	res, err := f.Result()
 	if err != nil {
-		log.Warn("GetStageResult future returned an error: " + err.Error())
-		c.Status(http.StatusInternalServerError)
+		message := "GetStageResult future returned an error"
+		log.WithError(err).Error(message)
+		c.Data(http.StatusInternalServerError, "text/plain", []byte(message + "\n" + err.Error()))
 		return
 	}
 	response := res.(*model.GetStageResultResponse)
@@ -235,15 +248,17 @@ func getGraphStage(c *gin.Context) {
 
 	datum := result.GetDatum()
 	if datum == nil {
-		log.Warn("GetStageResult produced a result but the datum is null")
-		c.Status(http.StatusInternalServerError)
+		message := "GetStageResult produced a result but the datum is null"
+		log.Error(message)
+		c.Data(http.StatusInternalServerError, "text/plain", []byte(message))
 		return
 	}
 
 	val := datum.GetVal()
 	if val == nil {
-		log.Warn("GetStageResult produced a result but the datum value is null")
-		c.Status(http.StatusInternalServerError)
+		message := "GetStageResult produced a result but the datum value is null"
+		log.Error(message)
+		c.Data(http.StatusInternalServerError, "text/plain", []byte(message))
 		return
 	}
 
@@ -297,6 +312,7 @@ func getGraphStage(c *gin.Context) {
 		c.Data(http.StatusOK, httpResp.Body.GetContentType(), httpResp.Body.GetDataString())
 		return
 	default:
+		log.Error("unrecognized datum type when getting graph stage")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -310,6 +326,8 @@ func acceptExternalCompletion(c *gin.Context) {
 	response, err := addStage(&request)
 
 	if err != nil {
+		message := "acceptExternalCompletion failed to add stage"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -338,6 +356,8 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	response, err := addStage(&request)
 
 	if err != nil {
+		message := "allOrAnyOf failed to add stage"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -358,6 +378,8 @@ func supply(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
+		message := "supply cannot get raw request data"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -368,6 +390,8 @@ func supply(c *gin.Context) {
 
 	response, err := addStage(&request)
 	if err != nil {
+		message := "supply failed to add stage"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -380,6 +404,8 @@ func completedValue(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
+		message := "completedValue cannot get raw request data"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -396,6 +422,8 @@ func completedValue(c *gin.Context) {
 
 	response, err := addStage(&request)
 	if err != nil {
+		message := "completedValue failed to add stage"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -419,6 +447,8 @@ func commitGraph(c *gin.Context) {
 
 	result, err := f.Result()
 	if err != nil {
+		message := "commitGraph failed to commit"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -448,7 +478,8 @@ func delay(c *gin.Context) {
 	response, err := addStage(&request)
 
 	if err != nil {
-		log.Error(err)
+		message := "delay failed to add stage"
+		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}

@@ -388,7 +388,7 @@ We'll swagger this up at some point
 | /graph/${graph_id}/stage/${stage_id}/handle				| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletionStage.html#handle-java.util.function.BiFunction-). |
 | /graph/${graph_id}/stage/${stage_id}/exceptionally		| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletionStage.html#exceptionally-java.util.function.Function-). |
 
-Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage value by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}`.
+Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage value by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
 
 Data is exchanged between the client and the completer and the completer and the function using HTTP multipart messages 
  

@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 )
 
 const (
@@ -123,10 +124,10 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		// TODO: enforce valid content type
 		// TODO: generic error handling
 		request := &model.AddChainedStageRequest{
-			GraphId: graphID,
-			Deps: cids,
+			GraphId:   graphID,
+			Deps:      cids,
 			Operation: model.CompletionOperation(completionOperation),
-			Closure: model.NewBlob(c.ContentType(), body),
+			Closure:   model.NewBlob(c.ContentType(), body),
 		}
 		response, err := s.addStage(&request)
 		if err != nil {
@@ -239,6 +240,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	f := s.graphManager.GetStageResult(&request, 5*time.Second)
 
 	res, err := f.Result()
+
+	if err == protoactor.ErrTimeout {
+		c.Data(http.StatusRequestTimeout, "text/plain", []byte("stage not completed"))
+		return
+	}
+
 	if err != nil {
 		message := "GetStageResult future returned an error"
 		log.WithError(err).Error(message)

@@ -20,6 +20,7 @@ const (
 	headerDatumType    string = "FnProject-DatumType"
 	headerResultStatus string = "FnProject-ResultStatus"
 	headerErrorType    string = "FnProject-ErrorType"
+	headerThreadID     string = "FnProject-ThreadID"
 	headerStageID      string = "FnProject-StageID"
 	headerHeaderPrefix string = "FnProject-Header"
 	headerMethod       string = "FnProject-Method"
@@ -97,7 +98,8 @@ func stageHandler(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
-		c.JSON(http.StatusOK, response)
+		c.Header(headerStageID, response.StageId)
+		c.Status(http.StatusOK)
 	case "fail":
 		response, err := completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
 		if err != nil {
@@ -106,7 +108,8 @@ func stageHandler(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
-		c.JSON(http.StatusOK, response)
+		c.Header(headerStageID, response.StageId)
+		c.Status(http.StatusOK)
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}
@@ -116,7 +119,8 @@ func stageHandler(c *gin.Context) {
 
 		completionOperation, found := model.CompletionOperation_value[operation]
 		if !found {
-			c.Status(http.StatusBadRequest)
+			message := "invalid completion operation '" + operation + "'"
+			c.Data(http.StatusBadRequest, "text/plain", []byte(message))
 			return
 		}
 
@@ -129,7 +133,7 @@ func stageHandler(c *gin.Context) {
 			return
 		}
 		c.Header(headerStageID, response.StageId)
-		c.JSON(http.StatusCreated, response)
+		c.Status(http.StatusOK)
 	}
 }
 
@@ -162,9 +166,8 @@ func createGraphHandler(c *gin.Context) {
 		return
 	}
 	resp := result.(*model.CreateGraphResponse)
-	c.Header("FnProject-threadid", resp.GraphId)
-	c.Status(http.StatusCreated)
-
+	c.Header(headerThreadID, resp.GraphId)
+	c.Status(http.StatusOK)
 }
 
 func getFakeGraphStateResponse(req model.GetGraphStateRequest) model.GetGraphStateResponse {
@@ -332,7 +335,7 @@ func acceptExternalCompletion(c *gin.Context) {
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusCreated, response)
+	c.Status(http.StatusOK)
 }
 
 func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
@@ -362,7 +365,7 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusCreated, response)
+	c.Status(http.StatusOK)
 }
 
 func acceptAllOf(c *gin.Context) {
@@ -396,7 +399,7 @@ func supply(c *gin.Context) {
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusCreated, response)
+	c.Status(http.StatusOK)
 }
 
 func completedValue(c *gin.Context) {
@@ -428,7 +431,7 @@ func completedValue(c *gin.Context) {
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusCreated, response)
+	c.Status(http.StatusOK)
 }
 
 func addStage(request interface{}) (*model.AddStageResponse, error) {
@@ -454,7 +457,8 @@ func commitGraph(c *gin.Context) {
 	}
 
 	response := result.(*model.CommitGraphProcessed)
-	c.JSON(http.StatusOK, response)
+	c.Header(headerThreadID, response.GraphId)
+	c.Status(http.StatusOK)
 }
 
 func delay(c *gin.Context) {
@@ -484,7 +488,7 @@ func delay(c *gin.Context) {
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusOK, response)
+	c.Status(http.StatusOK)
 }
 
 func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
@@ -510,15 +514,17 @@ func invokeFunction(c *gin.Context) {
 
 	functionID := c.Query("functionId")
 	if functionID == "" {
-		log.Info("Empty or missing functionId supplied to add invokeFunction stage")
-		c.Status(http.StatusBadRequest)
+		message := "Empty or missing functionId supplied to add invokeFunction stage"
+		log.Info(message)
+		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
 		return
 	}
 
 	body, err := c.GetRawData()
 	if err != nil {
-		log.Info("Invalid request body supplied to add invokeFunction stage")
-		c.Status(http.StatusBadRequest)
+		message := "Invalid request body supplied to add invokeFunction stage"
+		log.Info(message)
+		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
 		return
 	}
 
@@ -527,8 +533,9 @@ func invokeFunction(c *gin.Context) {
 	if m, found := model.HttpMethod_value[requestMethod]; found {
 		method = model.HttpMethod(m)
 	} else {
-		log.Info("Empty, missing, or invalid HTTP method supplied to add invokeFunction stage")
-		c.Status(http.StatusBadRequest)
+		message := "Empty, missing, or invalid HTTP method supplied to add invokeFunction stage"
+		log.Info(message)
+		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
 		return
 	}
 
@@ -544,11 +551,12 @@ func invokeFunction(c *gin.Context) {
 
 	response, err := addStage(&request)
 	if err != nil {
+		log.WithError(err).Error("invokeFunction failed to add stage")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 	c.Header(headerStageID, response.StageId)
-	c.JSON(http.StatusCreated, response)
+	c.Status(http.StatusOK)
 }
 
 func withClosure(graphID string, cids []string, op model.CompletionOperation, body []byte, contentType string) model.AddChainedStageRequest {

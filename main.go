@@ -120,6 +120,7 @@ func stageHandler(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
+		c.Header(headerStageID, response.StageId)
 		c.JSON(http.StatusCreated, response)
 	}
 }
@@ -309,6 +310,7 @@ func acceptExternalCompletion(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -336,6 +338,7 @@ func allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -365,6 +368,7 @@ func supply(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -392,6 +396,7 @@ func completedValue(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusCreated, response)
 }
 
@@ -444,6 +449,7 @@ func delay(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusOK, response)
 }
 
@@ -507,6 +513,7 @@ func invokeFunction(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+	c.Header(headerStageID, response.StageId)
 	c.JSON(http.StatusCreated, response)
 }
 

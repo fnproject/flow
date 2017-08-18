@@ -126,8 +126,8 @@ func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
 // if validation fails, this method will respond to the request with an appropriate error message
 func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	// First check the graph exists
-	if isGraphMessage(cmd) {
-		graphID := getGraphID(cmd)
+	if gm, ok := cmd.(model.GraphMessage); ok  {
+		graphID := gm.GetGraphId()
 		if g.graph == nil {
 			context.Respond(NewGraphNotFoundError(graphID))
 			return false
@@ -228,7 +228,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding completed value stage")
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:      model.CompletionOperation_completedValue,
+			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
@@ -247,7 +247,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding delay stage")
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:      model.CompletionOperation_delay,
+			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(addedEvent)
 		g.applyStageAddedEvent(addedEvent)
@@ -266,7 +266,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding external completion stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:      model.CompletionOperation_externalCompletion,
+			Op:     msg.GetOperation(),
 		}
 		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
@@ -279,7 +279,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:      model.CompletionOperation_invokeFunction,
+			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)

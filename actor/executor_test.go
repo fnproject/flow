@@ -249,7 +249,6 @@ func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte)
 		Body:       ioutil.NopCloser(bytes.NewReader(body)),
 	}
 	encap.Write(buf)
-	log.Info(buf.String())
 	return &http.Response{
 		StatusCode: statusCode,
 		Header:     map[string][]string{},

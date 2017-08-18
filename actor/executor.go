@@ -70,7 +70,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	if msg.Closure != nil {
 		err := model.WritePartFromDatum(&model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
 		if err != nil {
-			log.Error("Failed to create multipart body", err)
+			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
 
 		}
@@ -78,7 +78,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	for _, datum := range msg.Args {
 		err := model.WritePartFromDatum(datum, partWriter)
 		if err != nil {
-			log.Error("Failed to create multipart body", err)
+			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
 
 		}
@@ -133,7 +133,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 
 	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+"/"+msg.FunctionId, bodyReader)
 	if err != nil {
-		log.Error("Failed to create http request:", err)
+		exec.log.Error("Failed to create http request:", err)
 		return invokeFailed(msg, "Failed to create HTTP request")
 	}
 
@@ -144,7 +144,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 	resp, err := exec.client.Do(req)
 
 	if err != nil {
-		log.Error("Http error calling functions service:", err)
+		exec.log.Error("Http error calling functions service:", err)
 		return invokeFailed(msg, "Failed to call function")
 
 	}
@@ -152,7 +152,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 	buf := &bytes.Buffer{}
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {
-		log.Error("Error reading data from function:", err)
+		exec.log.Error("Error reading data from function:", err)
 		return invokeFailed(msg, "Failed to call function could not read response")
 
 	}

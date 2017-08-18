@@ -64,11 +64,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 		},
 	}
 
-	f := s.graphManager.CompleteStageExternally(&request, 5*time.Second)
-
-	res, err := f.Result()
-
-	response := res.(*model.CompleteStageExternallyResponse)
+	response, err := s.graphManager.CompleteStageExternally(&request, 5*time.Second)
 
 	return response, err
 }
@@ -129,13 +125,20 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			Operation: model.CompletionOperation(completionOperation),
 			Closure:   model.NewBlob(c.ContentType(), body),
 		}
-		response, err := s.addStage(&request)
+		response, err := s.addStage(request)
+
 		if err != nil {
-			message := "handleStageOperation got an error from addStage"
-			log.WithError(err).Error(message)
-			c.Status(http.StatusInternalServerError)
+			log.WithError(err).Error("Graph Operation Failed ")
+
+			switch e := err.(type) {
+			case model.BadRequestError:
+				c.Data(400, "text/plain", []byte(e.UserMessage()))
+			default:
+				c.Status(http.StatusInternalServerError)
+			}
 			return
 		}
+
 		c.Header(headerStageID, response.StageId)
 		c.Status(http.StatusOK)
 	}
@@ -161,17 +164,15 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 
 	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
 
-	f := s.graphManager.CreateGraph(req, 5*time.Second)
 	// TODO: sort out timeouts in a consistent way
-	result, err := f.Result()
+	result, err := s.graphManager.CreateGraph(req, 5*time.Second)
 	if err != nil {
 		message := "failed to create new graph"
 		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	resp := result.(*model.CreateGraphResponse)
-	c.Header(headerThreadID, resp.GraphId)
+	c.Header(headerThreadID, result.GraphId)
 	c.Status(http.StatusOK)
 }
 
@@ -237,9 +238,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	// TODO: return 408 on timeout
-	f := s.graphManager.GetStageResult(&request, 5*time.Second)
-
-	res, err := f.Result()
+	response, err := s.graphManager.GetStageResult(&request, 5*time.Second)
 
 	if err == protoactor.ErrTimeout {
 		c.Data(http.StatusRequestTimeout, "text/plain", []byte("stage not completed"))
@@ -252,7 +251,6 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		c.Data(http.StatusInternalServerError, "text/plain", []byte(message+"\n"+err.Error()))
 		return
 	}
-	response := res.(*model.GetStageResultResponse)
 
 	result := response.GetResult()
 	// TODO: this actually never happens
@@ -458,20 +456,16 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) addStage(request interface{}) (*model.AddStageResponse, error) {
+func (s *Server) addStage(request model.AddStageCommand) (*model.AddStageResponse, error) {
 	// TODO: we should have a synchronous api in the graph manager instead of this
-	f := s.graphManager.AddStage(request, 5*time.Second)
-	res, err := f.Result()
-	return res.(*model.AddStageResponse), err
+	return s.graphManager.AddStage(request, 5*time.Second)
 }
 
 func (s *Server) handleCommit(c *gin.Context) {
 	graphID := c.Param("graphId")
 	request := model.CommitGraphRequest{GraphId: graphID}
 
-	f := s.graphManager.Commit(&request, 5*time.Second)
-
-	result, err := f.Result()
+	response, err := s.graphManager.Commit(&request, 5*time.Second)
 	if err != nil {
 		message := "handleCommit failed to commit"
 		log.WithError(err).Error(message)
@@ -479,7 +473,6 @@ func (s *Server) handleCommit(c *gin.Context) {
 		return
 	}
 
-	response := result.(*model.CommitGraphProcessed)
 	c.Header(headerThreadID, response.GraphId)
 	c.Status(http.StatusOK)
 }

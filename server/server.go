@@ -1,6 +1,5 @@
 package server
 
-
 import (
 	"fmt"
 	"net/http"
@@ -71,13 +70,13 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	return response, err
 }
 
-func (s *Server) stageHandler(c *gin.Context) {
+func (s *Server) handleStageOperation(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 	operation := c.Param("operation")
 	body, err := c.GetRawData()
 	if err != nil {
-		message := "stageHandler can't get raw data from the request"
+		message := "handleStageOperation can't get raw data from the request"
 		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
@@ -121,7 +120,7 @@ func (s *Server) stageHandler(c *gin.Context) {
 		request := withClosure(graphID, cids, model.CompletionOperation(completionOperation), body, c.ContentType())
 		response, err := s.addStage(&request)
 		if err != nil {
-			message := "stageHandler got an error from addStage"
+			message := "handleStageOperation got an error from addStage"
 			log.WithError(err).Error(message)
 			c.Status(http.StatusInternalServerError)
 			return
@@ -131,7 +130,7 @@ func (s *Server) stageHandler(c *gin.Context) {
 	}
 }
 
-func (s *Server) createGraphHandler(c *gin.Context) {
+func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
@@ -198,7 +197,7 @@ func (s *Server) getFakeGraphStateResponse(req model.GetGraphStateRequest) model
 	return response
 }
 
-func (s *Server) getGraphState(c *gin.Context) {
+func (s *Server) handleGraphState(c *gin.Context) {
 
 	graphID := c.Param("graphId")
 	log.Info("Requested graph with Id " + graphID)
@@ -216,7 +215,7 @@ func resultStatus(result *model.CompletionResult) string {
 	return "failure"
 }
 
-func (s *Server) getGraphStage(c *gin.Context) {
+func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
@@ -231,7 +230,7 @@ func (s *Server) getGraphStage(c *gin.Context) {
 	if err != nil {
 		message := "GetStageResult future returned an error"
 		log.WithError(err).Error(message)
-		c.Data(http.StatusInternalServerError, "text/plain", []byte(message + "\n" + err.Error()))
+		c.Data(http.StatusInternalServerError, "text/plain", []byte(message+"\n"+err.Error()))
 		return
 	}
 	response := res.(*model.GetStageResultResponse)
@@ -315,7 +314,7 @@ func (s *Server) getGraphStage(c *gin.Context) {
 	}
 }
 
-func (s *Server) acceptExternalCompletion(c *gin.Context) {
+func (s *Server) handleExternalCompletion(c *gin.Context) {
 	graphID := c.Param("graphId")
 
 	request := model.AddExternalCompletionStageRequest{GraphId: graphID}
@@ -323,7 +322,7 @@ func (s *Server) acceptExternalCompletion(c *gin.Context) {
 	response, err := s.addStage(&request)
 
 	if err != nil {
-		message := "acceptExternalCompletion failed to add stage"
+		message := "handleExternalCompletion failed to add stage"
 		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
@@ -362,15 +361,15 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) acceptAllOf(c *gin.Context) {
+func (s *Server) handleAllOf(c *gin.Context) {
 	s.allOrAnyOf(c, model.CompletionOperation_allOf)
 }
 
-func (s *Server) acceptAnyOf(c *gin.Context) {
+func (s *Server) handleAnyOf(c *gin.Context) {
 	s.allOrAnyOf(c, model.CompletionOperation_anyOf)
 }
 
-func (s *Server) supply(c *gin.Context) {
+func (s *Server) handleSupply(c *gin.Context) {
 	graphID := c.Param("graphId")
 
 	body, err := c.GetRawData()
@@ -396,7 +395,7 @@ func (s *Server) supply(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) completedValue(c *gin.Context) {
+func (s *Server) handleCompletedValue(c *gin.Context) {
 	graphID := c.Param("graphId")
 
 	body, err := c.GetRawData()
@@ -436,7 +435,7 @@ func (s *Server) addStage(request interface{}) (*model.AddStageResponse, error) 
 	return res.(*model.AddStageResponse), err
 }
 
-func (s *Server) commitGraph(c *gin.Context) {
+func (s *Server) handleCommit(c *gin.Context) {
 	graphID := c.Param("graphId")
 	request := model.CommitGraphRequest{GraphId: graphID}
 
@@ -444,7 +443,7 @@ func (s *Server) commitGraph(c *gin.Context) {
 
 	result, err := f.Result()
 	if err != nil {
-		message := "commitGraph failed to commit"
+		message := "handleCommit failed to commit"
 		log.WithError(err).Error(message)
 		c.Status(http.StatusInternalServerError)
 		return
@@ -455,7 +454,7 @@ func (s *Server) commitGraph(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) delay(c *gin.Context) {
+func (s *Server) handleDelay(c *gin.Context) {
 	graphID := c.Param("graphId")
 	delayMs := c.Query("delayMs")
 	if delayMs == "" {
@@ -503,7 +502,7 @@ func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
 	return headers
 }
 
-func (s *Server) invokeFunction(c *gin.Context) {
+func (s *Server) handleInvokeFunction(c *gin.Context) {
 	graphID := c.Param("graphId")
 
 	functionID := c.Query("functionId")
@@ -565,18 +564,18 @@ func withClosure(graphID string, cids []string, op model.CompletionOperation, bo
 }
 
 type Server struct {
-	engine *gin.Engine
+	engine       *gin.Engine
 	graphManager actor.GraphManager
-	listenHost string
-	listenPort string
+	listenHost   string
+	listenPort   string
 }
 
 func NewServer(listenHost string, listenPort string, manager actor.GraphManager) (*Server, error) {
 	s := &Server{
 		graphManager: manager,
-		engine: gin.Default(),
-		listenHost: listenHost,
-		listenPort: listenPort,
+		engine:       gin.Default(),
+		listenHost:   listenHost,
+		listenPort:   listenPort,
 	}
 
 	s.engine.GET("/ping", func(c *gin.Context) {
@@ -589,32 +588,26 @@ func NewServer(listenHost string, listenPort string, manager actor.GraphManager)
 
 	graph := s.engine.Group("/graph")
 	{
-		graph.POST("", s.createGraphHandler)
-		graph.GET("/:graphId", s.getGraphState)
+		graph.POST("", s.handleCreateGraph)
+		graph.GET("/:graphId", s.handleGraphState)
 
-		graph.POST("/:graphId/supply", s.supply)
-		graph.POST("/:graphId/invokeFunction", s.invokeFunction)
-		graph.POST("/:graphId/completedValue", s.completedValue)
-		graph.POST("/:graphId/delay", s.delay)
-		graph.POST("/:graphId/allOf", s.acceptAllOf)
-		graph.POST("/:graphId/anyOf", s.acceptAnyOf)
-		graph.POST("/:graphId/externalCompletion", s.acceptExternalCompletion)
-		graph.POST("/:graphId/commit", s.commitGraph)
+		graph.POST("/:graphId/supply", s.handleSupply)
+		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
+		graph.POST("/:graphId/completedValue", s.handleCompletedValue)
+		graph.POST("/:graphId/delay", s.handleDelay)
+		graph.POST("/:graphId/allOf", s.handleAllOf)
+		graph.POST("/:graphId/anyOf", s.handleAnyOf)
+		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
+		graph.POST("/:graphId/commit", s.handleCommit)
 
 		stage := graph.Group("/:graphId/stage")
 		{
-			stage.GET("/:stageId", s.getGraphStage)
-			stage.POST("/:stageId/:operation", s.stageHandler)
+			stage.GET("/:stageId", s.handleGetGraphStage)
+			stage.POST("/:stageId/:operation", s.handleStageOperation)
 		}
 	}
 
 	log.Info("Starting")
-
-	if listenPort == "" {
-		listenPort = "8081"
-	}
-
-
 	return s, nil
 }
 

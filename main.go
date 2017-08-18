@@ -18,17 +18,19 @@ func main() {
 	if fnPort == "" {
 		fnPort = "8080"
 	}
+    graphManager := actor.NewGraphManager(fnHost, fnPort)
+
 	listenHost := os.Getenv("COMPLETER_HOST")
 	var listenPort = os.Getenv("COMPLETER_PORT")
 	if listenPort == "" {
 		listenPort = "8081"
 	}
-    graphManager := actor.NewGraphManager(fnHost, fnPort)
 
 	srv, err := server.NewServer(listenHost, listenPort, graphManager)
 	if err != nil {
 		log.WithError(err).Error("Failed to start server")
 		return
 	}
+
 	srv.Run()
 }

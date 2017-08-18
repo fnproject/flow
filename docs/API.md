@@ -201,9 +201,20 @@ FnProject-ResultStatus: failure
 
 #### Platform Error
 
-Completion stages can also fail due to errors thrown outside of the user's code. For example, the completer may time out while waiting for a response to a continuation request. 
-In such cases, the completion stage will fail, but there will be no exception or stacktrace associated with the failure.
-Retrieving the value of a failed stage due to a platform error will return the following headers, and will include a message describing the error in the body of the response.
+Completion stages can also fail due to errors thrown outside of the user's
+code. For example, the completer may time out while waiting for a response to
+a continuation request. In such cases, the completion stage will fail, but
+there will be no exception or stacktrace associated with the failure.
+Retrieving the value of a failed stage due to a platform error will return the
+following headers, and will include a message describing the error in the body
+of the response.
+
+The error response will always have the following headers:
+
+* `Content-Type: text/plain`
+* `FnProject-DatumType: error`
+* `FnProject-ResultStatus: failure`
+* `FnProject-ErrorType: <error-type>`
 
 ```
 Content-Type: text/plain

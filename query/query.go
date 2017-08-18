@@ -2,6 +2,7 @@ package query
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
 
@@ -38,9 +39,8 @@ func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Reques
 			log.Warnf("Failed to convert to JSON: %s", err)
 			return
 		}
-		typeName := reflect.TypeOf(event).String()
-		conn.WriteMessage(websocket.TextMessage, []byte(typeName))
-		conn.WriteMessage(websocket.TextMessage, json)
+		msg := fmt.Sprintf("%s %s", reflect.TypeOf(event).String(), json)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	})
 
 	for {

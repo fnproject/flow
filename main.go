@@ -220,6 +220,7 @@ func getGraphStage(c *gin.Context) {
 
 	res, err := f.Result()
 	if err != nil {
+		log.Warn("GetStageResult future returned an error: " + err.Error())
 		c.Status(http.StatusInternalServerError)
 		return
 	}
@@ -234,12 +235,14 @@ func getGraphStage(c *gin.Context) {
 
 	datum := result.GetDatum()
 	if datum == nil {
+		log.Warn("GetStageResult produced a result but the datum is null")
 		c.Status(http.StatusInternalServerError)
 		return
 	}
 
 	val := datum.GetVal()
 	if val == nil {
+		log.Warn("GetStageResult produced a result but the datum value is null")
 		c.Status(http.StatusInternalServerError)
 		return
 	}

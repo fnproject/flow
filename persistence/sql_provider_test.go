@@ -16,29 +16,41 @@ var tmpDir = os.TempDir()
 var dbPath = fmt.Sprintf("%scompleter_test/", tmpDir)
 var dbFile = fmt.Sprintf("%stest.db", dbPath)
 
-func TestCreateFirstSnapshots(t *testing.T) {
-	provider := givenProvider(t)
-	datum := model.NewEmptyDatum()
-	provider.PersistSnapshot("actorName", 1, datum)
 
-	snapshot, index, ok := provider.GetSnapshot("actorName")
+func TestShouldFailToReadNonExistentSnapshot(t *testing.T) {
+	provider := givenProvider(t)
+
+	gotSnapshot, index, ok := provider.GetSnapshot("actorName")
+
+	require.False(t, ok)
+	assert.Equal(t, -1, index)
+	assert.Nil(t,gotSnapshot)
+
+}
+
+func TestShouldReadAndWriteSnapshots(t *testing.T) {
+	provider := givenProvider(t)
+	snapshot := model.NewEmptyDatum()
+	provider.PersistSnapshot("actorName", 1, snapshot)
+
+	gotSnapshot, index, ok := provider.GetSnapshot("actorName")
 
 	require.True(t, ok)
 	assert.Equal(t, 1, index)
 
-	assert.Equal(t, datum, snapshot)
+	assert.Equal(t, snapshot, gotSnapshot)
 }
 
-func TestSnapshotsOverideOldOnes(t *testing.T) {
+func TestSnapshotsOverrideOldOnes(t *testing.T) {
 	provider := givenProvider(t)
-	datum := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello"))
+	snapshot := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
 	provider.PersistSnapshot("actorName", 1, model.NewEmptyDatum())
-	provider.PersistSnapshot("actorName", 2, datum)
+	provider.PersistSnapshot("actorName", 2, snapshot)
 
-	snapshot, index, ok := provider.GetSnapshot("actorName")
+	gotSnapshot, index, ok := provider.GetSnapshot("actorName")
 	require.True(t, ok)
 	assert.Equal(t, 2, index)
-	assert.Equal(t, datum, snapshot)
+	assert.Equal(t, snapshot, gotSnapshot)
 
 }
 

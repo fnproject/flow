@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"github.com/jmoiron/sqlx"
 	"strings"
+	"reflect"
 )
 
 type SqlProvider struct {
@@ -19,16 +20,18 @@ type SqlProvider struct {
 
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	actor_name varchar(255) NOT NULL,
-	message_type varchar(255) NOT NULL,
-	message_index int NOT NULL,
+	event_type varchar(255) NOT NULL,
+	event_index int NOT NULL,
 	message BLOB NOT NULL);`,
 
 	`CREATE TABLE IF NOT EXISTS snapshots (
 	actor_name varchar(255) NOT NULL PRIMARY KEY ,
-	message_type varchar(255) NOT NULL,
-	message_index int NOT NULL,
+	snapshot_type varchar(255) NOT NULL,
+	event_index int NOT NULL,
 	snapshot BLOB NOT NULL);`,
 }
+
+var log = logrus.New().WithField("logger", "sql_persistence")
 
 func NewSqlProvider(url *url.URL, snapshotInterval int) (*SqlProvider, error) {
 
@@ -89,21 +92,45 @@ func (provider *SqlProvider) GetSnapshotInterval() int {
 
 func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
 
-	result, err := provider.db.Query("SELECT message_type,message_index,message FROM snapshots WHERE actor_name = ?", actorName)
+	row := provider.db.QueryRowx("SELECT snapshot_type,event_index,snapshot FROM snapshots WHERE actor_name = ?", actorName)
+
+	if row.Err() != nil {
+		log.WithField("actor_name", actorName).Errorf("Error getting snapshot value from DB ", row.Err())
+		return nil, -1, false
+	}
+
+	var snapshotType string
+	var snapshotBytes []byte
+
+
+	err := row.Scan(&snapshotType, &eventIndex, &snapshotBytes)
+	if err == sql.ErrNoRows {
+		return nil, -1, false
+	}
 
 	if err != nil {
-		return nil, -1, false;
+		log.WithField("actor_name", actorName).Errorf("Error snapshot value from DB ", err)
+		return nil, -1, false
 	}
-	defer result.Close()
 
-	if !result.Next() {
-		return nil,-1,false
+	protoType := proto.MessageType(snapshotType)
+
+	if protoType == nil {
+		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).Errorf("snapshot type not supported by protobuf")
+		return nil, -1, false
 	}
-	result.Columns()
+	t := protoType.Elem()
+	intPtr := reflect.New(t)
+	message := intPtr.Interface().(proto.Message)
 
+	err = proto.Unmarshal(snapshotBytes, message.(proto.Message))
 
+	if err != nil {
+		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).WithError(err).Errorf("Failed to read  protobuf for snapshot")
+		return nil, -1, false
+	}
 
-	return nil, 0, false
+	return message, eventIndex, true
 }
 
 func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
@@ -114,7 +141,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 		panic(err)
 	}
 
-	_, err = provider.db.Exec("INSERT OR REPLACE INTO snapshots (actor_name,message_type,message_index,message) VALUES (?,?,?,?)",
+	_, err = provider.db.Exec("INSERT OR REPLACE INTO snapshots (actor_name,snapshot_type,event_index,snapshot) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
 
 	if err != nil {

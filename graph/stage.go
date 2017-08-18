@@ -75,8 +75,14 @@ func (stage *CompletionStage) requestTrigger() (satisfied bool, status bool, sat
 		return false, false, nil
 
 	}
-	stage.triggered = true
-	return stage.strategy.TriggerStrategy(stage.dependencies)
+
+	triggered, status, results := stage.strategy.TriggerStrategy(stage.dependencies)
+
+	if triggered {
+		stage.triggered = true
+	}
+	return triggered, status, results
+
 }
 
 // execute is done, here is the result - go wild

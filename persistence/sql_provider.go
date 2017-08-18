@@ -22,7 +22,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	actor_name varchar(255) NOT NULL,
 	event_type varchar(255) NOT NULL,
 	event_index int NOT NULL,
-	message BLOB NOT NULL);`,
+	event BLOB NOT NULL);`,
 
 	`CREATE TABLE IF NOT EXISTS snapshots (
 	actor_name varchar(255) NOT NULL PRIMARY KEY ,
@@ -39,6 +39,7 @@ func NewSqlProvider(url *url.URL, snapshotInterval int) (*SqlProvider, error) {
 	switch driver {
 	case "mysql", "sqlite3":
 	default:
+
 		return nil, fmt.Errorf("Invalid db driver %s", driver)
 	}
 
@@ -102,7 +103,6 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	var snapshotType string
 	var snapshotBytes []byte
 
-
 	err := row.Scan(&snapshotType, &eventIndex, &snapshotBytes)
 	if err == sql.ErrNoRows {
 		return nil, -1, false
@@ -150,6 +150,14 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 }
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(e interface{})) {
+	row := provider.db.QueryRowx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ?", actorName, eventIndexStart)
+
+	if row.Err() != nil {
+		log.WithField("actor_name", actorName).WithError(row.Err()).Error("Error getting events value from DB ")
+
+		// DON't PANIC ?
+		panic(row.Err())
+	}
 
 }
 

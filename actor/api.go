@@ -3,8 +3,9 @@ package actor
 import (
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/eventstream"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/stream"
 
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
@@ -17,13 +18,16 @@ type GraphManager interface {
 	GetStageResult(*model.GetStageResultRequest, time.Duration) *actor.Future
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) *actor.Future
 	Commit(*model.CommitGraphRequest, time.Duration) *actor.Future
+	SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription
+	UnsubscribeStream(sub *eventstream.Subscription)
+	QueryJournal(graphID string, eventIndex int, fn func(evt interface{}))
 }
 
 type actorManager struct {
-	log         *logrus.Entry
-	supervisor  *actor.PID
-	executor    *actor.PID
-	eventStream *stream.UntypedStream
+	log                 *logrus.Entry
+	supervisor          *actor.PID
+	executor            *actor.PID
+	persistenceProvider *streamingInMemoryProvider
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
@@ -36,20 +40,29 @@ func NewGraphManager(fnHost string, fnPort string) GraphManager {
 
 	executorProps := actor.FromInstance(NewExecutor("http://" + fnHost + ":" + fnPort + "/r")).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
-	eventStream := stream.NewUntypedStream()
+	persistenceProvider := newStreamingInMemoryProvider(1000)
 
-	supervisorProps := actor.FromInstance(NewSupervisor(executor, eventStream)).WithSupervisor(strategy)
+	supervisorProps := actor.FromInstance(NewSupervisor(executor, persistenceProvider)).WithSupervisor(strategy)
 	supervisor, _ := actor.SpawnNamed(supervisorProps, "supervisor")
 
 	return &actorManager{
-		log:        logrus.WithField("logger", "graphManager"),
-		supervisor: supervisor,
-		executor:   executor,
+		log:                 logrus.WithField("logger", "graphManager"),
+		supervisor:          supervisor,
+		executor:            executor,
+		persistenceProvider: persistenceProvider,
 	}
 }
 
-func (m *actorManager) GetEventStream() *stream.UntypedStream {
-	return m.eventStream
+func (m *actorManager) SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription {
+	return m.persistenceProvider.GetEventStream().Subscribe(fn)
+}
+
+func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
+	m.persistenceProvider.GetEventStream().Unsubscribe(sub)
+}
+
+func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(evt interface{})) {
+	m.persistenceProvider.GetState().GetEvents(graphID, eventIndex, fn)
 }
 
 func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.Duration) *actor.Future {

@@ -2,8 +2,9 @@ package main
 
 import (
 	"os"
-	"github.com/fnproject/completer/server"
+
 	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/server"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,7 +19,7 @@ func main() {
 	if fnPort == "" {
 		fnPort = "8080"
 	}
-    graphManager := actor.NewGraphManager(fnHost, fnPort)
+	graphManager := actor.NewGraphManager(fnHost, fnPort)
 
 	listenHost := os.Getenv("COMPLETER_HOST")
 	var listenPort = os.Getenv("COMPLETER_PORT")

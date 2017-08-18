@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
+	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/query"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 )
 
 const (
@@ -616,7 +616,7 @@ func NewServer(listenHost string, listenPort string, manager actor.GraphManager)
 	})
 
 	s.engine.GET("/wss", func(c *gin.Context) {
-		query.WSSHandler(c.Writer, c.Request)
+		query.WSSHandler(manager, c.Writer, c.Request)
 	})
 
 	graph := s.engine.Group("/graph")

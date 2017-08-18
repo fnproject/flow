@@ -6,7 +6,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/AsynkronIT/protoactor-go/stream"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
@@ -16,26 +15,24 @@ var (
 )
 
 type graphSupervisor struct {
-	executor    *actor.PID
-	eventStream *stream.UntypedStream
+	executor            *actor.PID
+	persistenceProvider persistence.Provider
 }
 
 // NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(executor *actor.PID, eventStream *stream.UntypedStream) actor.Actor {
-	return &graphSupervisor{executor: executor, eventStream: eventStream}
+func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+	return &graphSupervisor{executor: executor, persistenceProvider: persistenceProvider}
 }
 
 func (s *graphSupervisor) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		provider := newInMemoryProvider(1000)
 		props := actor.
 			FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
 			WithMiddleware(
 				plugin.Use(&PIDAwarePlugin{}),
-				persistence.Using(provider),
-				plugin.Use(&EventStreamPlugin{stream: s.eventStream}),
+				persistence.Using(s.persistenceProvider),
 			)
 
 		child, err := context.SpawnNamed(props, msg.GraphId)

@@ -1,19 +1,40 @@
 package actor
 
-import "github.com/AsynkronIT/protoactor-go/persistence"
+import (
+	"github.com/AsynkronIT/protoactor-go/eventstream"
+	"github.com/AsynkronIT/protoactor-go/persistence"
+	proto "github.com/golang/protobuf/proto"
+)
 
-// Provider implements persistence.Provider
-type Provider struct {
-	providerState persistence.ProviderState
+type streamingInMemoryProvider struct {
+	state *streamingProviderState
+}
+
+func newStreamingInMemoryProvider(snapshotInterval int) *streamingInMemoryProvider {
+	return &streamingInMemoryProvider{newStreamingProviderState(snapshotInterval)}
 }
 
 // GetState returns the persistence.ProviderState associated with this provider
-func (p *Provider) GetState() persistence.ProviderState {
-	return p.providerState
+func (p *streamingInMemoryProvider) GetState() persistence.ProviderState {
+	return p.state
 }
 
-func newInMemoryProvider(snapshotInterval int) persistence.Provider {
-	return &Provider{
-		providerState: persistence.NewInMemoryProvider(snapshotInterval),
-	}
+// GetState returns the persistence.ProviderState associated with this provider
+func (p *streamingInMemoryProvider) GetEventStream() *eventstream.EventStream {
+	return p.state.stream
+}
+
+// decorates persistence.Provider by publishing persisted events to the associated EventStream
+type streamingProviderState struct {
+	persistence.ProviderState
+	stream *eventstream.EventStream
+}
+
+func newStreamingProviderState(snapshotInterval int) *streamingProviderState {
+	return &streamingProviderState{persistence.NewInMemoryProvider(snapshotInterval), &eventstream.EventStream{}}
+}
+
+func (s *streamingProviderState) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+	s.ProviderState.PersistEvent(actorName, eventIndex, event)
+	s.stream.Publish(event)
 }

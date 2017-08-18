@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/stream"
 
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
@@ -19,9 +20,10 @@ type GraphManager interface {
 }
 
 type actorManager struct {
-	log        *logrus.Entry
-	supervisor *actor.PID
-	executor   *actor.PID
+	log         *logrus.Entry
+	supervisor  *actor.PID
+	executor    *actor.PID
+	eventStream *stream.UntypedStream
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
@@ -34,8 +36,9 @@ func NewGraphManager(fnHost string, fnPort string) GraphManager {
 
 	executorProps := actor.FromInstance(NewExecutor("http://" + fnHost + ":" + fnPort + "/r")).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
+	eventStream := stream.NewUntypedStream()
 
-	supervisorProps := actor.FromInstance(NewSupervisor(executor)).WithSupervisor(strategy)
+	supervisorProps := actor.FromInstance(NewSupervisor(executor, eventStream)).WithSupervisor(strategy)
 	supervisor, _ := actor.SpawnNamed(supervisorProps, "supervisor")
 
 	return &actorManager{
@@ -43,6 +46,10 @@ func NewGraphManager(fnHost string, fnPort string) GraphManager {
 		supervisor: supervisor,
 		executor:   executor,
 	}
+}
+
+func (m *actorManager) GetEventStream() *stream.UntypedStream {
+	return m.eventStream
 }
 
 func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.Duration) *actor.Future {

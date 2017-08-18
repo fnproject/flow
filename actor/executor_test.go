@@ -29,18 +29,34 @@ func (mock *MockClient) Do(req *http.Request) (*http.Response, error) {
 	return nil, err
 }
 
+func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte) *http.Response {
+	buf := &bytes.Buffer{}
+	encap := &http.Response{
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		StatusCode: statusCode,
+		Header:     headers,
+		Body:       ioutil.NopCloser(bytes.NewReader(body)),
+	}
+	encap.Write(buf)
+	log.Info(buf.String())
+	return &http.Response{
+		StatusCode: statusCode,
+		Header:     map[string][]string{},
+		Body:       ioutil.NopCloser(buf),
+	}
+}
 func TestShouldInvokeStageNormally(t *testing.T) {
 	m := &MockClient{}
 
 	// Note headers names have to be well-formed here.
-	resp := &http.Response{
-		StatusCode: 200,
-		Header: map[string][]string{
+	resp := givenEncapsulatedResponse(200,
+		map[string][]string{
 			"Content-Type":           {"response/type"},
 			"Fnproject-Resultstatus": {"success"},
 			"Fnproject-Datumtype":    {"blob"}},
-		Body: ioutil.NopCloser(bytes.NewReader([]byte("ResultBytes"))),
-	}
+		[]byte("ResultBytes"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
@@ -76,11 +92,10 @@ func TestShouldHandleHttpStageError(t *testing.T) {
 func TestShouldHandleFnTimeout(t *testing.T) {
 	m := &MockClient{}
 
-	resp := &http.Response{
-		StatusCode: 504,
-		Header:     map[string][]string{},
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte("error"))),
-	}
+	resp := givenEncapsulatedResponse(504,
+		map[string][]string{},
+		[]byte("error"))
+
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
 	result := givenValidInvokeStageRequest(m)
@@ -90,14 +105,12 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 
 }
 
-func TestShouldHandleInvalidStageResponse(t *testing.T) {
+func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 	m := &MockClient{}
 
-	resp := &http.Response{
-		StatusCode: 200,
-		Header:     map[string][]string{},
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte("no-header"))),
-	}
+	resp := givenEncapsulatedResponse(200,
+		map[string][]string{},
+		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
@@ -111,11 +124,9 @@ func TestShouldHandleInvalidStageResponse(t *testing.T) {
 func TestShouldHandleFailedStageResponse(t *testing.T) {
 	m := &MockClient{}
 
-	resp := &http.Response{
-		StatusCode: 500,
-		Header:     map[string][]string{},
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte("no-header"))),
-	}
+	resp := givenEncapsulatedResponse(500,
+		map[string][]string{},
+		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 

@@ -223,10 +223,10 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_allOf:
-		return strategy{0, -1, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
+		return strategy{-1, 0, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_anyOf:
-		return strategy{1, -1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil
+		return strategy{-1, 1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_externalCompletion:
 		return strategy{0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil

@@ -83,12 +83,12 @@ func TestShouldReplayEventsAfterIndex(t *testing.T) {
 	provider.PersistEvent("actorName", 2, e2)
 	provider.PersistEvent("actorName", 3, e3)
 
-	assert.Equal(t, []*model.Datum{e1, e2, e2}, getEventsForActor(provider, "actorName", 0))
-	assert.Equal(t, []*model.Datum{e1, e2, e2}, getEventsForActor(provider, "actorName", 1))
-	assert.Equal(t, []*model.Datum{e2, e2}, getEventsForActor(provider, "actorName", 2))
-	assert.Equal(t, []*model.Datum{e1, e2, e2}, getEventsForActor(provider, "actorName", 0))
-	assert.Equal(t, []*model.Datum{e1, e2, e2}, getEventsForActor(provider, "actorName", 1))
-	assert.Equal(t, []*model.Datum{e2}, getEventsForActor(provider, "actorName", 3))
+	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
+	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
+	assert.Equal(t, []*model.Datum{e2, e3}, getEventsForActor(provider, "actorName", 2))
+	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
+	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
+	assert.Equal(t, []*model.Datum{e3}, getEventsForActor(provider, "actorName", 3))
 	assert.Equal(t, []*model.Datum{}, getEventsForActor(provider, "actorName", 4))
 
 }

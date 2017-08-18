@@ -112,18 +112,7 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 		log.WithField("actor_name", actorName).Errorf("Error snapshot value from DB ", err)
 		return nil, -1, false
 	}
-
-	protoType := proto.MessageType(snapshotType)
-
-	if protoType == nil {
-		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).Errorf("snapshot type not supported by protobuf")
-		return nil, -1, false
-	}
-	t := protoType.Elem()
-	intPtr := reflect.New(t)
-	message := intPtr.Interface().(proto.Message)
-
-	err = proto.Unmarshal(snapshotBytes, message.(proto.Message))
+	message, err := extractData(actorName, snapshotType, snapshotBytes)
 
 	if err != nil {
 		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).WithError(err).Errorf("Failed to read  protobuf for snapshot")
@@ -131,6 +120,24 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	}
 
 	return message, eventIndex, true
+}
+
+func extractData(actorName string, msgTypeName string, msgBytes []byte) (proto.Message, error) {
+	protoType := proto.MessageType(msgTypeName)
+
+	if protoType == nil {
+		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": msgTypeName}).Errorf("protocol type not supported by protobuf")
+		return nil, fmt.Errorf("Unsupported protocol type %s", protoType)
+	}
+	t := protoType.Elem()
+	intPtr := reflect.New(t)
+	message := intPtr.Interface().(proto.Message)
+
+	err := proto.Unmarshal(msgBytes, message)
+	if err != nil {
+		return nil, err
+	}
+	return message, nil
 }
 
 func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
@@ -150,17 +157,42 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 }
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(e interface{})) {
-	row := provider.db.QueryRowx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ?", actorName, eventIndexStart)
-
-	if row.Err() != nil {
-		log.WithField("actor_name", actorName).WithError(row.Err()).Error("Error getting events value from DB ")
+	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
+	if err != nil {
+		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
 
 		// DON't PANIC ?
-		panic(row.Err())
+		panic(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var eventType string
+		var eventIndex int
+		var eventBytes []byte
+		rows.Scan(&eventType, &eventIndex, &eventBytes)
+
+		msg,err := extractData(actorName, eventType, eventBytes)
+		if err != nil {
+			panic(err)
+		}
+		callback(msg)
 	}
 
 }
 
 func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+	pbType := proto.MessageName(event)
+	pbBytes, err := proto.Marshal(event)
 
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = provider.db.Exec("INSERT OR REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
+		actorName, pbType, eventIndex, pbBytes)
+
+	if err != nil {
+		panic(err)
+	}
 }

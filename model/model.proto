@@ -252,10 +252,6 @@ message InvokeStageRequest {
     bool exceptional = 7;
 }
 
-message AddGraphEntity {
-    string graph_entity = 1;
-}
-
 // Events
 
 message DelayScheduledEvent {

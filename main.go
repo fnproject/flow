@@ -228,7 +228,7 @@ func getGraphStage(c *gin.Context) {
 		StageId: stageID,
 	}
 
-	f := graphManager.GetStageResult(&request, 5*time.Second)
+	f := graphManager.GetStageResult(&request, 100*time.Second)
 
 	res, err := f.Result()
 	if err != nil {

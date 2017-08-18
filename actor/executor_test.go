@@ -29,24 +29,6 @@ func (mock *MockClient) Do(req *http.Request) (*http.Response, error) {
 	return nil, err
 }
 
-func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte) *http.Response {
-	buf := &bytes.Buffer{}
-	encap := &http.Response{
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		StatusCode: statusCode,
-		Header:     headers,
-		Body:       ioutil.NopCloser(bytes.NewReader(body)),
-	}
-	encap.Write(buf)
-	log.Info(buf.String())
-	return &http.Response{
-		StatusCode: statusCode,
-		Header:     map[string][]string{},
-		Body:       ioutil.NopCloser(buf),
-	}
-}
 func TestShouldInvokeStageNormally(t *testing.T) {
 	m := &MockClient{}
 
@@ -252,6 +234,27 @@ func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, 
 	assert.Equal(t, "h1val", datum.GetHeader("RHeader_1"))
 	assert.Equal(t, []string{"h2val1", "h2val2"}, datum.GetHeaderValues("RHeader_2"))
 	return datum
+}
+
+
+func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte) *http.Response {
+	buf := &bytes.Buffer{}
+	// we ignore the inner code of the frame here
+	encap := &http.Response{
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		StatusCode: 200,
+		Header:     headers,
+		Body:       ioutil.NopCloser(bytes.NewReader(body)),
+	}
+	encap.Write(buf)
+	log.Info(buf.String())
+	return &http.Response{
+		StatusCode: statusCode,
+		Header:     map[string][]string{},
+		Body:       ioutil.NopCloser(buf),
+	}
 }
 
 func givenValidInvokeStageRequest(m *MockClient) *model.FaasInvocationResponse {

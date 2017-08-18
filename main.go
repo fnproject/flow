@@ -10,6 +10,7 @@ import (
 
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/query"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -534,6 +535,10 @@ func main() {
 
 	engine.GET("/ping", func(c *gin.Context) {
 		c.Status(http.StatusOK)
+	})
+
+	engine.GET("/wss", func(c *gin.Context) {
+		query.WSSHandler(c.Writer, c.Request)
 	})
 
 	graph := engine.Group("/graph")

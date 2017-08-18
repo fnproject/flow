@@ -6,6 +6,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/stream"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
 )
@@ -15,12 +16,13 @@ var (
 )
 
 type graphSupervisor struct {
-	executor *actor.PID
+	executor    *actor.PID
+	eventStream *stream.UntypedStream
 }
 
 // NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(executor *actor.PID) actor.Actor {
-	return &graphSupervisor{executor: executor}
+func NewSupervisor(executor *actor.PID, eventStream *stream.UntypedStream) actor.Actor {
+	return &graphSupervisor{executor: executor, eventStream: eventStream}
 }
 
 func (s *graphSupervisor) Receive(context actor.Context) {
@@ -28,7 +30,14 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		provider := newInMemoryProvider(1000)
-		props := actor.FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).WithMiddleware(plugin.Use(&PIDAwarePlugin{}), persistence.Using(provider))
+		props := actor.
+			FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
+			WithMiddleware(
+				plugin.Use(&PIDAwarePlugin{}),
+				persistence.Using(provider),
+				plugin.Use(&EventStreamPlugin{stream: s.eventStream}),
+			)
+
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {
 			log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")

@@ -23,6 +23,7 @@ type GraphManager interface {
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
+	GetGraphState( *model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
 	SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription
 	UnsubscribeStream(sub *eventstream.Subscription)
 	QueryJournal(graphID string, eventIndex int, fn func(evt interface{}))
@@ -69,6 +70,7 @@ func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) 
 	}, nil
 }
 
+
 func (m *actorManager) SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription {
 	return m.persistenceProvider.GetEventStream().Subscribe(fn)
 }
@@ -89,6 +91,15 @@ func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.D
 	}
 
 	return r.(*model.CreateGraphResponse), e
+}
+
+func (m *actorManager) GetGraphState(req *model.GetGraphStateRequest, timeout time.Duration) (*model.GetGraphStateResponse, error) {
+	m.log.Debug("Getting graph stage")
+	r, e := m.forwardRequest(req, timeout)
+	if e != nil {
+		return nil, e
+	}
+	return r.(*model.GetGraphStateResponse), e
 }
 func (m *actorManager) AddStage(req model.AddStageCommand, timeout time.Duration) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")

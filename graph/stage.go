@@ -23,6 +23,10 @@ type CompletionStage struct {
 	triggered bool
 }
 
+func (stage *CompletionStage) GetDeps() []*CompletionStage {
+	return stage.dependencies
+}
+
 // GetOperation returns the operation for this stage
 func (stage *CompletionStage) GetOperation() model.CompletionOperation {
 	return stage.operation
@@ -66,6 +70,10 @@ func (stage *CompletionStage) IsSuccessful() bool {
 // IsFailed indicates if the stage failed
 func (stage *CompletionStage) IsFailed() bool {
 	return stage.IsResolved() && !stage.result.Successful
+}
+
+func (stage *CompletionStage) IsTriggered() bool {
+	return stage.IsResolved() || stage.triggered
 }
 
 // determines if the node can be triggered and returns the trigger type, and pending result if it can be

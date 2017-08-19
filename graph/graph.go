@@ -49,6 +49,17 @@ func New(id string, functionID string, listener CompletionEventListener) *Comple
 	}
 }
 
+func (graph *CompletionGraph) GetStages() []*CompletionStage {
+	stages := make([]*CompletionStage, 0, len(graph.stages))
+
+	for _, stage := range graph.stages {
+		stages = append(stages, stage)
+	}
+	return stages
+}
+
+
+
 // IsCommitted Has the graph been marked as committed by HandleCommitted
 func (graph *CompletionGraph) IsCommitted() bool {
 	return graph.committed

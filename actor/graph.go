@@ -126,7 +126,7 @@ func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
 // if validation fails, this method will respond to the request with an appropriate error message
 func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	// First check the graph exists
-	if gm, ok := cmd.(model.GraphMessage); ok  {
+	if gm, ok := cmd.(model.GraphMessage); ok {
 		graphID := gm.GetGraphId()
 		if g.graph == nil {
 			context.Respond(NewGraphNotFoundError(graphID))
@@ -206,6 +206,9 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.applyGraphCreatedEvent(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
+	case *model.GetGraphStateRequest:
+		g.log.Debug("Get graph state")
+		context.Respond(g.createExternalState())
 	case *model.AddChainedStageRequest:
 		if !g.validateCmd(msg, context) {
 			return
@@ -266,7 +269,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Adding external completion stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
-			Op:     msg.GetOperation(),
+			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(event)
 		g.applyStageAddedEvent(event)
@@ -371,6 +374,40 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	default:
 		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))
+	}
+}
+
+func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
+	stageOut := make(map[string]*model.GetGraphStateResponse_StageRepresentation)
+	for _, s := range g.graph.GetStages() {
+		var status string
+		if s.IsFailed() {
+			status = "failed"
+		} else if s.IsSuccessful() {
+			status = "successful"
+		} else if s.IsTriggered() {
+			status = "running"
+		} else {
+			status = "pending"
+		}
+
+		stageDeps := s.GetDeps()
+		deps := make([]string, len(stageDeps))
+		for i, dep := range stageDeps {
+			deps[i] = dep.ID
+		}
+
+		rep := &model.GetGraphStateResponse_StageRepresentation{
+			Type:         model.CompletionOperation_name[int32(s.GetOperation())],
+			Status:       status,
+			Dependencies: deps,
+		}
+		stageOut[s.ID] = rep
+	}
+	return &model.GetGraphStateResponse{
+		GraphId:    g.graph.ID,
+		FunctionId: g.graph.FunctionID,
+		Stages:     stageOut,
 	}
 }
 

@@ -130,19 +130,21 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		response, err := s.addStage(request)
 
 		if err != nil {
-			log.WithError(err).Error("Graph Operation Failed ")
-
-			switch e := err.(type) {
-			case model.BadRequestError:
-				c.Data(400, "text/plain", []byte(e.UserMessage()))
-			default:
-				c.Status(http.StatusInternalServerError)
-			}
+			renderError(err, c, "Graph Operation Failed ")
 			return
 		}
 
 		c.Header(headerStageID, response.StageId)
 		c.Status(http.StatusOK)
+	}
+}
+func renderError(err error, c *gin.Context, msg string) {
+	log.WithError(err).Error(msg)
+	switch e := err.(type) {
+	case model.BadRequestError:
+		c.Data(400, "text/plain", []byte(e.UserMessage()))
+	default:
+		c.Status(http.StatusInternalServerError)
 	}
 }
 
@@ -169,47 +171,11 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 	// TODO: sort out timeouts in a consistent way
 	result, err := s.graphManager.CreateGraph(req, 5*time.Second)
 	if err != nil {
-		message := "failed to create new graph"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "failed to create new graph")
 		return
 	}
 	c.Header(headerThreadID, result.GraphId)
 	c.Status(http.StatusOK)
-}
-
-func (s *Server) getFakeGraphStateResponse(req model.GetGraphStateRequest) model.GetGraphStateResponse {
-	// TODO: delete this, obviously
-
-	stage0 := model.GetGraphStateResponse_StageRepresentation{
-		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
-		Status:       "success",
-		Dependencies: []string{},
-	}
-
-	stage1 := model.GetGraphStateResponse_StageRepresentation{
-		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_delay)],
-		Status:       "failure",
-		Dependencies: []string{"0"},
-	}
-
-	stage2 := model.GetGraphStateResponse_StageRepresentation{
-		Type:         model.CompletionOperation_name[int32(model.CompletionOperation_allOf)],
-		Status:       "pending",
-		Dependencies: []string{"0", "1"},
-	}
-
-	response := model.GetGraphStateResponse{
-		FunctionId: "theFunctionId",
-		GraphId:    req.GraphId,
-		Stages: map[string]*model.GetGraphStateResponse_StageRepresentation{
-			"0": &stage0,
-			"1": &stage1,
-			"2": &stage2,
-		},
-	}
-
-	return response
 }
 
 func (s *Server) handleGraphState(c *gin.Context) {
@@ -217,10 +183,15 @@ func (s *Server) handleGraphState(c *gin.Context) {
 	graphID := c.Param("graphId")
 	log.Info("Requested graph with Id " + graphID)
 
-	request := model.GetGraphStateRequest{GraphId: graphID}
+	request := &model.GetGraphStateRequest{GraphId: graphID}
 
-	// TODO: send to the GraphManager
-	c.JSON(http.StatusOK, s.getFakeGraphStateResponse(request))
+	resp, err := s.graphManager.GetGraphState(request, 5*time.Second)
+
+	if err != nil {
+		renderError(err, c, "failed to read graph state")
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 func resultStatus(result *model.CompletionResult) string {
@@ -248,28 +219,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	if err != nil {
-		message := "GetStageResult future returned an error"
-		log.WithError(err).Error(message)
-		c.Data(http.StatusInternalServerError, "text/plain", []byte(message+"\n"+err.Error()))
+		renderError(err, c, "Error getting stage result")
 		return
 	}
 
 	result := response.GetResult()
-	// TODO: this actually never happens
-	if result == nil {
-		log.Info("CompletionResult in response is nil. Perhaps the stage hasn't completed yet.")
-		c.Status(http.StatusPartialContent)
-		return
-	}
-
 	datum := result.GetDatum()
-	if datum == nil {
-		message := "GetStageResult produced a result but the datum is null"
-		log.Error(message)
-		c.Data(http.StatusInternalServerError, "text/plain", []byte(message))
-		return
-	}
-
 	val := datum.GetVal()
 	if val == nil {
 		message := "GetStageResult produced a result but the datum value is null"
@@ -338,16 +293,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 func (s *Server) handleExternalCompletion(c *gin.Context) {
 	graphID := c.Param("graphId")
 
-	// TODO: generic error checking, e.g. graph not found / completed
-
 	request := &model.AddExternalCompletionStageRequest{GraphId: graphID}
 
 	response, err := s.addStage(request)
 
 	if err != nil {
-		message := "handleExternalCompletion failed to add stage"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)
@@ -370,9 +321,7 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 
 	// TODO: Actually some errors should be user errors here (e.g. AnyOf with zero dependencies)
 	if err != nil {
-		message := "allOrAnyOf failed to add stage"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)
@@ -393,9 +342,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
-		message := "supply cannot get raw request body"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to read body")
 		return
 	}
 
@@ -409,9 +356,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 	// TODO: handle user errors properly (E.g. graph not found)
 	response, err := s.addStage(request)
 	if err != nil {
-		message := "supply failed to add stage"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)
@@ -449,9 +394,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 
 	response, err := s.addStage(request)
 	if err != nil {
-		message := "completedValue failed to add stage"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)
@@ -501,9 +444,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 	response, err := s.addStage(request)
 
 	if err != nil {
-		message := "delay failed to add stage"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)
@@ -583,8 +524,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 	// TODO: generic error handling (e.g. graph does not exist)
 	response, err := s.addStage(request)
 	if err != nil {
-		log.WithError(err).Error("invokeFunction failed to add stage")
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c, "Failed to add stage")
 		return
 	}
 	c.Header(headerStageID, response.StageId)

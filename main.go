@@ -8,28 +8,32 @@ import (
 	"github.com/fnproject/completer/server"
 	"github.com/fnproject/completer/actor"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/setup"
 )
 
 var log = logrus.WithField("logger", "main")
 
 func main() {
-	fnHost := os.Getenv("FN_HOST")
-	if fnHost == "" {
-		fnHost = "localhost"
-	}
-	var fnPort = os.Getenv("FN_PORT")
-	if fnPort == "" {
-		fnPort = "8080"
-	}
-	graphManager := actor.NewGraphManager(fnHost, fnPort)
 
-	listenHost := os.Getenv("COMPLETER_HOST")
-	var listenPort = os.Getenv("COMPLETER_PORT")
-	if listenPort == "" {
-		listenPort = "8081"
+	setup.Init()
+
+	provider, err := persistence.NewProviderFromEnv()
+	if err != nil {
+		log.WithError(err).Error("Failed to create persistence provider")
+		os.Exit(1)
+		return
 	}
 
-	srv, err := server.NewServer(listenHost, listenPort, graphManager)
+	graphManager, err := actor.NewGraphManagerFromEnv(provider)
+
+	if err != nil {
+		log.WithError(err).Error("Failed to create graph manager")
+		os.Exit(1)
+		return
+	}
+
+	srv, err := server.NewFromEnv(graphManager)
 	if err != nil {
 		log.WithError(err).Error("Failed to start server")
 		return

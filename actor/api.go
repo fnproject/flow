@@ -9,12 +9,17 @@ import (
 
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
+	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
+	"net/url"
+	"fmt"
+	"github.com/fnproject/completer/setup"
+	"github.com/fnproject/completer/persistence"
 )
 
 // GraphManager encapsulates all graph operations
 type GraphManager interface {
 	CreateGraph(*model.CreateGraphRequest, time.Duration) (*model.CreateGraphResponse, error)
-	AddStage( model.AddStageCommand, time.Duration) (*model.AddStageResponse, error)
+	AddStage(model.AddStageCommand, time.Duration) (*model.AddStageResponse, error)
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
@@ -27,11 +32,13 @@ type actorManager struct {
 	log                 *logrus.Entry
 	supervisor          *actor.PID
 	executor            *actor.PID
-	persistenceProvider *streamingInMemoryProvider
+	persistenceProvider *persistence.StreamingProvider
 }
 
-// NewGraphManager creates a new implementation of the GraphManager interface
-func NewGraphManager(fnHost string, fnPort string) GraphManager {
+// NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
+func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) (GraphManager, error) {
+	fnUrl := setup.GetString(setup.EnvFnApiURL)
+
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
 		log.Warnf("Graph actor child failed %v", reason)
@@ -39,18 +46,27 @@ func NewGraphManager(fnHost string, fnPort string) GraphManager {
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
-	executorProps := actor.FromInstance(NewExecutor("http://" + fnHost + ":" + fnPort + "/r")).WithSupervisor(strategy)
-	executor, _ := actor.SpawnNamed(executorProps, "executor")
-	persistenceProvider := newStreamingInMemoryProvider(1000)
+	parsedUrl, err := url.Parse(fnUrl)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid functions server URL: %s", err)
+	}
+	if parsedUrl.Path == "" {
+		parsedUrl.Path = "r"
+		fnUrl = parsedUrl.String()
+	}
 
-	supervisorProps := actor.FromInstance(NewSupervisor(executor, persistenceProvider)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl)).WithSupervisor(strategy)
+	executor, _ := actor.SpawnNamed(executorProps, "executor")
+	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
+
+	supervisorProps := actor.FromInstance(NewSupervisor(executor, wrappedProvider)).WithSupervisor(strategy)
 	supervisor, _ := actor.SpawnNamed(supervisorProps, "supervisor")
 
 	return &actorManager{
 		log:        log,
 		supervisor: supervisor,
-		executor:   executor,persistenceProvider: persistenceProvider,
-	}
+		executor:   executor, persistenceProvider: wrappedProvider,
+	}, nil
 }
 
 func (m *actorManager) SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription {

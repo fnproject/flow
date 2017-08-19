@@ -11,6 +11,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"reflect"
+	"github.com/AsynkronIT/protoactor-go/persistence"
+	"github.com/fnproject/completer/setup"
+	"strconv"
 )
 
 type SqlProvider struct {
@@ -31,7 +34,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	snapshot BLOB NOT NULL);`,
 }
 
-var log = logrus.New().WithField("logger", "sql_persistence")
+var log = logrus.New().WithField("logger", "persistence")
 
 func NewSqlProvider(url *url.URL, snapshotInterval int) (*SqlProvider, error) {
 
@@ -79,6 +82,8 @@ func NewSqlProvider(url *url.URL, snapshotInterval int) (*SqlProvider, error) {
 			return nil, fmt.Errorf("Failed to create database table %s: %v", v, err)
 		}
 	}
+
+	log.WithField("db_url", url.String()).Info("Created SQL persistence provider")
 	return &SqlProvider{
 		snapshotInterval: snapshotInterval,
 		db:               sqlxDb,
@@ -172,7 +177,7 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		var eventBytes []byte
 		rows.Scan(&eventType, &eventIndex, &eventBytes)
 
-		msg,err := extractData(actorName, eventType, eventBytes)
+		msg, err := extractData(actorName, eventType, eventBytes)
 		if err != nil {
 			panic(err)
 		}
@@ -195,4 +200,23 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 	if err != nil {
 		panic(err)
 	}
+}
+
+func NewProviderFromEnv() (persistence.ProviderState, error) {
+	dbUrlString := setup.GetString(setup.EnvDBURL)
+	dbUrl, err := url.Parse(dbUrlString)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid DB URL in %s : %s", setup.EnvDBURL, dbUrlString)
+	}
+
+	snapshotIntervalStr := setup.GetString(setup.EnvSnapshotInterval)
+	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
+	if ok != nil {
+		snapshotInterval = 1000
+	}
+	if dbUrl.Scheme == "inmem" {
+		log.Info("Using in-memory persistence")
+		return persistence.NewInMemoryProvider(snapshotInterval), nil
+	}
+	return NewSqlProvider(dbUrl, snapshotInterval)
 }

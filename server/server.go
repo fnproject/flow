@@ -13,6 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"net/url"
+	"github.com/fnproject/completer/setup"
 )
 
 const (
@@ -592,16 +594,16 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 type Server struct {
 	engine       *gin.Engine
 	graphManager actor.GraphManager
-	listenHost   string
-	listenPort   string
+	apiUrl       *url.URL
+	listen       string
 }
 
-func NewServer(listenHost string, listenPort string, manager actor.GraphManager) (*Server, error) {
+func NewFromEnv(manager actor.GraphManager) (*Server, error) {
+
 	s := &Server{
 		graphManager: manager,
 		engine:       gin.Default(),
-		listenHost:   listenHost,
-		listenPort:   listenPort,
+		listen:       setup.GetString(setup.EnvListen),
 	}
 
 	s.engine.GET("/ping", func(c *gin.Context) {
@@ -633,10 +635,11 @@ func NewServer(listenHost string, listenPort string, manager actor.GraphManager)
 		}
 	}
 
-	log.Info("Starting")
 	return s, nil
 }
 
 func (s *Server) Run() {
-	s.engine.Run(s.listenHost + ":" + s.listenPort)
+	log.WithField("listen_url", s.listen).Info("Starting Completer server")
+
+	s.engine.Run(s.listen)
 }

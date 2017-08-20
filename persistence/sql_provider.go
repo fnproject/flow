@@ -11,9 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"strings"
 	"reflect"
-	"github.com/AsynkronIT/protoactor-go/persistence"
-	"github.com/fnproject/completer/setup"
-	"strconv"
+
 )
 
 type SqlProvider struct {
@@ -202,21 +200,6 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 	}
 }
 
-func NewProviderFromEnv() (persistence.ProviderState, error) {
-	dbUrlString := setup.GetString(setup.EnvDBURL)
-	dbUrl, err := url.Parse(dbUrlString)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid DB URL in %s : %s", setup.EnvDBURL, dbUrlString)
-	}
 
-	snapshotIntervalStr := setup.GetString(setup.EnvSnapshotInterval)
-	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
-	if ok != nil {
-		snapshotInterval = 1000
-	}
-	if dbUrl.Scheme == "inmem" {
-		log.Info("Using in-memory persistence")
-		return persistence.NewInMemoryProvider(snapshotInterval), nil
-	}
-	return NewSqlProvider(dbUrl, snapshotInterval)
-}
+
+

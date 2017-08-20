@@ -10,8 +10,9 @@ message CompletionResult {
 }
 
 message BlobDatum {
-    bytes data_string = 1;
+    string blob_id = 1 ;
     string content_type = 2;
+    uint64 length = 3;
 }
 
 message HttpHeader {

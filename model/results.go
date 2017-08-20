@@ -13,9 +13,7 @@ func NewEmptyDatum() *Datum {
 	return &Datum{Val: &Datum_Empty{Empty: &EmptyDatum{}}}
 }
 
-func NewBlob(contentType string, data []byte) *BlobDatum {
-	return &BlobDatum{ContentType: contentType, DataString: data}
-}
+
 
 func NewBlobDatum(blob *BlobDatum) *Datum {
 	return &Datum{

@@ -105,7 +105,7 @@ func TestInvokeWithResult(t *testing.T) {
 	cases := [][]*model.CompletionResult{
 		{},
 		{model.NewSuccessfulResult(model.NewEmptyDatum())},
-		{model.NewSuccessfulResult(model.NewEmptyDatum()), model.NewFailedResult(model.NewBlobDatum(model.NewBlob("foo/bar", []byte("contents"))))},
+		{model.NewSuccessfulResult(model.NewEmptyDatum()), model.NewFailedResult(aBlobDatum())},
 	}
 
 	for _, c := range cases {
@@ -259,7 +259,7 @@ func TestParentStageResult (t *testing.T) {
 }
 
 func aBlobDatum() *model.Datum {
-	return model.NewBlobDatum(model.NewBlob("the/content", []byte("data")))
+	return model.NewBlobDatum(&model.BlobDatum{BlobId:"blob_id",ContentType:"text/play",Length:122})
 }
 
 func completedStage() *CompletionStage {

@@ -8,7 +8,7 @@ import (
 )
 
 // WritePartFromDatum emits a datum to an HTTP part
-func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
+func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer) error {
 
 	switch datum.Val.(type) {
 	case *Datum_Blob:
@@ -20,7 +20,11 @@ func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
 		if err != nil {
 			return err
 		}
-		partWriter.Write(blob.DataString)
+		data, err := store.ReadBlob(blob)
+		if err != nil {
+			return err
+		}
+		partWriter.Write(data)
 		return nil
 
 	case *Datum_Empty:
@@ -76,7 +80,11 @@ func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
 		}
 
 		if blob != nil {
-			pw.Write(blob.DataString)
+			data, err := store.ReadBlob(blob)
+			if err != nil {
+				return err
+			}
+			pw.Write(data)
 		}
 
 		return nil
@@ -101,7 +109,11 @@ func WritePartFromDatum(datum *Datum, writer *multipart.Writer) error {
 		}
 
 		if blob != nil {
-			pw.Write(blob.DataString)
+			data, err := store.ReadBlob(blob)
+			if err != nil {
+				return err
+			}
+			pw.Write(data)
 		}
 
 		return nil

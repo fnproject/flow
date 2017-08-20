@@ -37,7 +37,7 @@ type actorManager struct {
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) (GraphManager, error) {
+func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState,blobStore model.BlobStore) (GraphManager, error) {
 	fnUrl := setup.GetString(setup.EnvFnApiURL)
 
 	log := logrus.WithField("logger", "graphmanager_actor")
@@ -56,7 +56,7 @@ func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) 
 		fnUrl = parsedUrl.String()
 	}
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl,blobStore)).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 

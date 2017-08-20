@@ -6,6 +6,11 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"net/url"
+	"strconv"
+	protopersistence "github.com/AsynkronIT/protoactor-go/persistence"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/model"
 )
 
 const (
@@ -17,6 +22,7 @@ const (
 )
 
 var defaults = make(map[string]string)
+var log = logrus.New().WithField("logger", "setup")
 
 func canonKey(key string) string {
 	return strings.Replace(strings.Replace(strings.ToLower(key), "-", "_", -1), ".", "_", -1)
@@ -30,8 +36,6 @@ func GetString(key string) string {
 	key = canonKey(key)
 	return defaults[key]
 }
-
-
 
 func Init() {
 
@@ -60,4 +64,27 @@ func Init() {
 	if logLevel == logrus.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	}
+}
+
+func NewProviderFromEnv() (protopersistence.ProviderState, error) {
+	dbUrlString := GetString(EnvDBURL)
+	dbUrl, err := url.Parse(dbUrlString)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
+	}
+
+	snapshotIntervalStr := GetString(EnvSnapshotInterval)
+	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
+	if ok != nil {
+		snapshotInterval = 1000
+	}
+	if dbUrl.Scheme == "inmem" {
+		log.Info("Using in-memory persistence")
+		return protopersistence.NewInMemoryProvider(snapshotInterval), nil
+	}
+	return persistence.NewSqlProvider(dbUrl, snapshotInterval)
+}
+
+func NewBlobStoreFromEnv() (model.BlobStore, error) {
+	return model.NewInMemBlobStore(), nil
 }

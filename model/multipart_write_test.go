@@ -6,12 +6,15 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"testing"
+	"github.com/fnproject/completer/persistence"
 )
 
 func TestShouldWriteSimpleBlob(t *testing.T) {
-	datum := &Datum{Val: &Datum_Blob{&BlobDatum{ContentType: "text/plain", DataString: []byte("foo")}}}
+	store := persistence.NewInMemBlobStore()
+	datumId,_:= store.WriteBlob([]byte("foo"))
+	datum := &Datum{Val: &Datum_Blob{&BlobDatum{ContentType: "text/plain",BlobId:datumId }}}
 
-	headers, body := writeDatum(datum)
+	headers, body := writeDatum(store,datum)
 
 	assert.Equal(t, headers.Get(headerDatumType), datumTypeBlob)
 	assert.Equal(t, "text/plain", headers.Get(headerContentType))
@@ -144,10 +147,11 @@ func TestShouldWriteHttpRespDatumWithNoBody(t *testing.T) {
 	assert.Empty(t, headers.Get(headerContentType))
 	assert.Empty(t, body)
 }
-func writeDatum(datum *Datum) (textproto.MIMEHeader, string) {
+
+func writeDatum(store persistence.BlobStore,datum *Datum) (textproto.MIMEHeader, string) {
 	buf := new(bytes.Buffer)
 	pw := multipart.NewWriter(buf)
-	WritePartFromDatum(datum, pw)
+	WritePartFromDatum(store,datum, pw)
 	pw.Close()
 	headers, body := extractPart(buf, pw.Boundary())
 	return headers, body

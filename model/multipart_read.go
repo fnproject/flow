@@ -31,25 +31,20 @@ const (
 )
 
 // DatumFromPart reads a model Datum Object from a multipart part
-func DatumFromPart(part *multipart.Part) (*Datum, error) {
-	return readDatum(part, part.Header)
-}
-
-// DatumFromHttpRequest reads a model Datum Object from an HTTP request
-func DatumFromHttpRequest(r *http.Request) (*Datum, error) {
-	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
+func DatumFromPart(store BlobStore, part *multipart.Part) (*Datum, error) {
+	return readDatum(store, part, part.Header)
 }
 
 /**
  * Reads
  */
-func CompletionResultFromEncapsulatedResponse(r *http.Response) (*CompletionResult, error) {
+func CompletionResultFromEncapsulatedResponse(store BlobStore, r *http.Response) (*CompletionResult, error) {
 
 	actualResponse, err := http.ReadResponse(bufio.NewReader(r.Body), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid encapsulated HTTP frame: %s", err.Error())
 	}
-	datum,err:=  readDatum(actualResponse.Body, textproto.MIMEHeader(actualResponse.Header))
+	datum, err := readDatum(store, actualResponse.Body, textproto.MIMEHeader(actualResponse.Header))
 	if err != nil {
 		return nil, err
 	}
@@ -68,13 +63,7 @@ func CompletionResultFromEncapsulatedResponse(r *http.Response) (*CompletionResu
 	return &CompletionResult{Successful: resultStatus, Datum: datum}, nil
 }
 
-// DatumFromHttpResponse reads a model Datum Object from an HTTP response
-func DatumFromHttpResponse(r *http.Response) (*Datum, error) {
-	return readDatum(r.Body, textproto.MIMEHeader(r.Header))
-}
-
-
-func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
+func readDatum(store BlobStore, part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 
 	datumType := header.Get(headerDatumType)
 	if datumType == "" {
@@ -84,7 +73,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 	switch datumType {
 	case datumTypeBlob:
 
-		blob, err := readBlob(part, header)
+		blob, err := readBlob(store, part, header)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +139,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 				}
 			}
 		}
-		blob, err := readBlob(part, header)
+		blob, err := readBlob(store, part, header)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +161,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 				}
 			}
 		}
-		blob, err := readBlob(part, header)
+		blob, err := readBlob(store, part, header)
 		if err != nil {
 			return nil, err
 		}
@@ -183,20 +172,20 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*Datum, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 
-func readBlob(part io.Reader, header textproto.MIMEHeader) (*BlobDatum, error) {
+func readBlob(store BlobStore, part io.Reader, header textproto.MIMEHeader) (*BlobDatum, error) {
 	contentType := header.Get(headerContentType)
 	if "" == contentType {
 		return nil, fmt.Errorf("Blob Datum is missing %s header", headerContentType)
 	}
 	buf := new(bytes.Buffer)
-	buf.Reset()
 	_, err := buf.ReadFrom(part)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read blob datum from body")
 	}
-
-	return &BlobDatum{
-		ContentType: contentType,
-		DataString:  buf.Bytes(),
-	}, nil
+	bytes := buf.Bytes()
+	blob, err := store.CreateBlob(contentType, bytes)
+	if err != nil {
+		return nil, err
+	}
+	return blob, nil
 }

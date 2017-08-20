@@ -43,7 +43,7 @@ func TestShouldReadAndWriteSnapshots(t *testing.T) {
 
 func TestSnapshotsOverrideOldOnes(t *testing.T) {
 	provider := givenProvider(t)
-	snapshot := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	snapshot := model.NewBlobDatum(fakeBlob("data"))
 	provider.PersistSnapshot("actorName", 1, model.NewEmptyDatum())
 	provider.PersistSnapshot("actorName", 2, snapshot)
 
@@ -64,7 +64,7 @@ func TestShouldReplayNoEventsForNewActor(t *testing.T) {
 
 func TestShouldWriteAnEventAndReplay(t *testing.T) {
 	provider := givenProvider(t)
-	event := model.NewBlobDatum(model.NewBlob("type", []byte("data")))
+	event := model.NewBlobDatum(fakeBlob("data"))
 
 	provider.PersistEvent("actorName", 10, event)
 
@@ -75,9 +75,9 @@ func TestShouldWriteAnEventAndReplay(t *testing.T) {
 
 func TestShouldReplayEventsAfterIndex(t *testing.T) {
 	provider := givenProvider(t)
-	e1 := model.NewBlobDatum(model.NewBlob("type", []byte("1")))
-	e2 := model.NewBlobDatum(model.NewBlob("type", []byte("2")))
-	e3 := model.NewBlobDatum(model.NewBlob("type", []byte("3")))
+	e1 := model.NewBlobDatum(fakeBlob("1"))
+	e2 := model.NewBlobDatum(fakeBlob("2"))
+	e3 := model.NewBlobDatum(fakeBlob("3"))
 
 	provider.PersistEvent("actorName", 1, e1)
 	provider.PersistEvent("actorName", 2, e2)
@@ -116,4 +116,9 @@ func dbUrl() *url.URL {
 }
 func resetSqliteDb() {
 	os.RemoveAll(dbPath)
+}
+
+
+func fakeBlob(id string) *model.BlobDatum{
+	return &model.BlobDatum{BlobId:id, Length:uint64(len(id)),ContentType:"type/" + id}
 }

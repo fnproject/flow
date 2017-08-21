@@ -49,6 +49,7 @@ func Init() {
 	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/completer.db", cwd))
 	SetDefault(EnvListen, fmt.Sprintf(":8081"))
 	SetDefault(EnvSnapshotInterval, "1000")
+	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
 
 	logLevel, err := logrus.ParseLevel(GetString(EnvLogLevel))
 	if err != nil {

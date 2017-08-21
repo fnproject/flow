@@ -1,10 +1,6 @@
 GOFILES = $(shell find . -name '*.go' -not -path './vendor/*')
 GOPACKAGES = $(shell go list ./...  | grep -v /vendor/)
 
-COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
-
-IMAGE_TAG ?= registry.oracledx.com/fnproject-completer:latest
-
 # Just builds
 all: test build
 
@@ -29,11 +25,19 @@ run: build
 	GIN_MODE=debug ./completer
 
 
+COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
+
+# TODO: change this when we push to a public facing docker registry
+IMAGE_REPO_USER ?= registry.oracledx.com/skeppare
+IMAGE_NAME ?= completer
+IMAGE_VERSION ?= latest
+IMAGE_FULL = $(IMAGE_REPO_USER)/$(IMAGE_NAME):$(IMAGE_VERSION)
+IMAGE_LATEST = $(IMAGE_REPO_USER)/$(IMAGE_NAME):latest
+
 docker-test: protos $(shell find . -name *.go)
 	docker run --rm -it -v $(COMPLETER_DIR):$(COMPLETER_DIR) -w $(COMPLETER_DIR) -e GOPATH=$(GOPATH) -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 golang go test -v $(GOPACKAGES)
 
-docker-build:  $(GOFILES)
+docker-build: $(GOFILES) docker-test
 	docker run --rm -it -v $(COMPLETER_DIR):$(COMPLETER_DIR) -w $(COMPLETER_DIR) -e GOPATH=$(GOPATH) -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 golang go build -o completer
-
-docker: docker-test docker-build
-	docker build -t $(IMAGE_TAG) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
+	docker build -t $(IMAGE_FULL) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
+	if [[ "$(IMAGE_VERSION)" != "latest" ]]; then docker tag $(IMAGE_FULL) $(IMAGE_LATEST); fi

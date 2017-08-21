@@ -43,6 +43,18 @@ func TestShouldFailWithUnknownBlob(t *testing.T) {
 	assert.Error(t, err)
 
 }
+func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
+	store := givenEmptyBlobStore()
+
+	blob, err := store.CreateBlob("test/type", []byte{})
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), blob.Length)
+
+	data, err := store.ReadBlobData(blob)
+	assert.NoError(t, err)
+	assert.Empty(t, data)
+}
+
 func givenEmptyBlobStore() BlobStore {
 
 	db := setupDb()

@@ -17,32 +17,34 @@ else
 fi
 
 # Start or replace functions server
-if [[ ! -z `docker ps | grep "functions"` ]]; then
+if [[ ! -z `docker ps | grep "local-functions"` ]]; then
     echo "Functions server is already up, tearing it down and starting again."
-    docker stop functions
-    docker rm functions
+    docker stop local-functions
+    docker rm local-functions
 fi
-docker run -d --name functions -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock funcy/functions:latest
+docker run -d --name local-functions -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock funcy/functions:latest
 # Give it time to start up
 sleep 3
 # Get its IP
-FUNCTIONS_SERVER_IP=`docker inspect --type container -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' functions`
+FUNCTIONS_SERVER_IP=`docker inspect --type container -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' local-functions`
 
 # Start or replace completer server
-if [[ -z $IMAGE_TAG ]]; then
-    IMAGE_TAG=registry.oracledx.com/skeppare/fnproject-completer:latest
+IMAGE_FULL=$1
+if [[ -z "$IMAGE_FULL" ]]; then
+    echo "error: No completer docker image provided as an argument."
+    exit 1
 fi
-echo "Using completer image $IMAGE_TAG"
-if [[ ! -z `docker ps | grep "completer"` ]]; then
+echo "Using completer image $IMAGE_FULL"
+if [[ ! -z `docker ps | grep "local-completer"` ]]; then
     echo "Completer server is already up, tearing it down and starting again."
-    docker stop completer
-    docker rm completer
+    docker stop local-completer
+    docker rm local-completer
 fi
-docker run -d --name completer -p 8081:8081 --env API_URL=http://${FUNCTIONS_SERVER_IP}:8080/r $IMAGE_TAG
+docker run -d --name local-completer -p 8081:8081 --env API_URL=http://${FUNCTIONS_SERVER_IP}:8080/r $IMAGE_FULL
 # Give it time to start up
 sleep 3
 # Get its IP
-COMPLETER_SERVER_IP=`docker inspect --type container -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' completer`
+COMPLETER_SERVER_IP=`docker inspect --type container -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' local-completer`
 
 # Create app and routes
 if [[ -z $API_URL || "http://localhost:8080" == $API_URL ]]; then

@@ -1,17 +1,19 @@
-package model
+package protocol
 
 import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
 	"strings"
+	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
 )
 
 // WritePartFromDatum emits a datum to an HTTP part
-func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer) error {
+func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
 
 	switch datum.Val.(type) {
-	case *Datum_Blob:
+	case *model.Datum_Blob:
 		blob := datum.GetBlob()
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeBlob)
@@ -20,14 +22,14 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 		if err != nil {
 			return err
 		}
-		data, err := store.ReadBlob(blob)
+		data, err := store.ReadBlobData(blob)
 		if err != nil {
 			return err
 		}
 		partWriter.Write(data)
 		return nil
 
-	case *Datum_Empty:
+	case *model.Datum_Empty:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeEmpty)
 		_, err := writer.CreatePart(h)
@@ -35,12 +37,12 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 			return err
 		}
 		return nil
-	case *Datum_Error:
+	case *model.Datum_Error:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeError)
 		h.Add(headerContentType, "text/plain")
 
-		errorType := ErrorDatumType_name[int32(datum.GetError().Type)]
+		errorType := model.ErrorDatumType_name[int32(datum.GetError().Type)]
 		stringTypeName := strings.Replace(errorType, "_", "-", -1)
 		h.Add(headerErrorType, stringTypeName)
 		partWriter, err := writer.CreatePart(h)
@@ -49,7 +51,7 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 		}
 		partWriter.Write([]byte(datum.GetError().Message))
 		return nil
-	case *Datum_StageRef:
+	case *model.Datum_StageRef:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeStageRef)
 		h.Add(headerStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
@@ -58,14 +60,14 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 			return err
 		}
 		return nil
-	case *Datum_HttpReq:
+	case *model.Datum_HttpReq:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeHttpReq)
 		httpreq := datum.GetHttpReq()
 		for _, datumHeader := range httpreq.Headers {
 			h.Add(fmt.Sprintf("%s%s", headerHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
-		methodString := strings.ToUpper(HttpMethod_name[int32(httpreq.Method)])
+		methodString := strings.ToUpper(model.HttpMethod_name[int32(httpreq.Method)])
 
 		h.Add(headerMethod, methodString)
 
@@ -80,7 +82,7 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 		}
 
 		if blob != nil {
-			data, err := store.ReadBlob(blob)
+			data, err := store.ReadBlobData(blob)
 			if err != nil {
 				return err
 			}
@@ -88,7 +90,7 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 		}
 
 		return nil
-	case *Datum_HttpResp:
+	case *model.Datum_HttpResp:
 		h := textproto.MIMEHeader{}
 		h.Add(headerDatumType, datumTypeHttpResp)
 		httpresp := datum.GetHttpResp()
@@ -109,7 +111,7 @@ func WritePartFromDatum(store BlobStore, datum *Datum, writer *multipart.Writer)
 		}
 
 		if blob != nil {
-			data, err := store.ReadBlob(blob)
+			data, err := store.ReadBlobData(blob)
 			if err != nil {
 				return err
 			}

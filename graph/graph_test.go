@@ -72,12 +72,11 @@ func TestShouldNotTriggerNewValueOnNonTrigger(t *testing.T) {
 
 func TestShouldCompleteValue(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 	g := New("graph", "function", m)
 
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
 	s := withSimpleStage(g, true)
-	value := model.NewBlobDatum(sampleBlob(store))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s.ID), Result: result}, true)
@@ -89,7 +88,6 @@ func TestShouldCompleteValue(t *testing.T) {
 
 func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 
 	g := New("graph", "function", m)
 
@@ -99,7 +97,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(sampleBlob(store))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	m.On("OnExecuteStage", s2, []*model.Datum{value}).Return()
@@ -110,12 +108,11 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 
 func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 
 	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
-	value := model.NewBlobDatum(sampleBlob(store))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 
 	result := model.NewSuccessfulResult(value)
 	s1.complete(result)
@@ -130,7 +127,6 @@ func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 
 func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 
 	g := New("graph", "function", m)
 
@@ -140,7 +136,7 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(sampleBlob(store))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewFailedResult(value)
 
 	m.On("OnCompleteStage", s2, result).Return()
@@ -151,7 +147,6 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 
 func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 
 	g := New("graph", "function", m)
 
@@ -161,7 +156,7 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(sampleBlob(store))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, false)
@@ -173,10 +168,9 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 // 	    .thenCompose(()->supply(()->2) // s3) //  s2
 func TestShouldTriggerCompose(t *testing.T) {
 	m := &MockedListener{}
-	store := model.NewInMemBlobStore()
 
 	g := New("graph", "function", m)
-	initial := model.NewBlobDatum(sampleBlob(store))
+	initial := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(initial)
 	s1 := withSimpleStage(g, false)
 	s1.complete(result)
@@ -192,7 +186,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 	g.HandleInvokeComplete(s2.ID, model.NewSuccessfulResult(model.NewStageRefDatum(string(s3.ID))))
 	assertStagePending(t, s2)
 
-	result2 := model.NewSuccessfulResult(model.NewBlobDatum(sampleBlob(store)))
+	result2 := model.NewSuccessfulResult(model.NewBlobDatum(sampleBlob("New Blob")))
 	// s2 should now  be completed with s2's result
 	m.On("OnCompleteStage", s2, result2).Return()
 
@@ -391,10 +385,10 @@ func assertStageCompletedSuccessfullyWith(t *testing.T, s *CompletionStage, resu
 	assert.True(t, s.IsResolved())
 }
 
-func sampleBlob(store model.BlobStore) *model.BlobDatum {
-	b, err := store.CreateBlob("text/plain", []byte("hello"))
-	if err != nil {
-		panic(err)
+func sampleBlob(id string) *model.BlobDatum {
+	return &model.BlobDatum{
+		BlobId:id,
+		ContentType:"content/type",
+		Length: 101,
 	}
-	return b
 }

@@ -13,12 +13,14 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/protocol"
 )
 
 type graphExecutor struct {
 	faasAddr  string
 	client    httpClient
-	blobStore model.BlobStore
+	blobStore persistence.BlobStore
 	log       *logrus.Entry
 }
 
@@ -35,7 +37,7 @@ type ExecHandler interface {
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
-func NewExecutor(faasAddress string, blobStore model.BlobStore) actor.Actor {
+func NewExecutor(faasAddress string, blobStore persistence.BlobStore) actor.Actor {
 	client := &http.Client{}
 	// TODO configure timeouts
 	client.Timeout = 300 * time.Second
@@ -70,7 +72,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	partWriter := multipart.NewWriter(buf)
 
 	if msg.Closure != nil {
-		err := model.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
+		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
@@ -78,7 +80,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 		}
 	}
 	for _, datum := range msg.Args {
-		err := model.WritePartFromDatum(exec.blobStore, datum, partWriter)
+		err := protocol.WritePartFromDatum(exec.blobStore, datum, partWriter)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")
@@ -104,7 +106,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 		}
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode))
 	}
-	result, err := model.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
+	result, err := protocol.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
 	if err != nil {
 		stageLog.Error("Failed to read result from functions service", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service")
@@ -128,7 +130,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 	var bodyReader io.Reader
 
 	if datum.Body != nil {
-		blobData, err := exec.blobStore.ReadBlob(datum.Body)
+		blobData, err := exec.blobStore.ReadBlobData(datum.Body)
 		if err != nil {
 			return invokeFailed(msg, "Failed to read data for invocation")
 		}

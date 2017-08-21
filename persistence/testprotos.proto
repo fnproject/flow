@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package persistence;
+
+
+
+message TestEvent {
+    uint32 index =1;
+    string string_val =2;
+}
+
+
+message TestSnapshot {
+    string string_val =1;
+    uint32 index =2;
+}
+

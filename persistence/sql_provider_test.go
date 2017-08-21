@@ -2,20 +2,11 @@ package persistence
 
 import (
 	"testing"
-	"os"
-	"net/url"
 	"github.com/stretchr/testify/require"
-	"github.com/fnproject/completer/model"
-	_ "github.com/mattn/go-sqlite3"
 
-	"fmt"
 	"github.com/stretchr/testify/assert"
-	"path"
+	"github.com/AsynkronIT/protoactor-go/persistence"
 )
-
-var tmpDir = path.Clean(os.TempDir())
-var dbPath = fmt.Sprintf("%s/completer_test", tmpDir)
-var dbFile = fmt.Sprintf("%s/test.db", dbPath)
 
 func TestShouldFailToReadNonExistentSnapshot(t *testing.T) {
 	provider := givenProvider(t)
@@ -28,9 +19,23 @@ func TestShouldFailToReadNonExistentSnapshot(t *testing.T) {
 
 }
 
+func testSnapshot(id string) *TestSnapshot {
+	return &TestSnapshot{
+		Index:     1,
+		StringVal: id,
+	}
+}
+
+func testEvent(id string) *TestEvent {
+	return &TestEvent{
+		Index:     1,
+		StringVal: id,
+	}
+}
+
 func TestShouldReadAndWriteSnapshots(t *testing.T) {
 	provider := givenProvider(t)
-	snapshot := model.NewEmptyDatum()
+	snapshot := testSnapshot("test")
 	provider.PersistSnapshot("actorName", 1, snapshot)
 
 	gotSnapshot, index, ok := provider.GetSnapshot("actorName")
@@ -43,8 +48,8 @@ func TestShouldReadAndWriteSnapshots(t *testing.T) {
 
 func TestSnapshotsOverrideOldOnes(t *testing.T) {
 	provider := givenProvider(t)
-	snapshot := model.NewBlobDatum(fakeBlob("data"))
-	provider.PersistSnapshot("actorName", 1, model.NewEmptyDatum())
+	snapshot := testSnapshot("new")
+	provider.PersistSnapshot("actorName", 1, testSnapshot("old"))
 	provider.PersistSnapshot("actorName", 2, snapshot)
 
 	gotSnapshot, index, ok := provider.GetSnapshot("actorName")
@@ -64,61 +69,52 @@ func TestShouldReplayNoEventsForNewActor(t *testing.T) {
 
 func TestShouldWriteAnEventAndReplay(t *testing.T) {
 	provider := givenProvider(t)
-	event := model.NewBlobDatum(fakeBlob("data"))
+	event := testEvent("data")
 
 	provider.PersistEvent("actorName", 10, event)
 
 	events := getEventsForActor(provider, "actorName", 0)
 
-	assert.Equal(t, []*model.Datum{event}, events)
+	assert.Equal(t, []*TestEvent{event}, events)
 }
 
 func TestShouldReplayEventsAfterIndex(t *testing.T) {
 	provider := givenProvider(t)
-	e1 := model.NewBlobDatum(fakeBlob("1"))
-	e2 := model.NewBlobDatum(fakeBlob("2"))
-	e3 := model.NewBlobDatum(fakeBlob("3"))
+	e1 := testEvent("1")
+	e2 := testEvent("2")
+	e3 := testEvent("3")
 
 	provider.PersistEvent("actorName", 1, e1)
 	provider.PersistEvent("actorName", 2, e2)
 	provider.PersistEvent("actorName", 3, e3)
 
-	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
-	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
-	assert.Equal(t, []*model.Datum{e2, e3}, getEventsForActor(provider, "actorName", 2))
-	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
-	assert.Equal(t, []*model.Datum{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
-	assert.Equal(t, []*model.Datum{e3}, getEventsForActor(provider, "actorName", 3))
-	assert.Equal(t, []*model.Datum{}, getEventsForActor(provider, "actorName", 4))
+	assert.Equal(t, []*TestEvent{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
+	assert.Equal(t, []*TestEvent{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
+	assert.Equal(t, []*TestEvent{e2, e3}, getEventsForActor(provider, "actorName", 2))
+	assert.Equal(t, []*TestEvent{e1, e2, e3}, getEventsForActor(provider, "actorName", 0))
+	assert.Equal(t, []*TestEvent{e1, e2, e3}, getEventsForActor(provider, "actorName", 1))
+	assert.Equal(t, []*TestEvent{e3}, getEventsForActor(provider, "actorName", 3))
+	assert.Equal(t, []*TestEvent{}, getEventsForActor(provider, "actorName", 4))
 
 }
 
-func getEventsForActor(provider *SqlProvider, actorName string, startIdx int) []*model.Datum {
-	events := []*model.Datum{}
+func getEventsForActor(provider persistence.ProviderState, actorName string, startIdx int) []*TestEvent {
+	events := []*TestEvent{}
 	provider.GetEvents(actorName, startIdx, func(e interface{}) {
-		events = append(events, e.(*model.Datum))
+		events = append(events, e.(*TestEvent))
 	})
 	return events
 }
-func givenProvider(t *testing.T) *SqlProvider {
-	resetSqliteDb()
-	provider, err := NewSqlProvider(dbUrl(), 0)
+
+
+
+func givenProvider(t *testing.T) persistence.ProviderState {
+	resetTestDb()
+	db, err := CreateDBConnecection(testDbUrl())
+	require.NoError(t, err)
+	provider, err := NewSqlProvider(db, 0)
 	require.NoError(t, err)
 	return provider
 }
 
-func dbUrl() *url.URL {
-	url, err := url.Parse("sqlite3://" + dbFile)
-	if err != nil {
-		panic(err)
-	}
-	return url
-}
-func resetSqliteDb() {
-	os.RemoveAll(dbPath)
-}
 
-
-func fakeBlob(id string) *model.BlobDatum{
-	return &model.BlobDatum{BlobId:id, Length:uint64(len(id)),ContentType:"type/" + id}
-}

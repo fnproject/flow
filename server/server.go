@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/url"
-	"github.com/fnproject/completer/setup"
+	"github.com/fnproject/completer/persistence"
 )
 
 const (
@@ -245,7 +245,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 
 	switch v := val.(type) {
 
-	// TODO: refactor this by adding a writer to a context in multipart_write.go
+	// TODO: refactor this by adding a writer to a context in proto/write.go
 	case *model.Datum_Error:
 		c.Header(headerDatumType, "error")
 		c.Header(headerResultStatus, resultStatus(result))
@@ -260,7 +260,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		return
 	case *model.Datum_Blob:
 		blob := v.Blob
-		blobData, err := s.blobStore.ReadBlob(blob)
+		blobData, err := s.blobStore.ReadBlobData(blob)
 		if err != nil {
 			renderError(err, c, "Error reading blob")
 			return
@@ -281,7 +281,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		httpReq := v.HttpReq
 		var body []byte
 		if httpReq.Body != nil {
-			body, err = s.blobStore.ReadBlob(httpReq.Body)
+			body, err = s.blobStore.ReadBlobData(httpReq.Body)
 			if err != nil {
 				renderError(err, c, "Error reading blob")
 				return
@@ -302,7 +302,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		httpResp := v.HttpResp
 
 		if httpResp.Body != nil {
-			body, err = s.blobStore.ReadBlob(httpResp.Body)
+			body, err = s.blobStore.ReadBlobData(httpResp.Body)
 			if err != nil {
 				renderError(err, c, "Error reading blob")
 				return
@@ -582,16 +582,16 @@ type Server struct {
 	engine       *gin.Engine
 	graphManager actor.GraphManager
 	apiUrl       *url.URL
-	blobStore    model.BlobStore
+	blobStore    persistence.BlobStore
 	listen       string
 }
 
-func NewFromEnv(manager actor.GraphManager, blobStore model.BlobStore) (*Server, error) {
+func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string) (*Server, error) {
 
 	s := &Server{
 		graphManager: manager,
 		engine:       gin.Default(),
-		listen:       setup.GetString(setup.EnvListen),
+		listen:       listenAddress,
 		blobStore:    blobStore,
 	}
 

@@ -1,14 +1,15 @@
-package model
+package persistence
 
 import (
 	"fmt"
 	"sync"
 	"strconv"
+	"github.com/fnproject/completer/model"
 )
 
 type BlobStore interface {
-	ReadBlob(datum *BlobDatum) ([]byte, error)
-	CreateBlob(contentType string, content []byte) (*BlobDatum, error)
+	ReadBlobData(datum *model.BlobDatum) ([]byte, error)
+	CreateBlob(contentType string, content []byte) (*model.BlobDatum, error)
 }
 
 type inMemBlobStore struct {
@@ -21,7 +22,7 @@ func NewInMemBlobStore() BlobStore {
 	return &inMemBlobStore{blobs: make(map[string][]byte)}
 }
 
-func (s *inMemBlobStore) ReadBlob(datum *BlobDatum) ([]byte, error) {
+func (s *inMemBlobStore) ReadBlobData(datum *model.BlobDatum) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	blob, ok := s.blobs[datum.BlobId]
@@ -32,7 +33,7 @@ func (s *inMemBlobStore) ReadBlob(datum *BlobDatum) ([]byte, error) {
 	return blob, nil
 }
 
-func (s *inMemBlobStore) CreateBlob(contentType string, byte []byte) (*BlobDatum, error) {
+func (s *inMemBlobStore) CreateBlob(contentType string, byte []byte) (*model.BlobDatum, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -40,7 +41,7 @@ func (s *inMemBlobStore) CreateBlob(contentType string, byte []byte) (*BlobDatum
 	s.count++
 	s.blobs[id] = byte
 
-	return &BlobDatum{
+	return &model.BlobDatum{
 		BlobId:      id,
 		Length:      uint64(len(byte)),
 		ContentType: contentType,

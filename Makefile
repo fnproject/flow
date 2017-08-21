@@ -3,7 +3,7 @@ GOPACKAGES = $(shell go list ./...  | grep -v /vendor/)
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 
-IMAGE_TAG ?= registry.oracledx.com/fnproject-completer:latest
+IMAGE_TAG ?= registry.oracledx.com/skeppare/fnproject-completer:latest
 
 # Just builds
 all: test build
@@ -37,3 +37,6 @@ docker-build:  $(GOFILES)
 
 docker: docker-test docker-build
 	docker build -t $(IMAGE_TAG) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
+
+local-env: docker
+	$(COMPLETER_DIR)/scripts/local-env.sh

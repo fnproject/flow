@@ -78,7 +78,7 @@ type wsWorker struct {
 	manager       actor.GraphManager
 }
 
-type graphMesssage struct {
+type rawEventMsg struct {
 	Type string `json:"type"`
 	Data json.RawMessage `json:"data"`
 }
@@ -92,7 +92,7 @@ func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent) {
 		log.Warnf("Failed to convert to JSON: %s", err)
 		return
 	}
-	msgJson, err := json.Marshal(&graphMesssage{Type: protoType, Data: json.RawMessage(bodyjson)})
+	msgJson, err := json.Marshal(&rawEventMsg{Type: protoType, Data: json.RawMessage(bodyjson)})
 
 	if err != nil {
 		log.Warnf("Failed to convert to JSON: %s", err)
@@ -149,4 +149,11 @@ func (l *wsWorker) Close() {
 		log.Debugf("Unsubscribing %v from stream %s", l.conn.RemoteAddr(), id)
 		l.manager.UnsubscribeStream(s)
 	}
+}
+
+
+func NewWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
+	return &wsWorker{conn: conn,
+		subscriptions: make(map[string]*eventstream.Subscription),
+		manager: manager}
 }

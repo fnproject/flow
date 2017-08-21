@@ -84,7 +84,7 @@ func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt
 		if event, ok := e.(*persistence.StreamEvent); ok {
 			buffer.lock.Lock()
 			defer buffer.lock.Unlock()
-			if (graphID == "*" || event.ActorName == graphID) && event.EventIndex >= fromIndex {
+			if (graphID == "*" || event.ActorName == "supervisor/" + graphID) && event.EventIndex >= fromIndex {
 				if buffer.committed {
 					if event.EventIndex > buffer.highestIndex {
 						fn(event)

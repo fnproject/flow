@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"github.com/AsynkronIT/protoactor-go/eventstream"
 )
 
 var log = logrus.WithField("logger", "query")
@@ -23,14 +22,13 @@ var wsupgrader = websocket.Upgrader{
 // WSSHandler returns a gin handler function for websocket queries
 func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Request) {
 	conn, err := wsupgrader.Upgrade(w, r, nil)
-	defer conn.Close()
 	if err != nil {
 		log.Debugf("Failed to set websocket upgrade: %+v", err)
+		conn.Close()
 		return
 	}
 
-	wsWorker := &wsWorker{conn: conn, subscriptions: make(map[string]*eventstream.Subscription), manager: manager}
+	wsWorker := NewWorker(conn, manager)
 	log.Debugf("Subscribing %v to stream", conn.RemoteAddr())
 	wsWorker.Run()
-
 }

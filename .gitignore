@@ -4,6 +4,7 @@
 *.so
 *.dylib
 completer
+completer-docker
 main
 data
 # Test binary, build with `go test -c`

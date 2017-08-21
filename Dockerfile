@@ -2,6 +2,6 @@ FROM buildpack-deps:jessie-scm
 
 WORKDIR /fnproject
 
-ADD completer /fnproject/completer
+ADD completer-docker /fnproject/completer
 
 CMD ["/fnproject/completer"]

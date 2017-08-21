@@ -35,10 +35,6 @@ func GetString(key string) string {
 
 func Init() {
 
-	for _, v := range os.Environ() {
-		vals := strings.Split(v, "=")
-		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
-	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
@@ -50,6 +46,10 @@ func Init() {
 	SetDefault(EnvListen, fmt.Sprintf(":8081"))
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
+	for _, v := range os.Environ() {
+		vals := strings.Split(v, "=")
+		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
+	}
 
 	logLevel, err := logrus.ParseLevel(GetString(EnvLogLevel))
 	if err != nil {

@@ -23,7 +23,7 @@ type GraphManager interface {
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
-	SubscribeStream(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription
+	SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription
 	UnsubscribeStream(sub *eventstream.Subscription)
 	QueryJournal(graphID string, eventIndex int, fn func(index int,evt interface{}))
 }
@@ -68,7 +68,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	}, nil
 }
 
-func (m *actorManager) SubscribeStream(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription {
+func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription {
 
 	type bufferedSub struct {
 		lock           *sync.Mutex
@@ -77,7 +77,7 @@ func (m *actorManager) SubscribeStream(graphID string, fromIndex int, fn func(ev
 		highestIndex   int
 	}
 
-	buffer := &bufferedSub{bufferedEvents: []*persistence.StreamEvent{},}
+	buffer := &bufferedSub{lock:&sync.Mutex{},bufferedEvents: []*persistence.StreamEvent{},highestIndex:-1}
 
 	// Create a child subscription to buffer events while we read the journal
 	childSub := m.persistenceProvider.GetEventStream().Subscribe(func(e interface{}) {
@@ -111,6 +111,7 @@ func (m *actorManager) SubscribeStream(graphID string, fromIndex int, fn func(ev
 	for _, evt := range buffer.bufferedEvents {
 		fn(evt)
 	}
+	buffer.committed = true
 	return childSub
 }
 

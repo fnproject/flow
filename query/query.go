@@ -1,16 +1,13 @@
 package query
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/fnproject/completer/actor"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"github.com/fnproject/completer/persistence"
+	"github.com/AsynkronIT/protoactor-go/eventstream"
 )
 
 var log = logrus.WithField("logger", "query")
@@ -32,25 +29,8 @@ func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Reques
 		return
 	}
 
+	wsWorker := &wsWorker{conn: conn, subscriptions: make(map[string]*eventstream.Subscription), manager: manager}
 	log.Debugf("Subscribing %v to stream", conn.RemoteAddr())
-	// TODO handle subscription messages to a specific graph
-	sub := manager.SubscribeStream("*", 0, func(event *persistence.StreamEvent) {
+	wsWorker.Run()
 
-		json, err := json.Marshal(event.Event)
-		if err != nil {
-			log.Warnf("Failed to convert to JSON: %s", err)
-			return
-		}
-		msg := fmt.Sprintf("%s %s", reflect.TypeOf(event).String(), json)
-		conn.WriteMessage(websocket.TextMessage, []byte(msg))
-	})
-
-	for {
-		msgType, _, err := conn.ReadMessage()
-		if err != nil || msgType == websocket.CloseMessage {
-			break
-		}
-	}
-	log.Debugf("Unsubscribing %v from stream", conn.RemoteAddr())
-	manager.UnsubscribeStream(sub)
 }

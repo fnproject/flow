@@ -4,11 +4,14 @@ import (
 	"reflect"
 	"time"
 
+	protopersistence	"github.com/AsynkronIT/protoactor-go/persistence"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/completer/graph"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/persistence"
+
 )
 
 // TODO: read this from configuration!
@@ -358,7 +361,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
 		g.graph.HandleInvokeComplete(msg.StageId, msg.Result)
 
-	case *persistence.RequestSnapshot:
+	case *protopersistence.RequestSnapshot:
 		// snapshots are currently not supported
 		// NOOP
 		g.log.Debug("Ignoring snapshot request")
@@ -366,7 +369,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *actor.Started:
 		g.log.Debugf("Started actor %s", g.GetSelf().Id)
 
-	case *persistence.ReplayComplete:
+	case *protopersistence.ReplayComplete:
 		if g.graph != nil {
 			g.log.Debug("Replay completed")
 			g.graph.Recover()

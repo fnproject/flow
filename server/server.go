@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/url"
 	"github.com/fnproject/completer/persistence"
+	"fmt"
 )
 
 const (
@@ -313,7 +314,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		for _, header := range httpResp.Headers {
 			c.Header(headerHeaderPrefix+header.GetKey(), header.GetValue())
 		}
-		statusCode := strconv.FormatUint(uint64(httpResp.GetStatusCode()), 32)
+		statusCode := fmt.Sprintf("%d",httpResp.GetStatusCode())
 		c.Header(headerResultCode, statusCode)
 		c.Data(http.StatusOK, httpResp.Body.GetContentType(), body)
 		return

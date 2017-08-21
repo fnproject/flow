@@ -468,7 +468,6 @@ func (s *Server) handleCommit(c *gin.Context) {
 func (s *Server) handleDelay(c *gin.Context) {
 	graphID := c.Param("graphId")
 	delayMs := c.Query("delayMs")
-
 	if delayMs == "" {
 		log.Info("Empty or missing delay value supplied to add delay stage")
 		c.Status(http.StatusBadRequest)

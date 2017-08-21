@@ -25,7 +25,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 
 	`CREATE TABLE IF NOT EXISTS blobs (
 	 blob_id varchar(255) NOT NULL PRIMARY KEY ,
-	 blob_data BLOB NOT NULL);`,
+	 blob_data BLOB);`,
 }
 
 // CreateDBConnecection sets up a DB connection and ensures required tables exist

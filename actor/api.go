@@ -9,10 +9,10 @@ import (
 
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
-	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"net/url"
 	"fmt"
 	"github.com/fnproject/completer/persistence"
+	"sync"
 )
 
 // GraphManager encapsulates all graph operations
@@ -22,10 +22,10 @@ type GraphManager interface {
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
-	GetGraphState( *model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
-	SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription
+	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
+	SubscribeStream(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription
 	UnsubscribeStream(sub *eventstream.Subscription)
-	QueryJournal(graphID string, eventIndex int, fn func(evt interface{}))
+	QueryJournal(graphID string, eventIndex int, fn func(index int,evt interface{}))
 }
 
 type actorManager struct {
@@ -36,7 +36,7 @@ type actorManager struct {
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStore persistence.BlobStore, fnUrl string ) (GraphManager, error) {
+func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
@@ -54,7 +54,7 @@ func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStor
 		fnUrl = parsedUrl.String()
 	}
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl,blobStore)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 
@@ -68,16 +68,57 @@ func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStor
 	}, nil
 }
 
+func (m *actorManager) SubscribeStream(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription {
 
-func (m *actorManager) SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription {
-	return m.persistenceProvider.GetEventStream().Subscribe(fn)
+	type bufferedSub struct {
+		lock           *sync.Mutex
+		committed      bool
+		bufferedEvents []*persistence.StreamEvent
+		highestIndex   int
+	}
+
+	buffer := &bufferedSub{bufferedEvents: []*persistence.StreamEvent{},}
+
+	// Create a child subscription to buffer events while we read the journal
+	childSub := m.persistenceProvider.GetEventStream().Subscribe(func(e interface{}) {
+		if event, ok := e.(*persistence.StreamEvent); ok {
+			buffer.lock.Lock()
+			defer buffer.lock.Unlock()
+			if (graphID == "*" || event.ActorName == graphID) && event.EventIndex >= fromIndex {
+				if buffer.committed {
+					if event.EventIndex > buffer.highestIndex {
+						fn(event)
+					}
+				} else {
+					buffer.bufferedEvents = append(buffer.bufferedEvents, event)
+				}
+			}
+		}
+	})
+
+	// dump any pending events to the original fn
+	m.persistenceProvider.GetState().GetEvents(graphID, fromIndex, func(idx int,e interface{}) {
+		if event, ok := e.(*persistence.StreamEvent); ok {
+			fn(event)
+			buffer.lock.Lock()
+			buffer.highestIndex = fromIndex
+			buffer.lock.Unlock()
+		}
+	})
+
+	buffer.lock.Lock()
+	defer buffer.lock.Unlock()
+	for _, evt := range buffer.bufferedEvents {
+		fn(evt)
+	}
+	return childSub
 }
 
 func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
 	m.persistenceProvider.GetEventStream().Unsubscribe(sub)
 }
 
-func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(evt interface{})) {
+func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int,evt interface{})) {
 	m.persistenceProvider.GetState().GetEvents(graphID, eventIndex, fn)
 }
 

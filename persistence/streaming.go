@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"github.com/AsynkronIT/protoactor-go/eventstream"
-	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -10,13 +9,19 @@ type StreamingProvider struct {
 	state *streamingProviderState
 }
 
+type StreamEvent struct {
+	ActorName  string
+	EventIndex int
+	Event      proto.Message
+}
+
 // NewStreamingProvider wraps an existing provier to provide a stream on events
-func NewStreamingProvider(target persistence.ProviderState) * StreamingProvider {
+func NewStreamingProvider(target ProviderState) *StreamingProvider {
 	return &StreamingProvider{newStreamingProviderState(target)}
 }
 
 // GetState returns the persistence.ProviderState associated with this provider
-func (p *StreamingProvider) GetState() persistence.ProviderState {
+func (p *StreamingProvider) GetState() ProviderState {
 	return p.state
 }
 
@@ -27,15 +32,15 @@ func (p *StreamingProvider) GetEventStream() *eventstream.EventStream {
 
 // decorates persistence.Provider by publishing persisted events to the associated EventStream
 type streamingProviderState struct {
-	persistence.ProviderState
+	ProviderState
 	stream *eventstream.EventStream
 }
 
-func newStreamingProviderState(target persistence.ProviderState) *streamingProviderState {
+func newStreamingProviderState(target ProviderState) *streamingProviderState {
 	return &streamingProviderState{ProviderState: target, stream: &eventstream.EventStream{}}
 }
 
 func (s *streamingProviderState) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 	s.ProviderState.PersistEvent(actorName, eventIndex, event)
-	s.stream.Publish(event)
+	s.stream.Publish(&StreamEvent{ActorName: actorName, EventIndex: eventIndex, Event: event})
 }

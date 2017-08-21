@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"github.com/jmoiron/sqlx"
 	"reflect"
-	"github.com/AsynkronIT/protoactor-go/persistence"
 )
 
 type SqlProvider struct {
@@ -17,7 +16,7 @@ type SqlProvider struct {
 
 var log = logrus.New().WithField("logger", "persistence")
 
-func NewSqlProvider(db *sqlx.DB, snapshotInterval int) (persistence.ProviderState, error) {
+func NewSqlProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
 
 	log.Info("Creating SQL persistence provider")
 	return &SqlProvider{
@@ -97,7 +96,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 	}
 }
 
-func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(e interface{})) {
+func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
 		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
@@ -117,7 +116,7 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		if err != nil {
 			panic(err)
 		}
-		callback(msg)
+		callback(eventIndex,msg)
 	}
 
 }

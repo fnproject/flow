@@ -2,21 +2,21 @@ package actor
 
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/persistence"
 )
 
 type graphSupervisor struct {
 	executor            *actor.PID
 	persistenceProvider persistence.Provider
-	log         *logrus.Entry
+	log                 *logrus.Entry
 }
 
 // NewSupervisor creates new graphSupervisor actor
 func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
-	return &graphSupervisor{executor: executor, persistenceProvider: persistenceProvider,log: logrus.New().WithField("logger", "graph_supervisor")}
+	return &graphSupervisor{executor: executor, persistenceProvider: persistenceProvider, log: logrus.New().WithField("logger", "graph_supervisor")}
 }
 
 func (s *graphSupervisor) Receive(context actor.Context) {
@@ -35,9 +35,9 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 		props := actor.
 		FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
 			WithMiddleware(
-				plugin.Use(&PIDAwarePlugin{}),
-				persistence.Using( s.persistenceProvider),
-			)
+			plugin.Use(&PIDAwarePlugin{}),
+			persistence.Using(s.persistenceProvider),
+		)
 
 		child, err := context.SpawnNamed(props, msg.GraphId)
 		if err != nil {

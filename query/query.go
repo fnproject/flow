@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/completer/persistence"
 )
 
 var log = logrus.WithField("logger", "query")
@@ -33,8 +34,9 @@ func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Reques
 
 	log.Debugf("Subscribing %v to stream", conn.RemoteAddr())
 	// TODO handle subscription messages to a specific graph
-	sub := manager.SubscribeStream("ignored", func(event interface{}) {
-		json, err := json.Marshal(event)
+	sub := manager.SubscribeStream("*", 0, func(event *persistence.StreamEvent) {
+
+		json, err := json.Marshal(event.Event)
 		if err != nil {
 			log.Warnf("Failed to convert to JSON: %s", err)
 			return

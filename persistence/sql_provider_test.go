@@ -5,7 +5,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/AsynkronIT/protoactor-go/persistence"
 )
 
 func TestShouldFailToReadNonExistentSnapshot(t *testing.T) {
@@ -42,7 +41,6 @@ func TestShouldReadAndWriteSnapshots(t *testing.T) {
 
 	require.True(t, ok)
 	assert.Equal(t, 1, index)
-
 	assert.Equal(t, snapshot, gotSnapshot)
 }
 
@@ -98,9 +96,9 @@ func TestShouldReplayEventsAfterIndex(t *testing.T) {
 
 }
 
-func getEventsForActor(provider persistence.ProviderState, actorName string, startIdx int) []*TestEvent {
+func getEventsForActor(provider ProviderState, actorName string, startIdx int) []*TestEvent {
 	events := []*TestEvent{}
-	provider.GetEvents(actorName, startIdx, func(e interface{}) {
+	provider.GetEvents(actorName, startIdx, func(_ int, e interface{}) {
 		events = append(events, e.(*TestEvent))
 	})
 	return events
@@ -108,7 +106,7 @@ func getEventsForActor(provider persistence.ProviderState, actorName string, sta
 
 
 
-func givenProvider(t *testing.T) persistence.ProviderState {
+func givenProvider(t *testing.T) ProviderState {
 	resetTestDb()
 	db, err := CreateDBConnecection(testDbUrl())
 	require.NoError(t, err)

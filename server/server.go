@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/url"
-	"github.com/fnproject/completer/setup"
+	"github.com/fnproject/completer/persistence"
 )
 
 const (
@@ -51,8 +51,13 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
+
+	blob, err := s.blobStore.CreateBlob(contentType, body)
+	if err != nil {
+		return nil, err
+	}
 	httpReqDatum := model.HttpReqDatum{
-		Body:    model.NewBlob(contentType, body),
+		Body:    blob,
 		Headers: hs,
 		Method:  m,
 	}
@@ -119,13 +124,18 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			return
 		}
 
+		blob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+		if err != nil {
+			renderError(err, c, "Failed to persist blob")
+		}
+
 		// TODO: enforce valid content type
 		// TODO: generic error handling
 		request := &model.AddChainedStageRequest{
 			GraphId:   graphID,
 			Deps:      cids,
 			Operation: model.CompletionOperation(completionOperation),
-			Closure:   model.NewBlob(c.ContentType(), body),
+			Closure:   blob,
 		}
 		response, err := s.addStage(request)
 
@@ -235,7 +245,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 
 	switch v := val.(type) {
 
-	// TODO: refactor this by adding a writer to a context in multipart_write.go
+	// TODO: refactor this by adding a writer to a context in proto/write.go
 	case *model.Datum_Error:
 		c.Header(headerDatumType, "error")
 		c.Header(headerResultStatus, resultStatus(result))
@@ -249,10 +259,16 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_Blob:
+		blob := v.Blob
+		blobData, err := s.blobStore.ReadBlobData(blob)
+		if err != nil {
+			renderError(err, c, "Error reading blob")
+			return
+		}
 		c.Header(headerDatumType, "blob")
 		c.Header(headerResultStatus, resultStatus(result))
-		blob := v.Blob
-		c.Data(http.StatusOK, blob.GetContentType(), blob.GetDataString())
+
+		c.Data(http.StatusOK, blob.GetContentType(), blobData)
 		return
 	case *model.Datum_StageRef:
 		c.Header(headerDatumType, "stageref")
@@ -262,26 +278,44 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_HttpReq:
+		httpReq := v.HttpReq
+		var body []byte
+		if httpReq.Body != nil {
+			body, err = s.blobStore.ReadBlobData(httpReq.Body)
+			if err != nil {
+				renderError(err, c, "Error reading blob")
+				return
+			}
+		}
+
 		c.Header(headerDatumType, "httpreq")
 		c.Header(headerResultStatus, resultStatus(result))
-		httpReq := v.HttpReq
 		for _, header := range httpReq.Headers {
 			c.Header(headerHeaderPrefix+header.GetKey(), header.GetValue())
 		}
 		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
 		c.Header(headerMethod, httpMethod)
-		c.Data(http.StatusOK, httpReq.Body.GetContentType(), httpReq.Body.GetDataString())
+		c.Data(http.StatusOK, httpReq.Body.GetContentType(), body)
 		return
 	case *model.Datum_HttpResp:
+		var body []byte
+		httpResp := v.HttpResp
+
+		if httpResp.Body != nil {
+			body, err = s.blobStore.ReadBlobData(httpResp.Body)
+			if err != nil {
+				renderError(err, c, "Error reading blob")
+				return
+			}
+		}
 		c.Header(headerDatumType, "httpresp")
 		c.Header(headerResultStatus, resultStatus(result))
-		httpResp := v.HttpResp
 		for _, header := range httpResp.Headers {
 			c.Header(headerHeaderPrefix+header.GetKey(), header.GetValue())
 		}
 		statusCode := strconv.FormatUint(uint64(httpResp.GetStatusCode()), 32)
 		c.Header(headerResultCode, statusCode)
-		c.Data(http.StatusOK, httpResp.Body.GetContentType(), httpResp.Body.GetDataString())
+		c.Data(http.StatusOK, httpResp.Body.GetContentType(), body)
 		return
 	default:
 		log.Error("unrecognized datum type when getting graph stage")
@@ -346,10 +380,15 @@ func (s *Server) handleSupply(c *gin.Context) {
 		return
 	}
 
+	blob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+	if err != nil {
+		renderError(err, c, "Failed to create blob")
+	}
+
 	request := &model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: model.CompletionOperation_supply,
-		Closure:   model.NewBlob(c.ContentType(), body),
+		Closure:   blob,
 		Deps:      []string{},
 	}
 
@@ -379,7 +418,11 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 	if contentType == "" {
 		// TODO: error with a bad request
 	}
-	bodyBlob := model.NewBlob(contentType, body)
+
+	bodyBlob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+	if err != nil {
+		renderError(err, c, "Failed to create blob")
+	}
 
 	result := model.CompletionResult{
 		Successful: true,
@@ -507,7 +550,10 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 	}
 	var bodyBlob *model.BlobDatum = nil
 	if len(body) != 0 {
-		bodyBlob = model.NewBlob(contentType, body)
+		bodyBlob, err = s.blobStore.CreateBlob(c.ContentType(), body)
+		if err != nil {
+			renderError(err, c, "Failed to create blob")
+		}
 	}
 
 	// TODO: test this with an empty request
@@ -535,15 +581,17 @@ type Server struct {
 	engine       *gin.Engine
 	graphManager actor.GraphManager
 	apiUrl       *url.URL
+	blobStore    persistence.BlobStore
 	listen       string
 }
 
-func NewFromEnv(manager actor.GraphManager) (*Server, error) {
+func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string) (*Server, error) {
 
 	s := &Server{
 		graphManager: manager,
 		engine:       gin.Default(),
-		listen:       setup.GetString(setup.EnvListen),
+		listen:       listenAddress,
+		blobStore:    blobStore,
 	}
 
 	s.engine.GET("/ping", func(c *gin.Context) {

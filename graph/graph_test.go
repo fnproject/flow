@@ -72,13 +72,11 @@ func TestShouldNotTriggerNewValueOnNonTrigger(t *testing.T) {
 
 func TestShouldCompleteValue(t *testing.T) {
 	m := &MockedListener{}
-
 	g := New("graph", "function", m)
 
 	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
 	s := withSimpleStage(g, true)
-
-	value := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s.ID), Result: result}, true)
@@ -86,6 +84,7 @@ func TestShouldCompleteValue(t *testing.T) {
 	m.AssertExpectations(t)
 	assertStageCompletedSuccessfullyWith(t, s, result)
 }
+
 
 func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	m := &MockedListener{}
@@ -98,7 +97,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	m.On("OnExecuteStage", s2, []*model.Datum{value}).Return()
@@ -113,7 +112,7 @@ func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 	g := New("graph", "function", m)
 
 	s1 := withSimpleStage(g, false)
-	value := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 
 	result := model.NewSuccessfulResult(value)
 	s1.complete(result)
@@ -137,7 +136,7 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewFailedResult(value)
 
 	m.On("OnCompleteStage", s2, result).Return()
@@ -157,7 +156,7 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	// No triggers
 	m.AssertExpectations(t)
 
-	value := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
 	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, false)
@@ -171,7 +170,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 	m := &MockedListener{}
 
 	g := New("graph", "function", m)
-	initial := model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello")))
+	initial := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(initial)
 	s1 := withSimpleStage(g, false)
 	s1.complete(result)
@@ -187,7 +186,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 	g.HandleInvokeComplete(s2.ID, model.NewSuccessfulResult(model.NewStageRefDatum(string(s3.ID))))
 	assertStagePending(t, s2)
 
-	result2 := model.NewSuccessfulResult(model.NewBlobDatum(model.NewBlob("text/plain", []byte("hello again"))))
+	result2 := model.NewSuccessfulResult(model.NewBlobDatum(sampleBlob("New Blob")))
 	// s2 should now  be completed with s2's result
 	m.On("OnCompleteStage", s2, result2).Return()
 
@@ -227,7 +226,7 @@ func TestShouldRejectUnknownStage(t *testing.T) {
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_unknown_operation,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
 
@@ -243,7 +242,7 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 	event := &model.StageAddedEvent{
 		StageId:      string(s.ID),
 		Op:           model.CompletionOperation_supply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
 
@@ -259,7 +258,7 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T){
 	event := &model.StageAddedEvent{
 		StageId:      string("stage"),
 		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
 
@@ -276,7 +275,7 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T){
 	event := &model.StageAddedEvent{
 		StageId:      string("stage"),
 		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{"s1","s2"},
 	}
 
@@ -293,7 +292,7 @@ func TestShouldRejectStageWithUnknownDependency(t *testing.T){
 	event := &model.StageAddedEvent{
 		StageId:      string("stage"),
 		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{"unknown"},
 	}
 
@@ -330,7 +329,7 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_supply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
 
@@ -343,7 +342,7 @@ func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_supply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
 
@@ -355,7 +354,7 @@ func withAppendedStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Co
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{string(s.ID)},
 	}
 
@@ -367,7 +366,7 @@ func withComposeStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Com
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
 		Op:           model.CompletionOperation_thenCompose,
-		Closure:      &model.BlobDatum{DataString: []byte("foo"), ContentType: "application/octet-stream"},
+		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{string(s.ID)},
 	}
 
@@ -384,4 +383,12 @@ func assertStageCompletedSuccessfullyWith(t *testing.T, s *CompletionStage, resu
 	assert.Equal(t, result, s.result)
 	assert.True(t, s.IsSuccessful())
 	assert.True(t, s.IsResolved())
+}
+
+func sampleBlob(id string) *model.BlobDatum {
+	return &model.BlobDatum{
+		BlobId:id,
+		ContentType:"content/type",
+		Length: 101,
+	}
 }

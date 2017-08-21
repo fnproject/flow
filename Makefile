@@ -10,7 +10,7 @@ dep: glide.yaml
 dep-up:
 	glide up --strip-vendor
 
-protos:  model/model.pb.go
+protos:  model/model.pb.go persistence/testprotos.pb.go
 
 test: protos $(shell find . -name *.go)
 	@go test -v $(GOPACKAGES)

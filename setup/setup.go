@@ -6,6 +6,12 @@ import (
 	"strings"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"net/url"
+	"strconv"
+	protopersistence "github.com/AsynkronIT/protoactor-go/persistence"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/server"
 )
 
 const (
@@ -17,6 +23,7 @@ const (
 )
 
 var defaults = make(map[string]string)
+var log = logrus.New().WithField("logger", "setup")
 
 func canonKey(key string) string {
 	return strings.Replace(strings.Replace(strings.ToLower(key), "-", "_", -1), ".", "_", -1)
@@ -31,9 +38,7 @@ func GetString(key string) string {
 	return defaults[key]
 }
 
-
-
-func Init() {
+func InitFromEnv() (*server.Server, error) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -61,4 +66,60 @@ func Init() {
 	if logLevel == logrus.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	}
+
+	provider, blobStore, err := InitStorageFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
+	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL))
+
+	if err != nil {
+		return nil, err
+
+	}
+
+	srv, err := server.New(graphManager, blobStore, GetString(EnvListen))
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
+}
+
+func InitStorageFromEnv() (protopersistence.ProviderState, persistence.BlobStore, error) {
+	dbUrlString := GetString(EnvDBURL)
+	dbUrl, err := url.Parse(dbUrlString)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
+	}
+
+	snapshotIntervalStr := GetString(EnvSnapshotInterval)
+	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
+	if ok != nil {
+		snapshotInterval = 1000
+	}
+	if dbUrl.Scheme == "inmem" {
+		log.Info("Using in-memory persistence")
+		return protopersistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
+	}
+
+	dbConn, err := persistence.CreateDBConnecection(dbUrl)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storageProvider, err := persistence.NewSqlProvider(dbConn, snapshotInterval)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	blobStore, err := persistence.NewSqlBlobStore(dbConn)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return storageProvider, blobStore, nil
+
 }

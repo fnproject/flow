@@ -1,4 +1,4 @@
-package model
+package protocol
 
 import (
 	"bytes"
@@ -7,80 +7,97 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"testing"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/model"
 )
 
 func TestRejectsUnrecognisedType(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, "unknown")
-	part := createPart("p1", h, "")
+	part := createPart( h, "")
 
-	_, err := DatumFromPart(part)
+	_, err := DatumFromPart(store, part)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Unrecognised datum type")
 
 }
 
 func TestRejectsDatumWithoutTypeHeader(t *testing.T) {
-	part := createPart("p1", emptyHeaders(), "")
-	_, err := DatumFromPart(part)
+	store := persistence.NewInMemBlobStore()
+
+	part := createPart( emptyHeaders(), "")
+	_, err := DatumFromPart(store, part)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "the "+headerDatumType+" header is not present")
 }
 
 func TestRejectsBlobDatumWithNoContentType(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeBlob)
-	part := createPart("p1", h, "")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "")
+	_, err := DatumFromPart(store, part)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "missing Content-Type header")
 
 }
 
 func TestReadsEmptyBlobDatum(t *testing.T) {
+
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeBlob)
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetBlob())
 	assert.Equal(t, "text/plain", d.GetBlob().ContentType)
-	assert.Equal(t, []byte(""), d.GetBlob().DataString)
+	assert.Equal(t, []byte(""), getBlobData(t, store, d.GetBlob()))
 }
 
 func TestReadsBlobDatum(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeBlob)
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "SOME CONTENT")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "SOME CONTENT")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetBlob())
 	assert.Equal(t, "text/plain", d.GetBlob().ContentType)
-	assert.Equal(t, []byte("SOME CONTENT"), d.GetBlob().DataString)
+	assert.Equal(t, []byte("SOME CONTENT"), getBlobData(t, store, d.GetBlob()))
 }
 
 func TestReadsActuallyEmptyDatum(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeEmpty)
-	part := createPart("p1", h, "")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, d.GetEmpty())
 }
 
 func TestReadErrorDatumAllTypes(t *testing.T) {
-	for _, errName := range ErrorDatumType_name {
+	for _, errName := range model.ErrorDatumType_name {
+		store := persistence.NewInMemBlobStore()
+
 		h := emptyHeaders()
 		h.Add(headerDatumType, datumTypeError)
 		h.Add(headerContentType, "text/plain")
 		h.Add(headerErrorType, errName)
-		part := createPart("p1", h, "blah")
-		d, err := DatumFromPart(part)
+		part := createPart( h, "blah")
+		d, err := DatumFromPart(store, part)
 
 		assert.NoError(t, err)
 		require.NotNil(t, d.GetError())
@@ -90,35 +107,41 @@ func TestReadErrorDatumAllTypes(t *testing.T) {
 }
 
 func TestRejectsErrorDatumIfNotTextPlain(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeError)
 	h.Add(headerContentType, "application/json")
 	h.Add(headerErrorType, "unknown_error")
-	part := createPart("p1", h, "")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "")
+	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid error datum content type")
 }
 
 func TestRejectsErrorDatumIfNoErrorType(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeError)
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "")
+	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no "+headerErrorType+" header defined")
 }
 
 func TestReadErrorTypeEmptyBody(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeError)
 	h.Add(headerContentType, "text/plain")
 	h.Add(headerErrorType, "unknown_error")
-	part := createPart("p1", h, "")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetError())
@@ -127,12 +150,14 @@ func TestReadErrorTypeEmptyBody(t *testing.T) {
 }
 
 func TestReadErrorTypeUnrecognizedErrorIsCoercedToUnknownError(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeError)
 	h.Add(headerContentType, "text/plain")
 	h.Add(headerErrorType, "LA LA LA PLEASE IGNORE ME LA LA LA")
-	part := createPart("p1", h, "blah")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "blah")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetError())
@@ -141,11 +166,13 @@ func TestReadErrorTypeUnrecognizedErrorIsCoercedToUnknownError(t *testing.T) {
 }
 
 func TestReadsStageRefDatum(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeStageRef)
 	h.Add(headerStageRef, "123")
-	part := createPart("p1", h, "")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "")
+	d, err := DatumFromPart(store, part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetStageRef())
@@ -153,17 +180,21 @@ func TestReadsStageRefDatum(t *testing.T) {
 }
 
 func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeStageRef)
 	h.Add(headerStageRef, "")
-	part := createPart("p1", h, "")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "")
+	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid StageRef")
 }
 
 func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
 	h.Add(headerMethod, "GET")
@@ -171,13 +202,15 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	d, err := DatumFromPart(store,part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetHttpReq())
-	assert.Equal(t, HttpMethod_get, d.GetHttpReq().GetMethod())
-	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpReq().GetBody())
+	assert.Equal(t, model.HttpMethod_get, d.GetHttpReq().GetMethod())
+
+	assert.Equal(t, "text/plain", d.GetHttpReq().GetBody().ContentType)
+	assert.Equal(t, []byte("WOMBAT"), getBlobData(t, store, d.GetHttpReq().GetBody()))
 	require.Equal(t, 3, len(d.GetHttpReq().GetHeaders()))
 	multiHeaders := d.GetHttpReq().GetHeaderValues("Multi")
 	require.Equal(t, 2, len(multiHeaders))
@@ -189,20 +222,24 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 }
 
 func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
 	h.Add(headerHeaderPrefix+"single", "FOO")
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no "+headerMethod+" header defined")
 }
 
 func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpReq)
 	h.Add(headerMethod, "SOME_INVALID_METHOD")
@@ -210,14 +247,16 @@ func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "http method SOME_INVALID_METHOD is invalid")
 }
 
 func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
 	h.Add(headerResultCode, "200")
@@ -225,13 +264,15 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	d, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	d, err := DatumFromPart(store,part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetHttpResp())
 	assert.Equal(t, uint32(200), d.GetHttpResp().GetStatusCode())
-	assert.Equal(t, &BlobDatum{DataString: []byte("WOMBAT"), ContentType: "text/plain"}, d.GetHttpResp().GetBody())
+	assert.Equal(t, "text/plain", d.GetHttpResp().GetBody().ContentType)
+	assert.Equal(t, []byte("WOMBAT"), getBlobData(t, store, d.GetHttpResp().GetBody()))
+
 	require.Equal(t, 3, len(d.GetHttpResp().GetHeaders()))
 	multiHeaders := d.GetHttpResp().GetHeaderValues("Multi")
 	require.Equal(t, 2, len(multiHeaders))
@@ -243,20 +284,24 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 }
 
 func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
 	h.Add(headerHeaderPrefix+"single", "FOO")
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no "+headerResultCode+" header defined")
 }
 
 func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
 	h := emptyHeaders()
 	h.Add(headerDatumType, datumTypeHttpResp)
 	h.Add(headerResultCode, "SOME_INVALID_CODE")
@@ -264,8 +309,8 @@ func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	h.Add(headerHeaderPrefix+"multi", "BAR")
 	h.Add(headerHeaderPrefix+"multi", "BAZ")
 	h.Add(headerContentType, "text/plain")
-	part := createPart("p1", h, "WOMBAT")
-	_, err := DatumFromPart(part)
+	part := createPart( h, "WOMBAT")
+	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid HttpResp Datum :")
@@ -275,7 +320,7 @@ func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 func emptyHeaders() textproto.MIMEHeader {
 	return textproto.MIMEHeader(make(map[string][]string))
 }
-func createPart(filename string, headers textproto.MIMEHeader, content string) *multipart.Part {
+func createPart( headers textproto.MIMEHeader, content string) *multipart.Part {
 	wbuf := new(bytes.Buffer)
 	w := multipart.NewWriter(wbuf)
 	pw, err := w.CreatePart(headers)
@@ -299,5 +344,13 @@ func createPart(filename string, headers textproto.MIMEHeader, content string) *
 		panic(err)
 	}
 	return part
+
+}
+
+func getBlobData(t *testing.T, store persistence.BlobStore, blob *model.BlobDatum) []byte {
+	data, err := store.ReadBlobData(blob)
+
+	require.NoError(t, err)
+	return data
 
 }

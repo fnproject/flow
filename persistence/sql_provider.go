@@ -2,18 +2,12 @@ package persistence
 
 import (
 	"github.com/golang/protobuf/proto"
-	"net/url"
 	"fmt"
-	"path/filepath"
-	"os"
 	"github.com/sirupsen/logrus"
 	"database/sql"
 	"github.com/jmoiron/sqlx"
-	"strings"
 	"reflect"
 	"github.com/AsynkronIT/protoactor-go/persistence"
-	"github.com/fnproject/completer/setup"
-	"strconv"
 )
 
 type SqlProvider struct {
@@ -21,72 +15,14 @@ type SqlProvider struct {
 	db               *sqlx.DB
 }
 
-var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
-	actor_name varchar(255) NOT NULL,
-	event_type varchar(255) NOT NULL,
-	event_index int NOT NULL,
-	event BLOB NOT NULL);`,
-
-	`CREATE TABLE IF NOT EXISTS snapshots (
-	actor_name varchar(255) NOT NULL PRIMARY KEY ,
-	snapshot_type varchar(255) NOT NULL,
-	event_index int NOT NULL,
-	snapshot BLOB NOT NULL);`,
-}
-
 var log = logrus.New().WithField("logger", "persistence")
 
-func NewSqlProvider(url *url.URL, snapshotInterval int) (*SqlProvider, error) {
+func NewSqlProvider(db *sqlx.DB, snapshotInterval int) (persistence.ProviderState, error) {
 
-	driver := url.Scheme
-	switch driver {
-	case "mysql", "sqlite3":
-	default:
-
-		return nil, fmt.Errorf("Invalid db driver %s", driver)
-	}
-
-	if driver == "sqlite3" {
-		dir := filepath.Dir(url.Path)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var uri = url.String()
-
-	uri = strings.TrimPrefix(url.String(), url.Scheme+"://")
-
-	sqldb, err := sql.Open(driver, uri)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't open db")
-		return nil, err
-	}
-
-	sqlxDb := sqlx.NewDb(sqldb, driver)
-	err = sqlxDb.Ping()
-	if err != nil {
-		logrus.WithFields(logrus.Fields{"url": uri}).WithError(err).Error("couldn't ping db")
-		return nil, err
-	}
-
-	maxIdleConns := 256 // TODO we need to strip this out of the URL probably
-	sqlxDb.SetMaxIdleConns(maxIdleConns)
-	switch driver {
-	case "sqlite3":
-		sqlxDb.SetMaxOpenConns(1)
-	}
-	for _, v := range tables {
-		_, err = sqlxDb.Exec(v)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to create database table %s: %v", v, err)
-		}
-	}
-
-	log.WithField("db_url", url.String()).Info("Created SQL persistence provider")
+	log.Info("Creating SQL persistence provider")
 	return &SqlProvider{
 		snapshotInterval: snapshotInterval,
-		db:               sqlxDb,
+		db:               db,
 	}, nil
 }
 
@@ -200,23 +136,4 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 	if err != nil {
 		panic(err)
 	}
-}
-
-func NewProviderFromEnv() (persistence.ProviderState, error) {
-	dbUrlString := setup.GetString(setup.EnvDBURL)
-	dbUrl, err := url.Parse(dbUrlString)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid DB URL in %s : %s", setup.EnvDBURL, dbUrlString)
-	}
-
-	snapshotIntervalStr := setup.GetString(setup.EnvSnapshotInterval)
-	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
-	if ok != nil {
-		snapshotInterval = 1000
-	}
-	if dbUrl.Scheme == "inmem" {
-		log.Info("Using in-memory persistence")
-		return persistence.NewInMemoryProvider(snapshotInterval), nil
-	}
-	return NewSqlProvider(dbUrl, snapshotInterval)
 }

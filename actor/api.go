@@ -12,7 +12,6 @@ import (
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"net/url"
 	"fmt"
-	"github.com/fnproject/completer/setup"
 	"github.com/fnproject/completer/persistence"
 )
 
@@ -37,8 +36,7 @@ type actorManager struct {
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) (GraphManager, error) {
-	fnUrl := setup.GetString(setup.EnvFnApiURL)
+func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStore persistence.BlobStore, fnUrl string ) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
@@ -56,7 +54,7 @@ func NewGraphManagerFromEnv(persistenceProvider protoPersistence.ProviderState) 
 		fnUrl = parsedUrl.String()
 	}
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl,blobStore)).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 

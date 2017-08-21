@@ -1,8 +1,11 @@
 package persistence
 
+/**
+   This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/in_memory_provider.go
+   This has been modified to support propagating event indices to plugins
+ */
 import (
 	"sync"
-
 	"github.com/golang/protobuf/proto"
 )
 

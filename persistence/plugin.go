@@ -1,5 +1,8 @@
 package persistence
-
+/**
+   This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/plugin.go
+   This has been modified to support propagating event indices to plugins
+ */
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/golang/protobuf/proto"

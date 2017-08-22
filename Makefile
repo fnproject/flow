@@ -40,3 +40,8 @@ docker-build: $(GOFILES) docker-test
 	docker run --rm -it -v $(COMPLETER_DIR):$(COMPLETER_DIR) -w $(COMPLETER_DIR) -e GOPATH=$(GOPATH) -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=1 golang go build -o completer-docker
 	docker build -t $(IMAGE_FULL) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
 	if [[ "$(IMAGE_VERSION)" != "latest" ]]; then docker tag $(IMAGE_FULL) $(IMAGE_LATEST); fi
+
+
+# Utility target for local environment setup
+local-env: docker-build
+	$(COMPLETER_DIR)/scripts/local-env.sh $(IMAGE_FULL)

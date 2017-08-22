@@ -34,7 +34,8 @@ jobs:
       - store_test_results:
           path: /tmp/test-results
       - deploy:
-          # Only deploy a release if we are on master and have docker credentials
+          context: org-global
+          # Only deploy a release if we are on master
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
               git config --global user.email "ci@fnproject.com"

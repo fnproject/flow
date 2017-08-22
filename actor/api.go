@@ -9,7 +9,6 @@ import (
 
 	"github.com/fnproject/completer/model"
 	"github.com/sirupsen/logrus"
-	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"net/url"
 	"fmt"
 	"github.com/fnproject/completer/persistence"
@@ -22,10 +21,11 @@ type GraphManager interface {
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
-	GetGraphState( *model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
-	SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription
+	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
+	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
+	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
+	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack)
 	UnsubscribeStream(sub *eventstream.Subscription)
-	QueryJournal(graphID string, eventIndex int, fn func(evt interface{}))
 }
 
 type actorManager struct {
@@ -36,7 +36,7 @@ type actorManager struct {
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStore persistence.BlobStore, fnUrl string ) (GraphManager, error) {
+func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
@@ -54,7 +54,7 @@ func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStor
 		fnUrl = parsedUrl.String()
 	}
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl,blobStore)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 
@@ -68,17 +68,8 @@ func NewGraphManager(persistenceProvider protoPersistence.ProviderState,blobStor
 	}, nil
 }
 
-
-func (m *actorManager) SubscribeStream(graphID string, fn func(evt interface{})) *eventstream.Subscription {
-	return m.persistenceProvider.GetEventStream().Subscribe(fn)
-}
-
-func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
-	m.persistenceProvider.GetEventStream().Unsubscribe(sub)
-}
-
-func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(evt interface{})) {
-	m.persistenceProvider.GetState().GetEvents(graphID, eventIndex, fn)
+func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int, evt interface{})) {
+	m.persistenceProvider.GetStreamingState().GetEvents(graphID, eventIndex, fn)
 }
 
 func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.Duration) (*model.CreateGraphResponse, error) {
@@ -149,4 +140,19 @@ func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (i
 	}
 
 	return r, nil
+}
+
+func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
+	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
+}
+func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription {
+	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal("supervisor/"+graphID, fromIndex, fn)
+
+}
+func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) {
+	m.persistenceProvider.GetStreamingState().QueryActorJournal("supervisor/"+graphID, fromIndex, p, fn)
+}
+
+func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
+	m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
 }

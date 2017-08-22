@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/url"
 	"strconv"
-	protopersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/server"
@@ -87,7 +86,7 @@ func InitFromEnv() (*server.Server, error) {
 	return srv, nil
 }
 
-func InitStorageFromEnv() (protopersistence.ProviderState, persistence.BlobStore, error) {
+func InitStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, error) {
 	dbUrlString := GetString(EnvDBURL)
 	dbUrl, err := url.Parse(dbUrlString)
 	if err != nil {
@@ -101,7 +100,7 @@ func InitStorageFromEnv() (protopersistence.ProviderState, persistence.BlobStore
 	}
 	if dbUrl.Scheme == "inmem" {
 		log.Info("Using in-memory persistence")
-		return protopersistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
+		return persistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
 	}
 
 	dbConn, err := persistence.CreateDBConnecection(dbUrl)

@@ -34,7 +34,7 @@ jobs:
       - store_test_results:
           path: /tmp/test-results
       - deploy:
-          context: org-global
+          context: org-default
           # Only deploy a release if we are on master
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then

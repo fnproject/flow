@@ -1,4 +1,4 @@
-FROM buildpack-deps:jessie-scm
+FROM funcy/dind
 
 WORKDIR /fnproject
 

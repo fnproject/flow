@@ -23,6 +23,7 @@ jobs:
           # tar -C $HOME/golang -xzf go1.8.3.linux-amd64.tar.gz
           sudo tar -C /usr/local -xzf go$GOVERSION.$OS-$ARCH.tar.gz
           go get -u github.com/golang/dep/...
+      - run: rm -fr tmp
       - run: go version
       # update Docker
       - run: |

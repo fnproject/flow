@@ -26,7 +26,7 @@ perl -i -pe 's/(?<= = ")\d+\.\d+\.\K(\d+)/$1+1/e' $version_file
 version=$(grep -m1 -Po '(?<= = ")\d+\.\d+\.\d+' $version_file)
 echo "Version: $version"
 
-make docker-build IMAGE_REPO_USER=$user IMAGE_NAME=$service IMAGE_VERSION=$version
+make docker-build
 
 git add $version_file
 git commit -m "$service: $version release [skip ci]"

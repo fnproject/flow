@@ -27,7 +27,7 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 	}
 
 	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
-	sub := l.manager.SubscribeGraph(sg.GraphID, 0, l.SendGraphMessage)
+	sub := l.manager.SubscribeGraphEvents(sg.GraphID, 0, l.SendGraphMessage)
 	l.subscriptions[sg.GraphID] = sub
 	return nil
 }
@@ -106,20 +106,19 @@ func (l *wsWorker) Run() {
 	defer l.Close()
 	defer l.conn.Close()
 
-	sub := l.manager.SubscribeGraph("*", 0, l.SendGraphMessage).WithPredicate(
-		func(event interface{}) bool {
-			if evt, ok := event.(*persistence.StreamEvent); ok {
-				switch evt.Event.(type) {
-				case *model.GraphCreatedEvent:
-					return true
-				case *model.GraphCompletedEvent:
-					return true
-				}
-			}
-			return false
-		})
+	lifecycleEventPred := func(event *persistence.StreamEvent) bool {
+		switch event.Event.(type) {
+		case *model.GraphCreatedEvent:
+			return true
+		case *model.GraphCompletedEvent:
+			return true
+		}
+		return false
+	}
 
-	l.subscriptions["*"] = sub
+	sub := l.manager.StreamNewEvents(lifecycleEventPred, l.SendGraphMessage)
+
+	l.subscriptions["_all"] = sub
 
 	// main cmd loop
 	for {

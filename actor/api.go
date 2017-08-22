@@ -12,8 +12,6 @@ import (
 	"net/url"
 	"fmt"
 	"github.com/fnproject/completer/persistence"
-	"sync"
-	"github.com/golang/protobuf/proto"
 )
 
 // GraphManager encapsulates all graph operations
@@ -24,9 +22,10 @@ type GraphManager interface {
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
-	SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription
+	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
+	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
+	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack)
 	UnsubscribeStream(sub *eventstream.Subscription)
-	QueryJournal(graphID string, eventIndex int, fn func(index int, evt interface{}))
 }
 
 type actorManager struct {
@@ -69,62 +68,8 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	}, nil
 }
 
-func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription {
-
-	actorName := "supervisor/" + graphID
-
-	type bufferedSub struct {
-		lock           *sync.Mutex
-		committed      bool
-		bufferedEvents []*persistence.StreamEvent
-		highestIndex   int
-	}
-
-	buffer := &bufferedSub{lock: &sync.Mutex{}, bufferedEvents: []*persistence.StreamEvent{}, highestIndex: -1}
-
-	// Create a child subscription to buffer events while we read the journal
-	childSub := m.persistenceProvider.GetEventStream().Subscribe(func(e interface{}) {
-		if event, ok := e.(*persistence.StreamEvent); ok {
-			buffer.lock.Lock()
-			defer buffer.lock.Unlock()
-			if (graphID == "*" || event.ActorName == actorName) && event.EventIndex >= fromIndex {
-				if buffer.committed {
-					if event.EventIndex > buffer.highestIndex {
-						fn(event)
-					}
-				} else {
-					buffer.bufferedEvents = append(buffer.bufferedEvents, event)
-				}
-			}
-		}
-	})
-
-	// dump any pending events to the original fn
-	m.persistenceProvider.GetState().GetEvents(actorName, fromIndex, func(idx int, e interface{}) {
-		if event, ok := e.(proto.Message); ok {
-			evt := &persistence.StreamEvent{ActorName: actorName, EventIndex: idx, Event: event}
-			fn(evt)
-			buffer.lock.Lock()
-			buffer.highestIndex = fromIndex
-			buffer.lock.Unlock()
-		}
-	})
-
-	buffer.lock.Lock()
-	defer buffer.lock.Unlock()
-	for _, evt := range buffer.bufferedEvents {
-		fn(evt)
-	}
-	buffer.committed = true
-	return childSub
-}
-
-func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
-	m.persistenceProvider.GetEventStream().Unsubscribe(sub)
-}
-
 func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int, evt interface{})) {
-	m.persistenceProvider.GetState().GetEvents(graphID, eventIndex, fn)
+	m.persistenceProvider.GetStreamingState().GetEvents(graphID, eventIndex, fn)
 }
 
 func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.Duration) (*model.CreateGraphResponse, error) {
@@ -195,4 +140,19 @@ func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (i
 	}
 
 	return r, nil
+}
+
+func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
+	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
+}
+func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription {
+	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal("supervisor/"+graphID, fromIndex, fn)
+
+}
+func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) {
+	m.persistenceProvider.GetStreamingState().QueryActorJournal("supervisor/"+graphID, fromIndex, p, fn)
+}
+
+func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
+	m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
 }

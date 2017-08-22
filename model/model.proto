@@ -163,6 +163,10 @@ message CompleteStageExternallyResponse {
     bool successful = 3;
 }
 
+message DeactivateGraphRequest {
+    string graph_id = 1;
+}
+
 message CreateGraphRequest {
     string function_id = 1;
     string graph_id = 2;

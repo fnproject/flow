@@ -1,18 +1,18 @@
 package actor
 
 import (
+	"fmt"
+	"net/url"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/eventstream"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
-
+	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/fnproject/completer/model"
-	"github.com/sirupsen/logrus"
-	"net/url"
-	"fmt"
 	"github.com/fnproject/completer/persistence"
+	"github.com/sirupsen/logrus"
 )
+
+const supervisorName = "supervisor"
 
 // GraphManager encapsulates all graph operations
 type GraphManager interface {
@@ -58,8 +58,11 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 
-	supervisorProps := actor.FromInstance(NewSupervisor(executor, wrappedProvider)).WithSupervisor(strategy)
-	supervisor, _ := actor.SpawnNamed(supervisorProps, "supervisor")
+	supervisorProps := actor.
+		FromInstance(NewSupervisor(executor, wrappedProvider)).
+		WithSupervisor(strategy).
+		WithMiddleware(persistence.Using(wrappedProvider))
+	supervisor, _ := actor.SpawnNamed(supervisorProps, supervisorName)
 
 	return &actorManager{
 		log:        log,
@@ -146,13 +149,17 @@ func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
 }
 func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription {
-	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal("supervisor/"+graphID, fromIndex, fn)
+	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphActorPath(graphID), fromIndex, fn)
 
 }
 func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) {
-	m.persistenceProvider.GetStreamingState().QueryActorJournal("supervisor/"+graphID, fromIndex, p, fn)
+	m.persistenceProvider.GetStreamingState().QueryActorJournal(graphActorPath(graphID), fromIndex, p, fn)
 }
 
 func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
 	m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+}
+
+func graphActorPath(graphID string) string {
+	return supervisorName + "/" + graphID
 }

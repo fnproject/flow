@@ -4,18 +4,19 @@ import (
 	"reflect"
 	"time"
 
-	protopersistence	"github.com/AsynkronIT/protoactor-go/persistence"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
+	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/completer/graph"
 	"github.com/fnproject/completer/model"
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/completer/persistence"
-
+	"github.com/sirupsen/logrus"
 )
 
 // TODO: read this from configuration!
-const maxDelaySeconds = 900
+const (
+	maxDelaySeconds = 900
+	inactiveTimeout = time.Duration(24 * time.Hour)
+)
 
 type graphActor struct {
 	PIDHolder
@@ -25,16 +26,16 @@ type graphActor struct {
 	persistence.Mixin
 }
 
-// NewGraphActor returns a pointer to a new graph actor for the given graph and function
-func NewGraphActor(graphID string, functionID string, executor *actor.PID) actor.Actor {
+// NewGraphActor returns a pointer to a new graph actor
+func NewGraphActor(executor *actor.PID) actor.Actor {
 	return &graphActor{
 		executor: executor,
-		log:      logrus.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": graphID, "function_id": functionID}),
+		log:      logrus.New().WithField("logger", "graph_actor"),
 	}
 }
 
 func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
-	g.log.Debug("Creating completion graph")
+	g.log = g.log.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": event.GraphId, "function_id": event.FunctionId})
 	g.graph = graph.New(event.GraphId, event.FunctionId, g)
 }
 
@@ -46,8 +47,8 @@ func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) 
 func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent) {
 	g.log.Debug("Completing graph")
 	g.graph.HandleCompleted()
-	// "poison pill"
-	g.pid.Stop()
+	// tell ourselves we are complete so we can message parent via context
+	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 }
 
 func (g *graphActor) applyStageAddedEvent(event *model.StageAddedEvent) {
@@ -128,6 +129,11 @@ func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
 
 // if validation fails, this method will respond to the request with an appropriate error message
 func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
+	// skip validation for initial create
+	if _, ok := cmd.(*model.CreateGraphRequest); ok {
+		return true
+	}
+
 	// First check the graph exists
 	if gm, ok := cmd.(model.GraphMessage); ok {
 		graphID := gm.GetGraphId()
@@ -135,25 +141,26 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 			context.Respond(NewGraphNotFoundError(graphID))
 			return false
 		}
+
+		// disallow graph structural changes when complete
+		switch msg := gm.(type) {
+		case *model.AddChainedStageRequest, *model.AddCompletedValueStageRequest, *model.AddDelayStageRequest, *model.AddExternalCompletionStageRequest, *model.AddInvokeFunctionStageRequest, *model.CompleteStageExternallyRequest:
+			if g.graph.IsCompleted() {
+				context.Respond(NewGraphCompletedError(msg.(model.GraphMessage).GetGraphId()))
+				return false
+			}
+		}
 	}
 
 	// Then do individual checks dependent on type
 	switch msg := cmd.(type) {
 	case *model.AddDelayStageRequest:
-		if g.graph.IsCompleted() {
-			context.Respond(NewGraphCompletedError(msg.GraphId))
-			return false
-		}
 		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds*1000 {
 			context.Respond(NewInvalidDelayError(msg.GraphId, msg.DelayMs))
 			return false
 		}
 
 	case *model.AddChainedStageRequest:
-		if g.graph.IsCompleted() {
-			context.Respond(NewGraphCompletedError(msg.GraphId))
-			return false
-		}
 		valid, missing := g.validateStages(msg.Deps)
 		if !valid {
 			context.Respond(NewStageNotFoundError(msg.GraphId, missing))
@@ -162,15 +169,12 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 
 	case *model.CompleteDelayStageRequest:
 		if g.graph.IsCompleted() {
-			// Don't respond, just ignore this message. This is intentional.
+			// ignore internal CompleteDelaysStageRequest messages
+			// to avoid accumulating duplicate StageCompletedEvents
 			return false
 		}
 
 	case *model.CompleteStageExternallyRequest:
-		if g.graph.IsCompleted() {
-			context.Respond(NewGraphCompletedError(msg.GraphId))
-			return false
-		}
 		stage := g.graph.GetStage(msg.StageId)
 		if stage == nil {
 			context.Respond(NewStageNotFoundError(msg.GraphId, msg.StageId))
@@ -200,6 +204,10 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 }
 
 func (g *graphActor) receiveCommand(context actor.Context) {
+	if !g.validateCmd(context.Message(), context) {
+		return
+	}
+
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
@@ -212,10 +220,8 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *model.GetGraphStateRequest:
 		g.log.Debug("Get graph state")
 		context.Respond(g.createExternalState())
+
 	case *model.AddChainedStageRequest:
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		g.log.Debug("Adding chained stage")
 		event := &model.StageAddedEvent{
 			StageId:      g.graph.NextStageID(),
@@ -228,9 +234,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddCompletedValueStageRequest:
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		g.log.Debug("Adding completed value stage")
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -247,9 +250,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddDelayStageRequest:
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		g.log.Debug("Adding delay stage")
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -266,9 +266,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddExternalCompletionStageRequest:
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		g.log.Debug("Adding external completion stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -279,9 +276,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddInvokeFunctionStageRequest:
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		g.log.Debug("Adding invoke stage")
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
@@ -300,9 +294,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		stage := g.graph.GetStage(msg.StageId)
 		completable := !stage.IsResolved()
 		if completable {
@@ -318,9 +309,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CommitGraphRequest:
 		g.log.Debug("Committing graph")
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
 		g.PersistReceive(committedEvent)
 		g.applyGraphCommittedEvent(committedEvent)
@@ -328,9 +316,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.GetStageResultRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
@@ -347,9 +332,6 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CompleteDelayStageRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
-		if !g.validateCmd(msg, context) {
-			return
-		}
 		completedEvent := &model.StageCompletedEvent{
 			StageId: msg.StageId,
 			Result:  msg.Result,
@@ -361,22 +343,37 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
 		g.graph.HandleInvokeComplete(msg.StageId, msg.Result)
 
-	case *protopersistence.RequestSnapshot:
+	case *model.DeactivateGraphRequest:
+		g.log.Debug("Telling supervisor graph is completed")
+		// tell supervisor to remove us from active graphs
+		context.Parent().Tell(msg)
+		context.Self().Stop()
+
+	case *protoPersistence.RequestSnapshot:
 		// snapshots are currently not supported
 		// NOOP
 		g.log.Debug("Ignoring snapshot request")
 
 	case *actor.Started:
 		g.log.Debugf("Started actor %s", g.GetSelf().Id)
+		context.SetReceiveTimeout(inactiveTimeout)
 
-	case *protopersistence.ReplayComplete:
+	case *actor.ReceiveTimeout:
+		g.log.Debugf("Passivating inactive actor %s", g.GetSelf().Id)
+		if g.graph != nil {
+			// tell supervisor to remove us from active graphs
+			context.Parent().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+		}
+		context.Self().Stop()
+
+	case *protoPersistence.ReplayComplete:
 		if g.graph != nil {
 			g.log.Debug("Replay completed")
 			g.graph.Recover()
 		}
 
 	default:
-		g.log.Infof("Ignoring message of unknown type %v", reflect.TypeOf(msg))
+		g.log.Debugf("Ignoring message of unknown type %v", reflect.TypeOf(msg))
 	}
 }
 
@@ -415,6 +412,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 }
 
 func (g *graphActor) Receive(context actor.Context) {
+	g.log.Debugf("Processing message %s (recovering=%v)", reflect.TypeOf(context.Message()), g.Recovering())
 	if g.Recovering() {
 		g.receiveEvent(context)
 	} else {
@@ -459,6 +457,9 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 
 //OnCompleteGraph indicates that the graph is now finished and cannot be modified
 func (g *graphActor) OnCompleteGraph() {
+	if g.Recovering() {
+		return
+	}
 	g.log.Info("Completing graph in OnCompleteGraph")
 	completedEvent := &model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,

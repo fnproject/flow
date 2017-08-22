@@ -58,8 +58,6 @@ func (graph *CompletionGraph) GetStages() []*CompletionStage {
 	return stages
 }
 
-
-
 // IsCommitted Has the graph been marked as committed by HandleCommitted
 func (graph *CompletionGraph) IsCommitted() bool {
 	return graph.committed
@@ -265,6 +263,8 @@ func (graph *CompletionGraph) checkForCompletion() {
 		graph.log.Info("Graph successfully completed")
 		graph.eventListener.OnCompleteGraph()
 	} else {
-		graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending executions before graph can be completed")
+		if pendingCount > 0 {
+			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending executions before graph can be completed")
+		}
 	}
 }

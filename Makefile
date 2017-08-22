@@ -27,8 +27,7 @@ run: build
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 
-# TODO: change this when we push to a public facing docker registry
-IMAGE_REPO_USER ?= registry.oracledx.com/skeppare
+IMAGE_REPO_USER ?= funcy
 IMAGE_NAME ?= completer
 IMAGE_VERSION ?= latest
 IMAGE_FULL = $(IMAGE_REPO_USER)/$(IMAGE_NAME):$(IMAGE_VERSION)

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-user="funcy"
+user="fnproject"
 service="completer"
 tag="latest"
 
@@ -28,7 +28,7 @@ echo "Version: $version"
 
 make docker-build IMAGE_REPO_USER=$user IMAGE_NAME=$service IMAGE_VERSION=$version
 
-git add -u
+git add $version_file
 git commit -m "$service: $version release [skip ci]"
 git tag -f -a "$version" -m "version $version"
 git push

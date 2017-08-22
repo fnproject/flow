@@ -2,8 +2,7 @@
 set -ex
 
 if [[ -z "$TEST_RESULTS" ]]; then
-  echo "TEST_RESULTS is not set, don't know where to put test results"
-  exit 1
+  TEST_RESULTS=/tmp/test-results
 fi
 
 mkdir -p $TEST_RESULTS

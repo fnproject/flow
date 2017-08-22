@@ -7,6 +7,6 @@ if [[ -z "$TEST_RESULTS" ]]; then
 fi
 
 mkdir -p $TEST_RESULTS
-go get github.com/jstemmer/go-junit-report
+go get -u -v github.com/jstemmer/go-junit-report
 make test | tee ${TEST_RESULTS}/go-test.out
 go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml

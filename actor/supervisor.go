@@ -1,68 +1,117 @@
 package actor
 
 import (
+	"reflect"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
+	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/fnproject/completer/model"
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/completer/persistence"
+	"github.com/sirupsen/logrus"
 )
 
 type graphSupervisor struct {
 	executor            *actor.PID
 	persistenceProvider persistence.Provider
 	log                 *logrus.Entry
+	persistence.Mixin
+	activeGraphs map[string]bool
 }
 
 // NewSupervisor creates new graphSupervisor actor
 func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
-	return &graphSupervisor{executor: executor, persistenceProvider: persistenceProvider, log: logrus.New().WithField("logger", "graph_supervisor")}
+	return &graphSupervisor{
+		executor:            executor,
+		persistenceProvider: persistenceProvider,
+		log:                 logrus.New().WithField("logger", "graph_supervisor"),
+		activeGraphs:        make(map[string]bool),
+	}
 }
 
 func (s *graphSupervisor) Receive(context actor.Context) {
-
-	if gm, ok := context.Message().(**model.CreateGraphRequest); ok {
-		s.log.Infof("Created graph actor %s", (*gm).GetGraphId())
+	if s.Recovering() {
+		s.receiveEvent(context)
+	} else {
+		s.receiveCommand(context)
 	}
+}
 
-	if gm, ok := context.Message().(*model.GraphMessage); ok {
-		s.log.Infof("Yup actor %s", (*gm).GetGraphId())
+func (s *graphSupervisor) handleActiveGraph(graphID string) {
+	s.log.WithField("graph_id", graphID).Debug("Adding active graph")
+	s.activeGraphs[graphID] = true
+}
 
-	}
+func (s *graphSupervisor) handleInactiveGraph(graphID string) {
+	s.log.WithField("graph_id", graphID).Debug("Removing inactive graph")
+	delete(s.activeGraphs, graphID)
+}
+
+func (s *graphSupervisor) receiveCommand(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		props := actor.
-		FromInstance(NewGraphActor(msg.GraphId, msg.FunctionId, s.executor)).
-			WithMiddleware(
-			plugin.Use(&PIDAwarePlugin{}),
-			persistence.Using(s.persistenceProvider),
-		)
-
-		child, err := context.SpawnNamed(props, msg.GraphId)
+		child, err := s.spawnGraphActor(context, msg.GraphId)
 		if err != nil {
 			s.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
 			context.Respond(NewGraphCreationError(msg.GraphId))
 			return
 		}
-		s.log.Infof("Created graph actor %s", child.Id)
+		s.PersistReceive(&model.GraphCreatedEvent{GraphId: msg.GraphId})
+		s.handleActiveGraph(msg.GraphId)
 		child.Request(msg, context.Sender())
 
-	case model.GraphMessage:
+	case *model.DeactivateGraphRequest:
+		if s.activeGraphs[msg.GraphId] {
+			s.PersistReceive(&model.GraphCompletedEvent{GraphId: msg.GraphId})
+			s.handleInactiveGraph(msg.GraphId)
+		}
 
-		graphID := msg.GetGraphId()
-		child, found := findChild(context, graphID)
-		if !found {
-			s.log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("No child actor found")
-			context.Respond(NewGraphNotFoundError(graphID))
+	case model.GraphMessage:
+		child, err := s.getGraphActor(context, msg.GetGraphId())
+		if err != nil {
+			s.log.WithFields(logrus.Fields{"graph_id": msg.GetGraphId()}).Warn("No child actor found")
+			context.Respond(NewGraphNotFoundError(msg.GetGraphId()))
 			return
 		}
 		child.Request(msg, context.Sender())
 
+	case *actor.Terminated:
+		s.log.Infof("Child actor %s terminated", msg.GetWho().Id)
+
+	case *protoPersistence.ReplayComplete:
+		s.log.Infof("Respawning %d active graphs", len(s.activeGraphs))
+		for graphID := range s.activeGraphs {
+			s.spawnGraphActor(context, graphID)
+		}
 	}
 }
 
-func findChild(context actor.Context, graphID string) (*actor.PID, bool) {
+func (s *graphSupervisor) receiveEvent(context actor.Context) {
+	switch msg := context.Message().(type) {
+
+	case *model.GraphCreatedEvent:
+		s.handleActiveGraph(msg.GraphId)
+
+	case *model.GraphCompletedEvent:
+		s.handleInactiveGraph(msg.GraphId)
+
+	default:
+		s.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
+	}
+}
+
+// this method will spawn a graph actor if it doesn't already exist
+func (s *graphSupervisor) getGraphActor(context actor.Context, graphID string) (*actor.PID, error) {
+	child, ok := s.findChild(context, graphID)
+	if ok {
+		s.log.WithFields(logrus.Fields{"graph_id": graphID}).Infof("Found graph actor %s", child.Id)
+		return child, nil
+	}
+	return s.spawnGraphActor(context, graphID)
+}
+
+func (s *graphSupervisor) findChild(context actor.Context, graphID string) (*actor.PID, bool) {
 	fullID := context.Self().Id + "/" + graphID
 	for _, pid := range context.Children() {
 		if pid.Id == fullID {
@@ -70,4 +119,17 @@ func findChild(context actor.Context, graphID string) (*actor.PID, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (s *graphSupervisor) spawnGraphActor(context actor.Context, graphID string) (*actor.PID, error) {
+	props := actor.
+		FromInstance(NewGraphActor(s.executor)).
+		WithMiddleware(
+			plugin.Use(&PIDAwarePlugin{}),
+			persistence.Using(s.persistenceProvider),
+		)
+	pid, err := context.SpawnNamed(props, graphID)
+	context.Watch(pid)
+	s.log.WithFields(logrus.Fields{"graph_id": graphID}).Infof("Created graph actor %s", pid.Id)
+	return pid, err
 }

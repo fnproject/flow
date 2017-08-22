@@ -97,6 +97,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 }
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
+	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
 		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
@@ -122,6 +123,9 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 }
 
 func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+
+	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndex}).Debug("Persisting event")
+
 	pbType := proto.MessageName(event)
 	pbBytes, err := proto.Marshal(event)
 

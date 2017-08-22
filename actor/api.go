@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/fnproject/completer/persistence"
 	"sync"
+	"github.com/golang/protobuf/proto"
 )
 
 // GraphManager encapsulates all graph operations
@@ -25,7 +26,7 @@ type GraphManager interface {
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
 	SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription
 	UnsubscribeStream(sub *eventstream.Subscription)
-	QueryJournal(graphID string, eventIndex int, fn func(index int,evt interface{}))
+	QueryJournal(graphID string, eventIndex int, fn func(index int, evt interface{}))
 }
 
 type actorManager struct {
@@ -70,6 +71,8 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 
 func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt *persistence.StreamEvent)) *eventstream.Subscription {
 
+	actorName := "supervisor/" + graphID
+
 	type bufferedSub struct {
 		lock           *sync.Mutex
 		committed      bool
@@ -77,14 +80,14 @@ func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt
 		highestIndex   int
 	}
 
-	buffer := &bufferedSub{lock:&sync.Mutex{},bufferedEvents: []*persistence.StreamEvent{},highestIndex:-1}
+	buffer := &bufferedSub{lock: &sync.Mutex{}, bufferedEvents: []*persistence.StreamEvent{}, highestIndex: -1}
 
 	// Create a child subscription to buffer events while we read the journal
 	childSub := m.persistenceProvider.GetEventStream().Subscribe(func(e interface{}) {
 		if event, ok := e.(*persistence.StreamEvent); ok {
 			buffer.lock.Lock()
 			defer buffer.lock.Unlock()
-			if (graphID == "*" || event.ActorName == "supervisor/" + graphID) && event.EventIndex >= fromIndex {
+			if (graphID == "*" || event.ActorName == actorName) && event.EventIndex >= fromIndex {
 				if buffer.committed {
 					if event.EventIndex > buffer.highestIndex {
 						fn(event)
@@ -97,9 +100,10 @@ func (m *actorManager) SubscribeGraph(graphID string, fromIndex int, fn func(evt
 	})
 
 	// dump any pending events to the original fn
-	m.persistenceProvider.GetState().GetEvents(graphID, fromIndex, func(idx int,e interface{}) {
-		if event, ok := e.(*persistence.StreamEvent); ok {
-			fn(event)
+	m.persistenceProvider.GetState().GetEvents(actorName, fromIndex, func(idx int, e interface{}) {
+		if event, ok := e.(proto.Message); ok {
+			evt := &persistence.StreamEvent{ActorName: actorName, EventIndex: idx, Event: event}
+			fn(evt)
 			buffer.lock.Lock()
 			buffer.highestIndex = fromIndex
 			buffer.lock.Unlock()
@@ -119,7 +123,7 @@ func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
 	m.persistenceProvider.GetEventStream().Unsubscribe(sub)
 }
 
-func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int,evt interface{})) {
+func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int, evt interface{})) {
 	m.persistenceProvider.GetState().GetEvents(graphID, eventIndex, fn)
 }
 

@@ -26,7 +26,7 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 		return nil
 	}
 
-	log.WithField("conn",l.conn.LocalAddr().String()).WithField("graph_id",sg.GraphID).Info("Subscribed to graph")
+	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
 	sub := l.manager.SubscribeGraph(sg.GraphID, 0, l.SendGraphMessage)
 	l.subscriptions[sg.GraphID] = sub
 	return nil
@@ -45,7 +45,8 @@ type jsonCommand struct {
 }
 
 var cmds = map[string](func() wsCommandHandler){
-	"subscribe": func() (wsCommandHandler) { return &subscribeGraph{} },
+	"subscribe":   func() (wsCommandHandler) { return &subscribeGraph{} },
+	"unsubscribe": func() (wsCommandHandler) { return &unSubscribeGraph{} },
 }
 
 func extractCommand(data []byte) (wsCommandHandler, error) {
@@ -150,7 +151,6 @@ func (l *wsWorker) Close() {
 		l.manager.UnsubscribeStream(s)
 	}
 }
-
 
 func NewWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
 	return &wsWorker{conn: conn,

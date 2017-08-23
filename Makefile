@@ -27,7 +27,7 @@ run: build
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 
-IMAGE_REPO_USER ?= fnproject
+IMAGE_REPO_USER ?= funcy
 IMAGE_NAME ?= completer
 IMAGE_VERSION ?= latest
 IMAGE_FULL = $(IMAGE_REPO_USER)/$(IMAGE_NAME):$(IMAGE_VERSION)

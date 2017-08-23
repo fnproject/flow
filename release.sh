@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-user="fnproject"
+user="funcy"
 service="completer"
 tag="latest"
 

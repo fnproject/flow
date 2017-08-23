@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
 	"github.com/sirupsen/logrus"
+	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // TODO: read this from configuration!
@@ -71,15 +72,15 @@ func (g *graphActor) initGraph(event *model.GraphCreatedEvent) {
 	g.graph = graph.New(event.GraphId, event.FunctionId, g)
 }
 
-func (g *graphActor) receiveEvent(context actor.Context) {
+func (g *graphActor) receiveEvent(event model.Event) {
 
-	switch event := context.Message().(type) {
+	switch e := event.(type) {
 
 	case *model.GraphCreatedEvent:
-		g.initGraph(event)
+		g.initGraph(e)
 
 	default:
-		g.updateState(event)
+		g.updateState(e)
 	}
 }
 
@@ -169,6 +170,14 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	return true
 }
 
+func currentTimestamp() *timestamp.Timestamp {
+	now := time.Now()
+
+	return &timestamp.Timestamp{
+		Seconds: now.Unix(),
+		Nanos:   int32(now.Nanosecond()),
+	}
+}
 func (g *graphActor) updateState(event interface{}) {
 	if g.graph == nil {
 		g.log.Warnf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
@@ -186,7 +195,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
-		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
+		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId, Ts: currentTimestamp()}
 		g.PersistReceive(event)
 		g.initGraph(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
@@ -202,6 +211,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:           msg.Operation,
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
+			Ts:           currentTimestamp(),
 		}
 		g.PersistReceive(event)
 		g.updateState(event)
@@ -212,12 +222,14 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      msg.GetOperation(),
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(addedEvent)
 		g.updateState(addedEvent)
 		completedEvent := &model.StageCompletedEvent{
 			StageId: addedEvent.StageId,
 			Result:  msg.Result,
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(completedEvent)
 		g.updateState(completedEvent)
@@ -228,12 +240,14 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		addedEvent := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      msg.GetOperation(),
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(addedEvent)
 		g.updateState(addedEvent)
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: addedEvent.StageId,
 			TimeMs:  timeMillis() + msg.DelayMs,
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)
@@ -244,6 +258,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      msg.GetOperation(),
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(event)
 		g.updateState(event)
@@ -254,6 +269,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		event := &model.StageAddedEvent{
 			StageId: g.graph.NextStageID(),
 			Op:      msg.GetOperation(),
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(event)
 		g.updateState(event)
@@ -274,6 +290,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			completedEvent := &model.StageCompletedEvent{
 				StageId: msg.StageId,
 				Result:  msg.Result,
+				Ts:      currentTimestamp(),
 			}
 			g.PersistReceive(completedEvent)
 			g.updateState(completedEvent)
@@ -282,7 +299,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CommitGraphRequest:
 		g.log.Debug("Committing graph")
-		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
+		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()}
 		g.PersistReceive(committedEvent)
 		g.updateState(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
@@ -308,6 +325,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		completedEvent := &model.StageCompletedEvent{
 			StageId: msg.StageId,
 			Result:  msg.Result,
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(completedEvent)
 		g.updateState(completedEvent)
@@ -317,6 +335,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		completedEvent := &model.FaasInvocationCompletedEvent{
 			StageId: msg.StageId,
 			Result:  msg.Result,
+			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(completedEvent)
 		g.updateState(completedEvent)
@@ -395,7 +414,9 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 func (g *graphActor) Receive(context actor.Context) {
 	g.log.Debugf("Processing message %s (recovering=%v)", reflect.TypeOf(context.Message()), g.Recovering())
 	if g.Recovering() {
-		g.receiveEvent(context)
+		if e,ok := context.Message().(model.Event) ; ok {
+			g.receiveEvent(e)
+		}
 	} else {
 		g.receiveCommand(context)
 	}
@@ -420,6 +441,7 @@ func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model
 	completedEvent := &model.StageCompletedEvent{
 		StageId: stage.ID,
 		Result:  result,
+		Ts:      currentTimestamp(),
 	}
 	g.PersistReceive(completedEvent)
 	g.updateState(completedEvent)
@@ -431,6 +453,7 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 	composedEvent := &model.StageComposedEvent{
 		StageId:         stage.ID,
 		ComposedStageId: composedStage.ID,
+		Ts:              currentTimestamp(),
 	}
 	g.PersistReceive(composedEvent)
 	g.updateState(composedEvent)
@@ -445,6 +468,7 @@ func (g *graphActor) OnCompleteGraph() {
 	completedEvent := &model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
+		Ts:         currentTimestamp(),
 	}
 	g.PersistReceive(completedEvent)
 	g.updateState(completedEvent)

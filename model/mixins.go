@@ -1,4 +1,7 @@
 package model
+
+import "github.com/golang/protobuf/ptypes/timestamp"
+
 // This contains mixins that add operations and types to the protobuf messages
 
 
@@ -81,11 +84,16 @@ type StageMessage interface {
 	GetStageId() string
 }
 
+type Event interface {
+	GetTs()  *timestamp.Timestamp
+}
+
 // AddStageCommand is any command that creates a stage  and Warrants an AddStageResponse
 type AddStageCommand interface {
 	GetGraphId() string
 	GetOperation() CompletionOperation
 }
+
 
 func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_externalCompletion

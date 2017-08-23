@@ -10,6 +10,7 @@ import (
 	"github.com/fnproject/completer/persistence"
 	"github.com/golang/protobuf/proto"
 	"encoding/json"
+	"strings"
 )
 
 type subscribeGraph struct {
@@ -107,6 +108,10 @@ func (l *wsWorker) Run() {
 	defer l.conn.Close()
 
 	lifecycleEventPred := func(event *persistence.StreamEvent) bool {
+		log.Infof("Got event %v",event)
+		if !strings.HasPrefix(event.ActorName,"supervisor/") {
+			return false
+		}
 		switch event.Event.(type) {
 		case *model.GraphCreatedEvent:
 			return true

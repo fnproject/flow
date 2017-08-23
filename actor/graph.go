@@ -1,6 +1,7 @@
 package actor
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -66,8 +67,7 @@ func (g *graphActor) receiveEvent(event model.Event) {
 
 	default:
 		if g.graph == nil {
-			g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
-			return
+			panic(fmt.Sprintf("Trying to replay event %v but graph is not initialized", reflect.TypeOf(event)))
 		}
 		g.graph.UpdateWithEvent(e, false)
 	}

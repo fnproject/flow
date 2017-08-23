@@ -14,6 +14,10 @@ import (
 
 var log = logrus.WithField("logger", "graph")
 
+const (
+	maxDelaySeconds = 900
+)
+
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
 	//OnExecuteStage indicates that  a stage is due to be executed with the given arguments
@@ -96,38 +100,23 @@ func (graph *CompletionGraph) NextStageID() string {
 
 // HandleStageAdded appends a stage into the graph updating the dpendencies of that stage
 // It returns an error if the stage event is invalid, or if another stage exists with the same ID
-func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, shouldTrigger bool) error {
+func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, shouldTrigger bool) {
 	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "op": event.Op})
 
 	strategy, err := getStrategyFromOperation(event.Op)
-
 	if err != nil {
-		log.Errorf("invalid/unsupported operation %s", event.Op)
-		return err
+		panic(fmt.Sprintf("invalid/unsupported operation %s", event.Op))
 	}
 
-	if graph.IsCompleted() {
-		log.Errorf("Graph already completed")
-		return fmt.Errorf("Graph already completed")
+	if len(event.Dependencies) < strategy.MinDependencies ||
+		strategy.MaxDependencies >= 0 && len(event.Dependencies) > strategy.MaxDependencies {
+		msg := fmt.Sprintf("Invalid no. of dependencies for operation %s, max %d, min %d, got %d",
+			event.Op.String(), strategy.MaxDependencies, strategy.MinDependencies, len(event.Dependencies))
+		panic(msg)
 	}
 
-	if len(event.Dependencies) < strategy.MinDependencies {
-		msg := fmt.Sprintf("Invalid Stage - insufficient dependencies for operation, need %d got %d", strategy.MinDependencies, len(event.Dependencies))
-		log.Error(msg)
-		return fmt.Errorf(msg)
-	}
-
-	if strategy.MaxDependencies >= 0 && len(event.Dependencies) > strategy.MaxDependencies {
-		msg := fmt.Sprintf("Invalid Stage - too many dependencies for operation, max %d got %d", strategy.MaxDependencies, len(event.Dependencies))
-		log.Error(msg)
-		return fmt.Errorf(msg)
-	}
-
-	_, hasStage := graph.stages[event.StageId]
-
-	if hasStage {
-		log.Error("Duplicate stage")
-		return fmt.Errorf("Duplicate stage %s", event.StageId)
+	if _, hasStage := graph.stages[event.StageId]; hasStage {
+		panic(fmt.Errorf("Duplicate stage %s", event.StageId))
 	}
 
 	depStages := make([]*CompletionStage, len(event.Dependencies))
@@ -135,9 +124,7 @@ func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, sho
 	for i, id := range event.Dependencies {
 		stage := graph.GetStage(id)
 		if stage == nil {
-			msg := fmt.Sprintf("Dependent stage %s not found", id)
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
+			panic(fmt.Sprintf("Dependent stage %s not found", id))
 		}
 		depStages[i] = stage
 	}
@@ -160,7 +147,6 @@ func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, sho
 	if shouldTrigger {
 		graph.triggerReadyStages()
 	}
-	return nil
 }
 
 // handleStageCompleted Indicates that a stage completion event has been processed and may be incorporated into the graph
@@ -271,7 +257,7 @@ func (graph *CompletionGraph) checkForCompletion() {
 }
 
 // UpdateWithEvent updates this graph's state according to the received event
-func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool) error {
+func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool) {
 	switch e := event.(type) {
 	case *model.GraphCommittedEvent:
 		graph.handleCommitted()
@@ -280,7 +266,7 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 		graph.handleCompleted()
 
 	case *model.StageAddedEvent:
-		return graph.handleStageAdded(e, mayTrigger)
+		graph.handleStageAdded(e, mayTrigger)
 
 	case *model.StageCompletedEvent:
 		graph.handleStageCompleted(e, mayTrigger)
@@ -293,8 +279,63 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 
 	default:
 		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
-		return fmt.Errorf("Unrecognised event %v", reflect.TypeOf(e))
+	}
+}
+
+// ValidateCommand validates whether the given command can be correctly applied to the current graph's state
+func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.ValidationError {
+	// disallow graph structural changes when complete
+	if addCmd, ok := cmd.(model.AddStageCommand); ok {
+		if graph.IsCompleted() {
+			return model.NewGraphCompletedError(addCmd.GetGraphId())
+		}
+		strategy, err := getStrategyFromOperation(addCmd.GetOperation())
+		if err != nil {
+			return model.NewInvalidOperationError(addCmd.GetGraphId(), addCmd.GetOperation().String())
+		}
+
+		if addCmd.GetDependencyCount() < strategy.MinDependencies ||
+			strategy.MaxDependencies >= 0 && addCmd.GetDependencyCount() > strategy.MaxDependencies {
+			return model.NewInvalidStageDependenciesError(addCmd.GetGraphId())
+		}
+	}
+
+	// Then do individual checks dependent on type
+	switch msg := cmd.(type) {
+	case *model.AddDelayStageRequest:
+		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds*1000 {
+			return model.NewInvalidDelayError(msg.GraphId, msg.DelayMs)
+		}
+
+	case *model.AddChainedStageRequest:
+		if valid := graph.validateStages(msg.Deps); !valid {
+			return model.NewInvalidStageDependenciesError(msg.GraphId)
+		}
+
+	case *model.CompleteStageExternallyRequest:
+		stage := graph.GetStage(msg.StageId)
+		if stage == nil {
+			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
+		}
+		if stage.GetOperation() != model.CompletionOperation_externalCompletion {
+			return model.NewStageNotCompletableError(msg.GraphId, msg.StageId)
+		}
+
+	case *model.GetStageResultRequest:
+		if valid := graph.validateStages(append(make([]string, 0), msg.StageId)); !valid {
+			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
+		}
 	}
 
 	return nil
+}
+
+// Validate a list of stages. If any of them is missing, returns false
+func (graph *CompletionGraph) validateStages(stageIDs []string) bool {
+	for _, stage := range stageIDs {
+		if graph.GetStage(stage) == nil {
+			return false
+		}
+	}
+	return true
 }

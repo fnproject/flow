@@ -9,13 +9,12 @@ import (
 	"github.com/fnproject/completer/graph"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
-	"github.com/sirupsen/logrus"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/sirupsen/logrus"
 )
 
 // TODO: read this from configuration!
 const (
-	maxDelaySeconds = 900
 	inactiveTimeout = time.Duration(24 * time.Hour)
 )
 
@@ -35,38 +34,24 @@ func NewGraphActor(executor *actor.PID) actor.Actor {
 	}
 }
 
-func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) {
-	// we always need to complete delay nodes from scratch to avoid completing twice
-	delayMs := event.TimeMs - timeMillis()
-	if delayMs > 0 {
-		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
-		// Wait for the delay in a goroutine so we can complete the request in the meantime
-		go func() {
-			<-time.After(time.Duration(delayMs) * time.Millisecond)
-			g.pid.Tell(&model.CompleteDelayStageRequest{
-				GraphId: g.graph.ID,
-				StageId: event.StageId,
-				Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
-			})
-		}()
+func (g *graphActor) Receive(context actor.Context) {
+	g.log.Debugf("Processing message %s (recovering=%v)", reflect.TypeOf(context.Message()), g.Recovering())
+	if g.Recovering() {
+		if e, ok := context.Message().(model.Event); ok {
+			g.receiveEvent(e)
+		}
 	} else {
-		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
-		g.pid.Tell(&model.CompleteDelayStageRequest{
-			GraphId: g.graph.ID,
-			StageId: event.StageId,
-			Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
-		})
+		if c, ok := context.Message().(model.Command); ok {
+			g.receiveCommand(c, context)
+		} else {
+			g.receiveMessage(context)
+		}
 	}
-}
-
-func timeMillis() int64 {
-	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
 func (g *graphActor) initGraph(event *model.GraphCreatedEvent) {
 	if g.graph != nil {
-		g.log.Warn("Graph is already initialized!")
-		return
+		panic("Graph is already initialized!")
 	}
 	g.log = g.log.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": event.GraphId, "function_id": event.FunctionId})
 	g.graph = graph.New(event.GraphId, event.FunctionId, g)
@@ -84,89 +69,29 @@ func (g *graphActor) receiveEvent(event model.Event) {
 			g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
 			return
 		}
-		g.graph.UpdateWithEvent(event, !g.Recovering())
+		g.graph.UpdateWithEvent(e, false)
 	}
-}
-
-// Validate a list of stages. If any of them is missing, returns false and the first stage which is missing.
-func (g *graphActor) validateStages(stageIDs []string) (bool, string) {
-	for _, stage := range stageIDs {
-		if g.graph.GetStage(stage) == nil {
-			return false, stage
-		}
-	}
-	return true, ""
 }
 
 // if validation fails, this method will respond to the request with an appropriate error message
-func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
-	// skip validation for initial create
-	if _, ok := cmd.(*model.CreateGraphRequest); ok {
-		return true
-	}
-
-	// First check the graph exists
-	if gm, ok := cmd.(model.GraphMessage); ok {
-		graphID := gm.GetGraphId()
-		if g.graph == nil {
-			context.Respond(NewGraphNotFoundError(graphID))
-			return false
-		}
-
-		// disallow graph structural changes when complete
-		switch msg := gm.(type) {
-		case *model.AddChainedStageRequest, *model.AddCompletedValueStageRequest, *model.AddDelayStageRequest, *model.AddExternalCompletionStageRequest, *model.AddInvokeFunctionStageRequest, *model.CompleteStageExternallyRequest:
-			if g.graph.IsCompleted() {
-				context.Respond(NewGraphCompletedError(msg.(model.GraphMessage).GetGraphId()))
-				return false
-			}
-		}
-	}
-
-	// Then do individual checks dependent on type
+func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool {
 	switch msg := cmd.(type) {
-	case *model.AddDelayStageRequest:
-		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds*1000 {
-			context.Respond(NewInvalidDelayError(msg.GraphId, msg.DelayMs))
+
+	case *model.CreateGraphRequest:
+		if g.graph != nil {
+			g.log.Warn("Graph has already been created")
+			context.Respond(model.NewGraphCreationError(msg.GetGraphId()))
 			return false
 		}
 
-	case *model.AddChainedStageRequest:
-		valid, missing := g.validateStages(msg.Deps)
-		if !valid {
-			context.Respond(NewStageNotFoundError(msg.GraphId, missing))
+	default:
+		if g.graph == nil {
+			context.Respond(model.NewGraphNotFoundError(msg.GetGraphId()))
 			return false
 		}
 
-	case *model.CompleteDelayStageRequest:
-		if g.graph.IsCompleted() {
-			// ignore internal CompleteDelaysStageRequest messages
-			// to avoid accumulating duplicate StageCompletedEvents
-			return false
-		}
-
-	case *model.CompleteStageExternallyRequest:
-		stage := g.graph.GetStage(msg.StageId)
-		if stage == nil {
-			context.Respond(NewStageNotFoundError(msg.GraphId, msg.StageId))
-			return false
-		}
-		if stage.GetOperation() != model.CompletionOperation_externalCompletion {
-			g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Stage is not externally completable")
-			context.Respond(NewStageNotCompletableError(msg.GraphId, msg.StageId))
-			return false
-		}
-
-	case *model.GetStageResultRequest:
-		valid, missing := g.validateStages(append(make([]string, 0), msg.StageId))
-		if !valid {
-			context.Respond(NewStageNotFoundError(msg.GraphId, missing))
-			return false
-		}
-
-	case *model.CommitGraphRequest:
-		if g.graph.IsCompleted() || g.graph.IsCommitted() {
-			context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
+		if validationError := g.graph.ValidateCommand(msg); validationError != nil {
+			context.Respond(validationError)
 			return false
 		}
 	}
@@ -183,12 +108,12 @@ func currentTimestamp() *timestamp.Timestamp {
 	}
 }
 
-func (g *graphActor) receiveCommand(context actor.Context) {
-	if !g.validateCmd(context.Message(), context) {
+func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
+	if !g.validateCmd(cmd, context) {
 		return
 	}
 
-	switch msg := context.Message().(type) {
+	switch msg := cmd.(type) {
 
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
@@ -203,81 +128,81 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddChainedStageRequest:
 		g.log.Debug("Adding chained stage")
-		stageId := g.graph.NextStageID()
+		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId:      stageId,
+			StageId:      stageID,
 			Op:           msg.Operation,
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 			Ts:           currentTimestamp(),
 		})
 
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddCompletedValueStageRequest:
 		g.log.Debug("Adding completed value stage")
-		stageId := g.graph.NextStageID()
+		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageId,
+			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		})
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
-			StageId: stageId,
+			StageId: stageID,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
 		})
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddDelayStageRequest:
 		g.log.Debug("Adding delay stage")
-		stageId := g.graph.NextStageID()
+		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageId,
+			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		})
 		delayEvent := &model.DelayScheduledEvent{
-			StageId: stageId,
+			StageId: stageID,
 			TimeMs:  timeMillis() + msg.DelayMs,
 			Ts:      currentTimestamp(),
 		}
 		g.PersistReceive(delayEvent)
-		g.applyDelayScheduledEvent(delayEvent)
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
+		g.scheduleDelay(delayEvent)
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddExternalCompletionStageRequest:
 		g.log.Debug("Adding external completion stage")
-		stageId := g.graph.NextStageID()
+		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageId,
+			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		})
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
-		stageId := g.graph.NextStageID()
+		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageId,
+			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		})
 
 		g.executor.Request(&model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
-			StageId:    stageId,
+			StageId:    stageID,
 			FunctionId: msg.FunctionId,
 			Arg:        msg.Arg,
 		}, g.GetSelf())
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
@@ -293,17 +218,22 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
+		response := &model.CommitGraphProcessed{GraphId: msg.GraphId}
+		if g.graph.IsCommitted() {
+			// idempotent
+			context.Respond(response)
+			return
+		}
 		g.log.Debug("Committing graph")
-
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
-		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
+		context.Respond(response)
 
 	case *model.GetStageResultRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
-				context.Respond(NewStageCompletionError(msg.GraphId, msg.StageId))
+				context.Respond(model.NewStageCompletionError(msg.GraphId, msg.StageId))
 				return
 			}
 			response := &model.GetStageResultResponse{
@@ -315,6 +245,10 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		})
 
 	case *model.CompleteDelayStageRequest:
+		if g.graph.IsCompleted() {
+			// avoids accumulating duplicate StageCompletedEvents
+			return
+		}
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
@@ -337,6 +271,13 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		// tell supervisor to remove us from active graphs
 		context.Parent().Tell(msg)
 
+	default:
+		g.log.Debugf("Ignoring command of unknown type %v", reflect.TypeOf(msg))
+	}
+}
+
+func (g *graphActor) receiveMessage(context actor.Context) {
+	switch msg := context.Message().(type) {
 	case *protoPersistence.RequestSnapshot:
 		// snapshots are currently not supported
 		// NOOP
@@ -367,6 +308,34 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	default:
 		g.log.Debugf("Ignoring message of unknown type %v", reflect.TypeOf(msg))
 	}
+}
+
+func (g *graphActor) scheduleDelay(event *model.DelayScheduledEvent) {
+	// we always need to complete delay nodes from scratch to avoid completing twice
+	delayMs := event.TimeMs - timeMillis()
+	if delayMs > 0 {
+		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
+		// Wait for the delay in a goroutine so we can complete the request in the meantime
+		go func() {
+			<-time.After(time.Duration(delayMs) * time.Millisecond)
+			g.pid.Tell(&model.CompleteDelayStageRequest{
+				GraphId: g.graph.ID,
+				StageId: event.StageId,
+				Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
+			})
+		}()
+	} else {
+		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
+		g.pid.Tell(&model.CompleteDelayStageRequest{
+			GraphId: g.graph.ID,
+			StageId: event.StageId,
+			Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
+		})
+	}
+}
+
+func timeMillis() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
 func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
@@ -400,17 +369,6 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Stages:     stageOut,
-	}
-}
-
-func (g *graphActor) Receive(context actor.Context) {
-	g.log.Debugf("Processing message %s (recovering=%v)", reflect.TypeOf(context.Message()), g.Recovering())
-	if g.Recovering() {
-		if e, ok := context.Message().(model.Event); ok {
-			g.receiveEvent(e)
-		}
-	} else {
-		g.receiveCommand(context)
 	}
 }
 
@@ -460,15 +418,14 @@ func (g *graphActor) OnCompleteGraph() {
 		Ts:         currentTimestamp(),
 	})
 	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
-
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph
 func (g *graphActor) persistAndUpdateGraph(event model.Event) {
-	g.PersistReceive(event)
 	if g.graph == nil {
 		g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
 		return
 	}
+	g.PersistReceive(event)
 	g.graph.UpdateWithEvent(event, !g.Recovering())
 }

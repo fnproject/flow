@@ -54,7 +54,7 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 		child, err := s.spawnGraphActor(context, msg.GraphId)
 		if err != nil {
 			s.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
-			context.Respond(NewGraphCreationError(msg.GraphId))
+			context.Respond(model.NewGraphCreationError(msg.GraphId))
 			return
 		}
 		s.PersistReceive(&model.GraphCreatedEvent{GraphId: msg.GraphId})
@@ -74,7 +74,7 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 		child, err := s.getGraphActor(context, msg.GetGraphId())
 		if err != nil {
 			s.log.WithFields(logrus.Fields{"graph_id": msg.GetGraphId()}).Warn("No child actor found")
-			context.Respond(NewGraphNotFoundError(msg.GetGraphId()))
+			context.Respond(model.NewGraphNotFoundError(msg.GetGraphId()))
 			return
 		}
 		child.Request(msg, context.Sender())

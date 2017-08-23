@@ -1,12 +1,11 @@
 package model
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // This contains mixins that add operations and types to the protobuf messages
-
 
 // GetHeaderValues returns a list of values of the headers with the corresponding key in HttpReqDatum
 func (m *HttpReqDatum) GetHeaderValues(key string) []string {
@@ -68,7 +67,6 @@ type BadRequestError interface {
 	UserMessage() string
 }
 
-
 func (m *InvalidGraphOperation) UserMessage() string {
 	return m.Err
 }
@@ -77,16 +75,13 @@ func (m *InvalidStageOperation) UserMessage() string {
 	return m.Err
 }
 
-
 type GraphMessage interface {
 	proto.Message
-
 	GetGraphId() string
 }
 
 type StageMessage interface {
 	proto.Message
-
 	GetGraphId() string
 	GetStageId() string
 }
@@ -94,25 +89,53 @@ type StageMessage interface {
 // Event is the base interface for all things that may be persisted to the Journal
 type Event interface {
 	proto.Message
-	GetTs()  *timestamp.Timestamp
+	GetTs() *timestamp.Timestamp
 }
+
+// Command is the base interface for all user-facing graph requests
+type Command interface {
+	GraphMessage
+}
+
 // AddStageCommand is any command that creates a stage  and Warrants an AddStageResponse
 type AddStageCommand interface {
 	GetGraphId() string
 	GetOperation() CompletionOperation
+	GetDependencyCount() int
 }
 
 func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_externalCompletion
 }
 
+func (m *AddExternalCompletionStageRequest) GetDependencyCount() int {
+	return 0
+}
+
 func (m *AddCompletedValueStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_completedValue
+}
+
+func (m *AddCompletedValueStageRequest) GetDependencyCount() int {
+	return 0
 }
 
 func (m *AddDelayStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_delay
 }
+
 func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_invokeFunction
+}
+
+func (m *AddChainedStageRequest) GetDependencyCount() int {
+	return len(m.Deps)
+}
+
+func (m *AddDelayStageRequest) GetDependencyCount() int {
+	return 0
+}
+
+func (m *AddInvokeFunctionStageRequest) GetDependencyCount() int {
+	return 0
 }

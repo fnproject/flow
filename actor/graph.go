@@ -178,7 +178,7 @@ func currentTimestamp() *timestamp.Timestamp {
 		Nanos:   int32(now.Nanosecond()),
 	}
 }
-func (g *graphActor) updateState(event interface{}) {
+func (g *graphActor) updateState(event model.Event) {
 	if g.graph == nil {
 		g.log.Warnf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
 		return
@@ -196,7 +196,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId, Ts: currentTimestamp()}
-		g.PersistReceive(event)
+		g.persistEvent(event)
 		g.initGraph(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
@@ -213,7 +213,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Dependencies: msg.Deps,
 			Ts:           currentTimestamp(),
 		}
-		g.PersistReceive(event)
+		g.persistEvent(event)
 		g.updateState(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -224,14 +224,14 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(addedEvent)
+		g.persistEvent(addedEvent)
 		g.updateState(addedEvent)
 		completedEvent := &model.StageCompletedEvent{
 			StageId: addedEvent.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(completedEvent)
+		g.persistEvent(completedEvent)
 		g.updateState(completedEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -242,14 +242,14 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(addedEvent)
+		g.persistEvent(addedEvent)
 		g.updateState(addedEvent)
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: addedEvent.StageId,
 			TimeMs:  timeMillis() + msg.DelayMs,
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(delayEvent)
+		g.persistEvent(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
@@ -260,7 +260,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(event)
+		g.persistEvent(event)
 		g.updateState(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
@@ -271,7 +271,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(event)
+		g.persistEvent(event)
 		g.updateState(event)
 		req := &model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
@@ -292,7 +292,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 				Result:  msg.Result,
 				Ts:      currentTimestamp(),
 			}
-			g.PersistReceive(completedEvent)
+			g.persistEvent(completedEvent)
 			g.updateState(completedEvent)
 		}
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
@@ -300,7 +300,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *model.CommitGraphRequest:
 		g.log.Debug("Committing graph")
 		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()}
-		g.PersistReceive(committedEvent)
+		g.persistEvent(committedEvent)
 		g.updateState(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
@@ -327,7 +327,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
 		}
-		g.PersistReceive(completedEvent)
+		g.persistEvent(completedEvent)
 		g.updateState(completedEvent)
 
 	case *model.FaasInvocationResponse:
@@ -443,7 +443,7 @@ func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model
 		Result:  result,
 		Ts:      currentTimestamp(),
 	}
-	g.PersistReceive(completedEvent)
+	g.persistEvent(completedEvent)
 	g.updateState(completedEvent)
 }
 
@@ -455,7 +455,7 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 		ComposedStageId: composedStage.ID,
 		Ts:              currentTimestamp(),
 	}
-	g.PersistReceive(composedEvent)
+	g.persistEvent(composedEvent)
 	g.updateState(composedEvent)
 }
 
@@ -470,7 +470,11 @@ func (g *graphActor) OnCompleteGraph() {
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	}
-	g.PersistReceive(completedEvent)
+	g.persistEvent(completedEvent)
 	g.updateState(completedEvent)
-	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+}
+
+// persistEvent
+func (g *graphActor) persistEvent( event model.Event) {
+	g.PersistReceive(event)
 }

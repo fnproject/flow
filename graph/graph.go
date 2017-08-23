@@ -271,7 +271,7 @@ func (graph *CompletionGraph) checkForCompletion() {
 }
 
 // UpdateWithEvent updates this graph's state according to the received event
-func (graph *CompletionGraph) UpdateWithEvent(event interface{}, mayTrigger bool) error {
+func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool) error {
 	switch e := event.(type) {
 	case *model.GraphCommittedEvent:
 		graph.handleCommitted()

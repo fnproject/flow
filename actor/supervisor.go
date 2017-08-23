@@ -66,6 +66,9 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 			s.PersistReceive(&model.GraphCompletedEvent{GraphId: msg.GraphId})
 			s.handleInactiveGraph(msg.GraphId)
 		}
+		if child, ok := s.findChild(context, msg.GraphId); ok {
+			child.Tell(&actor.PoisonPill{})
+		}
 
 	case model.GraphMessage:
 		child, err := s.getGraphActor(context, msg.GetGraphId())
@@ -103,9 +106,7 @@ func (s *graphSupervisor) receiveEvent(context actor.Context) {
 
 // this method will spawn a graph actor if it doesn't already exist
 func (s *graphSupervisor) getGraphActor(context actor.Context, graphID string) (*actor.PID, error) {
-	child, ok := s.findChild(context, graphID)
-	if ok {
-		s.log.WithFields(logrus.Fields{"graph_id": graphID}).Infof("Found graph actor %s", child.Id)
+	if child, ok := s.findChild(context, graphID); ok {
 		return child, nil
 	}
 	return s.spawnGraphActor(context, graphID)

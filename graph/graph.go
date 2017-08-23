@@ -3,6 +3,7 @@ package graph
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -65,7 +66,7 @@ func (graph *CompletionGraph) IsCommitted() bool {
 
 // HandleCommitted Commits Graph  - this allows it to complete once all outstanding execution is finished
 // When a graph is Committed stages may still be added but only only while at least one stage is executing
-func (graph *CompletionGraph) HandleCommitted() {
+func (graph *CompletionGraph) handleCommitted() {
 	graph.log.Info("committing graph")
 	graph.committed = true
 	graph.checkForCompletion()
@@ -78,7 +79,7 @@ func (graph *CompletionGraph) IsCompleted() bool {
 
 // HandleCompleted closes the graph for modifications
 // this should only be called once an OnComplete event has been emmitted by the graph
-func (graph *CompletionGraph) HandleCompleted() {
+func (graph *CompletionGraph) handleCompleted() {
 	graph.log.Info("completing graph")
 	graph.completed = true
 }
@@ -95,7 +96,7 @@ func (graph *CompletionGraph) NextStageID() string {
 
 // HandleStageAdded appends a stage into the graph updating the dpendencies of that stage
 // It returns an error if the stage event is invalid, or if another stage exists with the same ID
-func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, shouldTrigger bool) error {
+func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, shouldTrigger bool) error {
 	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "op": event.Op})
 
 	strategy, err := getStrategyFromOperation(event.Op)
@@ -162,9 +163,9 @@ func (graph *CompletionGraph) HandleStageAdded(event *model.StageAddedEvent, sho
 	return nil
 }
 
-// HandleStageCompleted Indicates that a stage completion event has been processed and may be incorporated into the graph
+// handleStageCompleted Indicates that a stage completion event has been processed and may be incorporated into the graph
 // This should be called when recovering a graph or within an OnStageCompleted event
-func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEvent, shouldTrigger bool) bool {
+func (graph *CompletionGraph) handleStageCompleted(event *model.StageCompletedEvent, shouldTrigger bool) bool {
 	log := graph.log.WithFields(logrus.Fields{"success": event.Result.Successful, "stage_id": event.StageId})
 	log.Info("Completing node")
 	node := graph.stages[event.StageId]
@@ -183,17 +184,17 @@ func (graph *CompletionGraph) HandleStageCompleted(event *model.StageCompletedEv
 	return success
 }
 
-// HandleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
+// handleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
 // This may signal completion of the stage (in which case a Complete Event is raised)
-func (graph *CompletionGraph) HandleInvokeComplete(stageID string, result *model.CompletionResult) {
-	log.WithField("stage_id", stageID).Info("Completing stage with faas response")
-	stage := graph.stages[stageID]
-	stage.handleResult(graph, result)
+func (graph *CompletionGraph) handleInvokeComplete(event *model.FaasInvocationCompletedEvent) {
+	log.WithField("stage_id", event.StageId).Info("Completing stage with faas response")
+	stage := graph.stages[event.StageId]
+	stage.handleResult(graph, event.Result)
 }
 
-// HandleStageComposed handles a compose nodes event  - this should be called on graph recovery,
+// handleStageComposed handles a compose nodes event  - this should be called on graph recovery,
 // or within an OnComposeStage event
-func (graph *CompletionGraph) HandleStageComposed(event *model.StageComposedEvent) {
+func (graph *CompletionGraph) handleStageComposed(event *model.StageComposedEvent) {
 	log := graph.log.WithFields(logrus.Fields{"stage": event.StageId, "composed_stage": event.ComposedStageId})
 	log.Info("Setting composed reference")
 	outer := graph.stages[event.StageId]
@@ -267,4 +268,33 @@ func (graph *CompletionGraph) checkForCompletion() {
 			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending executions before graph can be completed")
 		}
 	}
+}
+
+// UpdateWithEvent updates this graph's state according to the received event
+func (graph *CompletionGraph) UpdateWithEvent(event interface{}, mayTrigger bool) error {
+	switch e := event.(type) {
+	case *model.GraphCommittedEvent:
+		graph.handleCommitted()
+
+	case *model.GraphCompletedEvent:
+		graph.handleCompleted()
+
+	case *model.StageAddedEvent:
+		return graph.handleStageAdded(e, mayTrigger)
+
+	case *model.StageCompletedEvent:
+		graph.handleStageCompleted(e, mayTrigger)
+
+	case *model.FaasInvocationCompletedEvent:
+		graph.handleInvokeComplete(e)
+
+	case *model.StageComposedEvent:
+		graph.handleStageComposed(e)
+
+	default:
+		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
+		return fmt.Errorf("Unrecognised event %v", reflect.TypeOf(e))
+	}
+
+	return nil
 }

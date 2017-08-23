@@ -79,12 +79,11 @@ func TestShouldCompleteValue(t *testing.T) {
 	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
-	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s.ID), Result: result}, true)
+	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s.ID), Result: result}, true)
 
 	m.AssertExpectations(t)
 	assertStageCompletedSuccessfullyWith(t, s, result)
 }
-
 
 func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	m := &MockedListener{}
@@ -101,7 +100,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	result := model.NewSuccessfulResult(value)
 
 	m.On("OnExecuteStage", s2, []*model.Datum{value}).Return()
-	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, true)
+	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, true)
 	m.AssertExpectations(t)
 
 }
@@ -140,7 +139,7 @@ func TestShouldPropagateFailureToSecondStage(t *testing.T) {
 	result := model.NewFailedResult(value)
 
 	m.On("OnCompleteStage", s2, result).Return()
-	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, true)
+	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, true)
 	m.AssertExpectations(t)
 
 }
@@ -159,7 +158,7 @@ func TestShouldNotTriggerOnSubsequentCompletion(t *testing.T) {
 	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
-	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, false)
+	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, false)
 	m.AssertExpectations(t)
 
 }
@@ -182,15 +181,22 @@ func TestShouldTriggerCompose(t *testing.T) {
 
 	// complete S2 with a ref to s3
 	m.On("OnComposeStage", s2, s3).Return()
-	g.HandleStageComposed(&model.StageComposedEvent{StageId: string(s2.ID), ComposedStageId: string(s3.ID)})
-	g.HandleInvokeComplete(s2.ID, model.NewSuccessfulResult(model.NewStageRefDatum(string(s3.ID))))
+	g.UpdateWithEvent(&model.StageComposedEvent{StageId: string(s2.ID), ComposedStageId: string(s3.ID)}, true)
+
+	completed :=
+		&model.FaasInvocationCompletedEvent{
+			StageId: string(s2.ID),
+			Result:  model.NewSuccessfulResult(model.NewStageRefDatum(string(s3.ID))),
+		}
+	g.UpdateWithEvent(completed, true)
+
 	assertStagePending(t, s2)
 
 	result2 := model.NewSuccessfulResult(model.NewBlobDatum(sampleBlob("New Blob")))
 	// s2 should now  be completed with s2's result
 	m.On("OnCompleteStage", s2, result2).Return()
 
-	g.HandleStageCompleted(&model.StageCompletedEvent{StageId: string(s3.ID), Result: result2}, true)
+	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s3.ID), Result: result2}, true)
 
 	// No triggers
 	m.AssertExpectations(t)
@@ -230,7 +236,7 @@ func TestShouldRejectUnknownStage(t *testing.T) {
 		Dependencies: []string{},
 	}
 
-	assert.Error(t, g.HandleStageAdded(event, false))
+	assert.Error(t, g.UpdateWithEvent(event, false))
 
 }
 
@@ -246,12 +252,11 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 		Dependencies: []string{},
 	}
 
-	assert.Error(t, g.HandleStageAdded(event, false))
+	assert.Error(t, g.UpdateWithEvent(event, false))
 }
 
-func TestShouldRejectStageWithInsufficientDependencies(t *testing.T){
+func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
 	m := &MockedListener{}
-
 
 	g := New("graph", "function", m)
 
@@ -262,13 +267,11 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T){
 		Dependencies: []string{},
 	}
 
-	assert.Error(t,g.HandleStageAdded(event,false))
+	assert.Error(t, g.UpdateWithEvent(event, false))
 }
 
-
-func TestShouldRejectStageWithTooManyDependencies(t *testing.T){
+func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
 	m := &MockedListener{}
-
 
 	g := New("graph", "function", m)
 
@@ -276,16 +279,14 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T){
 		StageId:      string("stage"),
 		Op:           model.CompletionOperation_thenApply,
 		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{"s1","s2"},
+		Dependencies: []string{"s1", "s2"},
 	}
 
-	assert.Error(t,g.HandleStageAdded(event,false))
+	assert.Error(t, g.UpdateWithEvent(event, false))
 
 }
 
-
-
-func TestShouldRejectStageWithUnknownDependency(t *testing.T){
+func TestShouldRejectStageWithUnknownDependency(t *testing.T) {
 	m := &MockedListener{}
 	g := New("graph", "function", m)
 
@@ -296,7 +297,7 @@ func TestShouldRejectStageWithUnknownDependency(t *testing.T){
 		Dependencies: []string{"unknown"},
 	}
 
-	assert.Error(t,g.HandleStageAdded(event,false))
+	assert.Error(t, g.UpdateWithEvent(event, false))
 
 }
 func TestShouldCompleteEmptyGraph(t *testing.T) {
@@ -304,7 +305,7 @@ func TestShouldCompleteEmptyGraph(t *testing.T) {
 
 	g := New("graph", "function", m)
 	m.On("OnCompleteGraph").Return()
-	g.HandleCommitted()
+	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
 	m.AssertExpectations(t)
 }
 
@@ -314,7 +315,7 @@ func TestShouldNotCompletePendingGraph(t *testing.T) {
 	g := New("graph", "function", m)
 	withSimpleStage(g, false)
 	assert.False(t, g.IsCompleted())
-	g.HandleCommitted()
+	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
 	m.AssertExpectations(t)
 }
 
@@ -323,8 +324,8 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 
 	g := New("graph", "function", m)
 	m.On("OnCompleteGraph").Return()
-	g.HandleCommitted()
-	g.HandleCompleted()
+	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
+	g.UpdateWithEvent(&model.GraphCompletedEvent{GraphId: "graph", FunctionId: "function"}, true)
 
 	event := &model.StageAddedEvent{
 		StageId:      g.NextStageID(),
@@ -333,7 +334,7 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 		Dependencies: []string{},
 	}
 
-	err := g.HandleStageAdded(event, false)
+	err := g.UpdateWithEvent(event, false)
 	assert.Error(t, err)
 	m.AssertExpectations(t)
 }
@@ -346,7 +347,7 @@ func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 		Dependencies: []string{},
 	}
 
-	g.HandleStageAdded(event, trigger)
+	g.UpdateWithEvent(event, trigger)
 	return g.GetStage(event.StageId)
 }
 
@@ -358,7 +359,7 @@ func withAppendedStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Co
 		Dependencies: []string{string(s.ID)},
 	}
 
-	g.HandleStageAdded(event, trigger)
+	g.UpdateWithEvent(event, trigger)
 	return g.GetStage(event.StageId)
 }
 
@@ -370,7 +371,7 @@ func withComposeStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Com
 		Dependencies: []string{string(s.ID)},
 	}
 
-	g.HandleStageAdded(event, trigger)
+	g.UpdateWithEvent(event, trigger)
 	return g.GetStage(event.StageId)
 }
 
@@ -387,8 +388,8 @@ func assertStageCompletedSuccessfullyWith(t *testing.T, s *CompletionStage, resu
 
 func sampleBlob(id string) *model.BlobDatum {
 	return &model.BlobDatum{
-		BlobId:id,
-		ContentType:"content/type",
-		Length: 101,
+		BlobId:      id,
+		ContentType: "content/type",
+		Length:      101,
 	}
 }

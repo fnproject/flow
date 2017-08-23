@@ -294,3 +294,8 @@ message StageComposedEvent {
     string stage_id = 1;
     string composed_stage_id = 2;
 }
+
+message FaasInvocationCompletedEvent {
+    string stage_id = 1;
+    CompletionResult result = 2;
+}

@@ -34,38 +34,6 @@ func NewGraphActor(executor *actor.PID) actor.Actor {
 	}
 }
 
-func (g *graphActor) applyGraphCreatedEvent(event *model.GraphCreatedEvent) {
-	g.log = g.log.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": event.GraphId, "function_id": event.FunctionId})
-	g.graph = graph.New(event.GraphId, event.FunctionId, g)
-}
-
-func (g *graphActor) applyGraphCommittedEvent(event *model.GraphCommittedEvent) {
-	g.log.Debug("Committing graph")
-	g.graph.HandleCommitted()
-}
-
-func (g *graphActor) applyGraphCompletedEvent(event *model.GraphCompletedEvent) {
-	g.log.Debug("Completing graph")
-	g.graph.HandleCompleted()
-	// tell ourselves we are complete so we can message parent via context
-	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
-}
-
-func (g *graphActor) applyStageAddedEvent(event *model.StageAddedEvent) {
-	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Adding stage")
-	g.graph.HandleStageAdded(event, !g.Recovering())
-}
-
-func (g *graphActor) applyStageCompletedEvent(event *model.StageCompletedEvent) {
-	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Completing stage")
-	g.graph.HandleStageCompleted(event, !g.Recovering())
-}
-
-func (g *graphActor) applyStageComposedEvent(event *model.StageComposedEvent) {
-	g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Composing stage")
-	g.graph.HandleStageComposed(event)
-}
-
 func (g *graphActor) applyDelayScheduledEvent(event *model.DelayScheduledEvent) {
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := event.TimeMs - timeMillis()
@@ -94,26 +62,24 @@ func timeMillis() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
 
+func (g *graphActor) initGraph(event *model.GraphCreatedEvent) {
+	if g.graph != nil {
+		g.log.Warn("Graph is already initialized!")
+		return
+	}
+	g.log = g.log.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": event.GraphId, "function_id": event.FunctionId})
+	g.graph = graph.New(event.GraphId, event.FunctionId, g)
+}
+
 func (g *graphActor) receiveEvent(context actor.Context) {
-	switch msg := context.Message().(type) {
+
+	switch event := context.Message().(type) {
 
 	case *model.GraphCreatedEvent:
-		g.applyGraphCreatedEvent(msg)
-	case *model.StageAddedEvent:
-		g.applyStageAddedEvent(msg)
-	case *model.StageCompletedEvent:
-		g.applyStageCompletedEvent(msg)
-	case *model.DelayScheduledEvent:
-		g.applyDelayScheduledEvent(msg)
-	case *model.StageComposedEvent:
-		g.applyStageComposedEvent(msg)
-	case *model.GraphCommittedEvent:
-		g.applyGraphCommittedEvent(msg)
-	case *model.GraphCompletedEvent:
-		g.applyGraphCompletedEvent(msg)
+		g.initGraph(event)
 
 	default:
-		g.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
+		g.updateState(event)
 	}
 }
 
@@ -203,6 +169,14 @@ func (g *graphActor) validateCmd(cmd interface{}, context actor.Context) bool {
 	return true
 }
 
+func (g *graphActor) updateState(event interface{}) {
+	if g.graph == nil {
+		g.log.Warnf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
+		return
+	}
+	g.graph.UpdateWithEvent(event, !g.Recovering())
+}
+
 func (g *graphActor) receiveCommand(context actor.Context) {
 	if !g.validateCmd(context.Message(), context) {
 		return
@@ -214,7 +188,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
 		g.PersistReceive(event)
-		g.applyGraphCreatedEvent(event)
+		g.initGraph(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.GetGraphStateRequest:
@@ -230,7 +204,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Dependencies: msg.Deps,
 		}
 		g.PersistReceive(event)
-		g.applyStageAddedEvent(event)
+		g.updateState(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddCompletedValueStageRequest:
@@ -240,13 +214,13 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(addedEvent)
-		g.applyStageAddedEvent(addedEvent)
+		g.updateState(addedEvent)
 		completedEvent := &model.StageCompletedEvent{
 			StageId: addedEvent.StageId,
 			Result:  msg.Result,
 		}
 		g.PersistReceive(completedEvent)
-		g.applyStageCompletedEvent(completedEvent)
+		g.updateState(completedEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
 
 	case *model.AddDelayStageRequest:
@@ -256,7 +230,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(addedEvent)
-		g.applyStageAddedEvent(addedEvent)
+		g.updateState(addedEvent)
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: addedEvent.StageId,
 			TimeMs:  timeMillis() + msg.DelayMs,
@@ -272,7 +246,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(event)
-		g.applyStageAddedEvent(event)
+		g.updateState(event)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
 
 	case *model.AddInvokeFunctionStageRequest:
@@ -282,7 +256,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Op:      msg.GetOperation(),
 		}
 		g.PersistReceive(event)
-		g.applyStageAddedEvent(event)
+		g.updateState(event)
 		req := &model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    event.StageId,
@@ -302,8 +276,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 				Result:  msg.Result,
 			}
 			g.PersistReceive(completedEvent)
-			g.applyStageCompletedEvent(completedEvent)
-
+			g.updateState(completedEvent)
 		}
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
@@ -311,7 +284,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		g.log.Debug("Committing graph")
 		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId}
 		g.PersistReceive(committedEvent)
-		g.applyGraphCommittedEvent(committedEvent)
+		g.updateState(committedEvent)
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
@@ -337,17 +310,21 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Result:  msg.Result,
 		}
 		g.PersistReceive(completedEvent)
-		g.applyStageCompletedEvent(completedEvent)
+		g.updateState(completedEvent)
 
 	case *model.FaasInvocationResponse:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
-		g.graph.HandleInvokeComplete(msg.StageId, msg.Result)
+		completedEvent := &model.FaasInvocationCompletedEvent{
+			StageId: msg.StageId,
+			Result:  msg.Result,
+		}
+		g.PersistReceive(completedEvent)
+		g.updateState(completedEvent)
 
 	case *model.DeactivateGraphRequest:
 		g.log.Debug("Telling supervisor graph is completed")
 		// tell supervisor to remove us from active graphs
 		context.Parent().Tell(msg)
-		context.Self().Stop()
 
 	case *protoPersistence.RequestSnapshot:
 		// snapshots are currently not supported
@@ -364,12 +341,16 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			// tell supervisor to remove us from active graphs
 			context.Parent().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 		}
-		context.Self().Stop()
 
 	case *protoPersistence.ReplayComplete:
 		if g.graph != nil {
 			g.log.Debug("Replay completed")
 			g.graph.Recover()
+
+			if g.graph.IsCompleted() {
+				// tell supervisor to remove us from active graphs
+				context.Parent().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+			}
 		}
 
 	default:
@@ -441,7 +422,7 @@ func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model
 		Result:  result,
 	}
 	g.PersistReceive(completedEvent)
-	g.applyStageCompletedEvent(completedEvent)
+	g.updateState(completedEvent)
 }
 
 //OnCompose Stage indicates that another stage should be composed into this one
@@ -452,7 +433,7 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 		ComposedStageId: composedStage.ID,
 	}
 	g.PersistReceive(composedEvent)
-	g.applyStageComposedEvent(composedEvent)
+	g.updateState(composedEvent)
 }
 
 //OnCompleteGraph indicates that the graph is now finished and cannot be modified
@@ -466,5 +447,6 @@ func (g *graphActor) OnCompleteGraph() {
 		FunctionId: g.graph.FunctionID,
 	}
 	g.PersistReceive(completedEvent)
-	g.applyGraphCompletedEvent(completedEvent)
+	g.updateState(completedEvent)
+	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 }

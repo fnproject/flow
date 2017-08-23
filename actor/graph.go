@@ -80,7 +80,11 @@ func (g *graphActor) receiveEvent(event model.Event) {
 		g.initGraph(e)
 
 	default:
-		g.updateState(e)
+		if g.graph == nil {
+			g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
+			return
+		}
+		g.graph.UpdateWithEvent(event, !g.Recovering())
 	}
 }
 
@@ -178,13 +182,6 @@ func currentTimestamp() *timestamp.Timestamp {
 		Nanos:   int32(now.Nanosecond()),
 	}
 }
-func (g *graphActor) updateState(event model.Event) {
-	if g.graph == nil {
-		g.log.Warnf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
-		return
-	}
-	g.graph.UpdateWithEvent(event, !g.Recovering())
-}
 
 func (g *graphActor) receiveCommand(context actor.Context) {
 	if !g.validateCmd(context.Message(), context) {
@@ -196,7 +193,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId, Ts: currentTimestamp()}
-		g.persistEvent(event)
+		g.PersistReceive(event)
 		g.initGraph(event)
 		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
@@ -206,102 +203,99 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddChainedStageRequest:
 		g.log.Debug("Adding chained stage")
-		event := &model.StageAddedEvent{
-			StageId:      g.graph.NextStageID(),
+		stageId:= g.graph.NextStageID()
+
+		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			StageId:      stageId,
 			Op:           msg.Operation,
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 			Ts:           currentTimestamp(),
-		}
-		g.persistEvent(event)
-		g.updateState(event)
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
+		})
+
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
 
 	case *model.AddCompletedValueStageRequest:
 		g.log.Debug("Adding completed value stage")
-		addedEvent := &model.StageAddedEvent{
-			StageId: g.graph.NextStageID(),
+		stageId:= g.graph.NextStageID()
+
+		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			StageId: stageId,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
-		}
-		g.persistEvent(addedEvent)
-		g.updateState(addedEvent)
-		completedEvent := &model.StageCompletedEvent{
-			StageId: addedEvent.StageId,
+		})
+
+		g.persistAndUpdateGraph(&model.StageCompletedEvent{
+			StageId: stageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
-		}
-		g.persistEvent(completedEvent)
-		g.updateState(completedEvent)
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
+		})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
 
 	case *model.AddDelayStageRequest:
 		g.log.Debug("Adding delay stage")
-		addedEvent := &model.StageAddedEvent{
-			StageId: g.graph.NextStageID(),
+		stageId:= g.graph.NextStageID()
+
+		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			StageId: stageId,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
-		}
-		g.persistEvent(addedEvent)
-		g.updateState(addedEvent)
+		})
 		delayEvent := &model.DelayScheduledEvent{
-			StageId: addedEvent.StageId,
+			StageId: stageId,
 			TimeMs:  timeMillis() + msg.DelayMs,
 			Ts:      currentTimestamp(),
 		}
-		g.persistEvent(delayEvent)
+		g.PersistReceive(delayEvent)
 		g.applyDelayScheduledEvent(delayEvent)
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: addedEvent.StageId})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
 
 	case *model.AddExternalCompletionStageRequest:
 		g.log.Debug("Adding external completion stage")
-		event := &model.StageAddedEvent{
-			StageId: g.graph.NextStageID(),
+		stageId:= g.graph.NextStageID()
+
+		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			StageId: stageId,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
-		}
-		g.persistEvent(event)
-		g.updateState(event)
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
+		})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
-		event := &model.StageAddedEvent{
-			StageId: g.graph.NextStageID(),
+		stageId:= g.graph.NextStageID()
+
+		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			StageId: stageId,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
-		}
-		g.persistEvent(event)
-		g.updateState(event)
-		req := &model.InvokeFunctionRequest{
+		})
+
+		g.executor.Request( &model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
-			StageId:    event.StageId,
+			StageId:    stageId,
 			FunctionId: msg.FunctionId,
 			Arg:        msg.Arg,
-		}
-		g.executor.Request(req, g.GetSelf())
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: event.StageId})
+		}, g.GetSelf())
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageId})
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
 		stage := g.graph.GetStage(msg.StageId)
 		completable := !stage.IsResolved()
 		if completable {
-			completedEvent := &model.StageCompletedEvent{
+			g.persistAndUpdateGraph(&model.StageCompletedEvent{
 				StageId: msg.StageId,
 				Result:  msg.Result,
 				Ts:      currentTimestamp(),
-			}
-			g.persistEvent(completedEvent)
-			g.updateState(completedEvent)
+			})
 		}
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
 		g.log.Debug("Committing graph")
-		committedEvent := &model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()}
-		g.persistEvent(committedEvent)
-		g.updateState(committedEvent)
+
+		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
 		context.Respond(&model.CommitGraphProcessed{GraphId: msg.GraphId})
 
 	case *model.GetStageResultRequest:
@@ -322,23 +316,21 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.CompleteDelayStageRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
-		completedEvent := &model.StageCompletedEvent{
-			StageId: msg.StageId,
-			Result:  msg.Result,
-			Ts:		 currentTimestamp(),
-		}
-		g.persistEvent(completedEvent)
-		g.updateState(completedEvent)
 
-	case *model.FaasInvocationResponse:
-		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
-		completedEvent := &model.FaasInvocationCompletedEvent{
+		g.persistAndUpdateGraph(&model.StageCompletedEvent{
 			StageId: msg.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
-		}
-		g.PersistReceive(completedEvent)
-		g.updateState(completedEvent)
+		})
+
+	case *model.FaasInvocationResponse:
+		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
+
+		g.persistAndUpdateGraph(&model.FaasInvocationCompletedEvent{
+			StageId: msg.StageId,
+			Result:  msg.Result,
+			Ts:      currentTimestamp(),
+		})
 
 	case *model.DeactivateGraphRequest:
 		g.log.Debug("Telling supervisor graph is completed")
@@ -438,25 +430,21 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model
 //OnCompleteStage indicates that a stage is finished and its result is available
 func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Completing stage in OnCompleteStage")
-	completedEvent := &model.StageCompletedEvent{
+	g.persistAndUpdateGraph(&model.StageCompletedEvent{
 		StageId: stage.ID,
 		Result:  result,
 		Ts:      currentTimestamp(),
-	}
-	g.persistEvent(completedEvent)
-	g.updateState(completedEvent)
+	})
 }
 
 //OnCompose Stage indicates that another stage should be composed into this one
 func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
 	g.log.WithField("stage_id", stage.ID).Info("Composing stage in OnComposeStage")
-	composedEvent := &model.StageComposedEvent{
+	g.persistAndUpdateGraph(&model.StageComposedEvent{
 		StageId:         stage.ID,
 		ComposedStageId: composedStage.ID,
 		Ts:              currentTimestamp(),
-	}
-	g.persistEvent(composedEvent)
-	g.updateState(composedEvent)
+	})
 }
 
 //OnCompleteGraph indicates that the graph is now finished and cannot be modified
@@ -465,16 +453,20 @@ func (g *graphActor) OnCompleteGraph() {
 		return
 	}
 	g.log.Info("Completing graph in OnCompleteGraph")
-	completedEvent := &model.GraphCompletedEvent{
+
+	g.persistAndUpdateGraph(&model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
-	}
-	g.persistEvent(completedEvent)
-	g.updateState(completedEvent)
+	})
 }
 
-// persistEvent
-func (g *graphActor) persistEvent( event model.Event) {
+// persistAndUpdateGraph saves an event before applying it to the graph
+func (g *graphActor) persistAndUpdateGraph( event model.Event) {
 	g.PersistReceive(event)
+	if g.graph == nil {
+		g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))
+		return
+	}
+	g.graph.UpdateWithEvent(event, !g.Recovering())
 }

@@ -325,7 +325,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 		completedEvent := &model.StageCompletedEvent{
 			StageId: msg.StageId,
 			Result:  msg.Result,
-			Ts:      currentTimestamp(),
+			Ts:		 currentTimestamp(),
 		}
 		g.persistEvent(completedEvent)
 		g.updateState(completedEvent)

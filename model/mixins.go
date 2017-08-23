@@ -1,4 +1,10 @@
 package model
+
+import (
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/gogo/protobuf/proto"
+)
+
 // This contains mixins that add operations and types to the protobuf messages
 
 
@@ -73,14 +79,23 @@ func (m *InvalidStageOperation) UserMessage() string {
 
 
 type GraphMessage interface {
+	proto.Message
+
 	GetGraphId() string
 }
 
 type StageMessage interface {
+	proto.Message
+
 	GetGraphId() string
 	GetStageId() string
 }
 
+// Event is the base interface for all things that may be persisted to the Journal
+type Event interface {
+	proto.Message
+	GetTs()  *timestamp.Timestamp
+}
 // AddStageCommand is any command that creates a stage  and Warrants an AddStageResponse
 type AddStageCommand interface {
 	GetGraphId() string

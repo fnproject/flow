@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package model;
+import "google/protobuf/timestamp.proto";
 
 // Common
 
@@ -262,20 +263,27 @@ message InvokeStageRequest {
 message DelayScheduledEvent {
     string stage_id = 1;
     int64 time_ms = 2;
+    google.protobuf.Timestamp ts = 3;
 }
 
 message GraphCreatedEvent {
     string graph_id = 1;
     string function_id = 2;
+    google.protobuf.Timestamp ts = 3;
+
 }
 
 message GraphCompletedEvent {
     string graph_id = 1;
     string function_id = 2;
+    google.protobuf.Timestamp ts = 3;
+
 }
 
 message GraphCommittedEvent {
     string graph_id = 1;
+    google.protobuf.Timestamp ts = 2;
+
 }
 
 message StageAddedEvent {
@@ -283,19 +291,26 @@ message StageAddedEvent {
     CompletionOperation op = 2;
     BlobDatum closure = 3;
     repeated string dependencies = 4;
+    google.protobuf.Timestamp ts = 5;
+
 }
 
 message StageCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
+    google.protobuf.Timestamp ts = 3;
+
 }
 
 message StageComposedEvent {
     string stage_id = 1;
     string composed_stage_id = 2;
+    google.protobuf.Timestamp ts = 3;
 }
 
 message FaasInvocationCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
+    google.protobuf.Timestamp ts = 5;
+
 }

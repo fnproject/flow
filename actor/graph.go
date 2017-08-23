@@ -203,7 +203,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddChainedStageRequest:
 		g.log.Debug("Adding chained stage")
-		stageId:= g.graph.NextStageID()
+		stageId := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId:      stageId,
@@ -217,7 +217,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddCompletedValueStageRequest:
 		g.log.Debug("Adding completed value stage")
-		stageId:= g.graph.NextStageID()
+		stageId := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageId,
@@ -234,7 +234,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddDelayStageRequest:
 		g.log.Debug("Adding delay stage")
-		stageId:= g.graph.NextStageID()
+		stageId := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageId,
@@ -252,7 +252,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddExternalCompletionStageRequest:
 		g.log.Debug("Adding external completion stage")
-		stageId:= g.graph.NextStageID()
+		stageId := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageId,
@@ -263,7 +263,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
-		stageId:= g.graph.NextStageID()
+		stageId := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageId,
@@ -271,7 +271,7 @@ func (g *graphActor) receiveCommand(context actor.Context) {
 			Ts:      currentTimestamp(),
 		})
 
-		g.executor.Request( &model.InvokeFunctionRequest{
+		g.executor.Request(&model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    stageId,
 			FunctionId: msg.FunctionId,
@@ -406,7 +406,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 func (g *graphActor) Receive(context actor.Context) {
 	g.log.Debugf("Processing message %s (recovering=%v)", reflect.TypeOf(context.Message()), g.Recovering())
 	if g.Recovering() {
-		if e,ok := context.Message().(model.Event) ; ok {
+		if e, ok := context.Message().(model.Event); ok {
 			g.receiveEvent(e)
 		}
 	} else {
@@ -459,10 +459,12 @@ func (g *graphActor) OnCompleteGraph() {
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
+	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph
-func (g *graphActor) persistAndUpdateGraph( event model.Event) {
+func (g *graphActor) persistAndUpdateGraph(event model.Event) {
 	g.PersistReceive(event)
 	if g.graph == nil {
 		g.log.Errorf("Ignoring state update for event %v since graph is not initialized", reflect.TypeOf(event))

@@ -108,7 +108,6 @@ func (l *wsWorker) Run() {
 	defer l.conn.Close()
 
 	lifecycleEventPred := func(event *persistence.StreamEvent) bool {
-		log.Infof("Got event %v",event)
 		if !strings.HasPrefix(event.ActorName,"supervisor/") {
 			return false
 		}

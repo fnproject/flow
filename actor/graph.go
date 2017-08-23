@@ -459,6 +459,7 @@ func (g *graphActor) OnCompleteGraph() {
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
+	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph

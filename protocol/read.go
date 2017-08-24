@@ -14,29 +14,16 @@ import (
 	"github.com/fnproject/completer/persistence"
 )
 
-const (
-	headerDatumType    = "Fnproject-Datumtype"
-	headerResultStatus = "Fnproject-Resultstatus"
-	headerResultCode   = "Fnproject-Resultcode"
-	headerStageRef     = "Fnproject-Stageid"
-	headerMethod       = "Fnproject-Method"
-	headerHeaderPrefix = "Fnproject-Header-"
-	headerErrorType    = "Fnproject-Errortype"
-	headerContentType  = "Content-Type"
-
-	datumTypeBlob     = "blob"
-	datumTypeEmpty    = "empty"
-	datumTypeError    = "error"
-	datumTypeStageRef = "stageref"
-	datumTypeHttpReq  = "httpreq"
-	datumTypeHttpResp = "httpresp"
-)
 
 // DatumFromPart reads a model Datum Object from a multipart part
 func DatumFromPart(store persistence.BlobStore, part *multipart.Part) (*model.Datum, error) {
 	return readDatum(store, part, part.Header)
 }
 
+// DatumFromPart reads a model Datum Object from a multipart part
+func DatumFromRequest(store persistence.BlobStore, req *http.Request) (*model.Datum, error) {
+	return readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
+}
 /**
  * Reads
  */
@@ -50,7 +37,7 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	if err != nil {
 		return nil, err
 	}
-	statusString := actualResponse.Header.Get(headerResultStatus)
+	statusString := actualResponse.Header.Get(HeaderResultStatus)
 
 	var resultStatus bool
 	switch statusString {
@@ -59,7 +46,7 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	case "failure":
 		resultStatus = false
 	default:
-		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", headerResultStatus, statusString)
+		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", HeaderResultStatus, statusString)
 	}
 
 	return &model.CompletionResult{Successful: resultStatus, Datum: datum}, nil
@@ -67,13 +54,13 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 
 func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader) (*model.Datum, error) {
 
-	datumType := header.Get(headerDatumType)
+	datumType := header.Get(HeaderDatumType)
 	if datumType == "" {
-		return nil, fmt.Errorf("Datum stream cannot be read as a Datum, the " + headerDatumType + " header is not present ")
+		return nil,ErrMissingDatumType
 	}
 
 	switch datumType {
-	case datumTypeBlob:
+	case DatumTypeBlob:
 
 		blob, err := readBlob(store, part, header)
 		if err != nil {
@@ -83,17 +70,20 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 			Val: &model.Datum_Blob{Blob: blob},
 		}, nil
 
-	case datumTypeEmpty:
+	case DatumTypeEmpty:
 		return &model.Datum{Val: &model.Datum_Empty{&model.EmptyDatum{}}}, nil
-	case datumTypeError:
-		errorContentType := header.Get(headerContentType)
+	case DatumTypeError:
+		errorContentType := header.Get(HeaderContentType)
+		if errorContentType == ""{
+			return nil,ErrMissingContentType
+		}
 		if errorContentType != "text/plain" {
-			return nil, fmt.Errorf("Invalid error datum content type, must be text/plain")
+			return nil, ErrInvalidContentType
 		}
 
-		errorTypeString := header.Get(headerErrorType)
+		errorTypeString := header.Get(HeaderErrorType)
 		if "" == errorTypeString {
-			return nil, fmt.Errorf("Invalid Error Datum : no %s header defined", headerErrorType)
+			return nil, ErrMissingErrorType
 		}
 
 		pbErrorTypeString := strings.Replace(errorTypeString, "-", "_", -1)
@@ -118,26 +108,26 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 			},
 		}, nil
 
-	case datumTypeStageRef:
-		stageId := header.Get(headerStageRef)
+	case DatumTypeStageRef:
+		stageId := header.Get(HeaderStageRef)
 		if stageId == "" {
-			return nil, fmt.Errorf("Invalid StageRef Datum")
+			return nil, ErrMissingStageRef
 		}
 		return &model.Datum{Val: &model.Datum_StageRef{&model.StageRefDatum{StageRef: string(stageId)}}}, nil
-	case datumTypeHttpReq:
-		methodString := header.Get(headerMethod)
+	case DatumTypeHttpReq:
+		methodString := header.Get(HeaderMethod)
 		if "" == methodString {
-			return nil, fmt.Errorf("Invalid HttpReq Datum : no %s header defined", headerMethod)
+			return nil, ErrMissingHttpMethod
 		}
 		method, methodRecognized := model.HttpMethod_value[strings.ToLower(methodString)]
 		if !methodRecognized {
-			return nil, fmt.Errorf("Invalid HttpReq Datum : http method %s is invalid", methodString)
+			return nil, ErrInvalidHttpMethod
 		}
 		var headers []*model.HttpHeader
 		for hk, hvs := range header {
-			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
+			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(HeaderHeaderPrefix)) {
 				for _, hv := range hvs {
-					headers = append(headers, &model.HttpHeader{Key: hk[len(headerHeaderPrefix):], Value: hv})
+					headers = append(headers, &model.HttpHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -146,20 +136,20 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 			return nil, err
 		}
 		return &model.Datum{Val: &model.Datum_HttpReq{HttpReq: &model.HttpReqDatum{Body: blob, Headers: headers, Method: model.HttpMethod(method)}}}, nil
-	case datumTypeHttpResp:
-		resultCodeString := header.Get(headerResultCode)
+	case DatumTypeHttpResp:
+		resultCodeString := header.Get(HeaderResultCode)
 		if "" == resultCodeString {
-			return nil, fmt.Errorf("Invalid HttpResp Datum : no %s header defined", headerResultCode)
+			return nil, ErrMissingResultCode
 		}
 		resultCode, err := strconv.ParseUint(resultCodeString, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid HttpResp Datum : %s", err.Error())
+			return nil, ErrInvalidResultCode
 		}
 		var headers []*model.HttpHeader
 		for hk, hvs := range header {
-			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(headerHeaderPrefix)) {
+			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(HeaderHeaderPrefix)) {
 				for _, hv := range hvs {
-					headers = append(headers, &model.HttpHeader{Key: hk[len(headerHeaderPrefix):], Value: hv})
+					headers = append(headers, &model.HttpHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -169,15 +159,14 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 		}
 		return &model.Datum{Val: &model.Datum_HttpResp{&model.HttpRespDatum{blob, headers, uint32(resultCode)}}}, nil
 	default:
-		return nil, fmt.Errorf("Unrecognised datum type")
+		return nil, ErrInvalidDatumType
 	}
-	return nil, fmt.Errorf("Unimplemented")
 }
 
 func readBlob(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader) (*model.BlobDatum, error) {
-	contentType := header.Get(headerContentType)
+	contentType := header.Get(HeaderContentType)
 	if "" == contentType {
-		return nil, fmt.Errorf("Blob Datum is missing %s header", headerContentType)
+		return nil, ErrMissingContentType
 	}
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(part)

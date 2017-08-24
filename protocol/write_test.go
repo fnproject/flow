@@ -17,8 +17,8 @@ func TestShouldWriteSimpleBlob(t *testing.T) {
 
 	headers, body := writeDatum(store, datum)
 
-	assert.Equal(t, headers.Get(headerDatumType), datumTypeBlob)
-	assert.Equal(t, "text/plain", headers.Get(headerContentType))
+	assert.Equal(t, headers.Get(HeaderDatumType), DatumTypeBlob)
+	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
 	assert.Equal(t, "foo", body)
 
 }
@@ -38,8 +38,8 @@ func TestShouldWriteEmptyDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeEmpty, headers.Get(headerDatumType))
-	assert.Empty(t, headers.Get(headerContentType))
+	assert.Equal(t, DatumTypeEmpty, headers.Get(HeaderDatumType))
+	assert.Empty(t, headers.Get(HeaderContentType))
 	assert.Equal(t, "", body)
 }
 
@@ -48,9 +48,9 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeError, headers.Get(headerDatumType))
-	assert.Equal(t, "function-timeout", headers.Get(headerErrorType))
-	assert.Equal(t, "text/plain", headers.Get(headerContentType))
+	assert.Equal(t, DatumTypeError, headers.Get(HeaderDatumType))
+	assert.Equal(t, "function-timeout", headers.Get(HeaderErrorType))
+	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
 
 	assert.Equal(t, body, "error")
 }
@@ -60,8 +60,8 @@ func TestShouldWriteStageRefDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeStageRef, headers.Get(headerDatumType))
-	assert.Equal(t, "3141", headers.Get(headerStageRef))
+	assert.Equal(t, DatumTypeStageRef, headers.Get(HeaderDatumType))
+	assert.Equal(t, "3141", headers.Get(HeaderStageRef))
 	assert.Empty(t, body)
 }
 
@@ -84,10 +84,10 @@ func TestShouldWriteHttpReqDatum(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeHttpReq, headers.Get(headerDatumType))
-	assert.Equal(t, "OPTIONS", headers.Get(headerMethod))
+	assert.Equal(t, DatumTypeHttpReq, headers.Get(HeaderDatumType))
+	assert.Equal(t, "OPTIONS", headers.Get(HeaderMethod))
 
-	assert.Equal(t, "text/plain", headers.Get(headerContentType))
+	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
 	assert.Equal(t, []string{"h1val1", "h1val2"}, headers["Fnproject-Header-H1"])
 	assert.Equal(t, "h2val", headers.Get("Fnproject-Header-H2"))
 	val, present := headers["Fnproject-Header-Emptyheader"]
@@ -108,8 +108,8 @@ func TestShouldWriteHttpReqDatumWithNoBody(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeHttpReq, headers.Get(headerDatumType))
-	assert.Empty(t, headers.Get(headerContentType))
+	assert.Equal(t, DatumTypeHttpReq, headers.Get(HeaderDatumType))
+	assert.Empty(t, headers.Get(HeaderContentType))
 	assert.Empty(t, body)
 }
 
@@ -133,10 +133,10 @@ func TestShouldWriteHttpRespDatum(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeHttpResp, headers.Get(headerDatumType))
-	assert.Equal(t, "401", headers.Get(headerResultCode))
+	assert.Equal(t, DatumTypeHttpResp, headers.Get(HeaderDatumType))
+	assert.Equal(t, "401", headers.Get(HeaderResultCode))
 
-	assert.Equal(t, "text/plain", headers.Get(headerContentType))
+	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
 	assert.Equal(t, []string{"h1val1", "h1val2"}, headers["Fnproject-Header-H1"])
 	assert.Equal(t, "h2val", headers.Get("Fnproject-Header-H2"))
 	val, present := headers["Fnproject-Header-Emptyheader"]
@@ -157,8 +157,8 @@ func TestShouldWriteHttpRespDatumWithNoBody(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, datumTypeHttpResp, headers.Get(headerDatumType))
-	assert.Empty(t, headers.Get(headerContentType))
+	assert.Equal(t, DatumTypeHttpResp, headers.Get(HeaderDatumType))
+	assert.Empty(t, headers.Get(HeaderContentType))
 	assert.Empty(t, body)
 }
 

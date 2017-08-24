@@ -16,18 +16,10 @@ import (
 	"net/url"
 	"github.com/fnproject/completer/persistence"
 	"fmt"
+	"github.com/fnproject/completer/protocol"
 )
 
-const (
-	headerDatumType    string = "FnProject-DatumType"
-	headerResultStatus string = "FnProject-ResultStatus"
-	headerErrorType    string = "FnProject-ErrorType"
-	headerThreadID     string = "FnProject-ThreadID"
-	headerStageID      string = "FnProject-StageID"
-	headerHeaderPrefix string = "FnProject-Header-"
-	headerMethod       string = "FnProject-Method"
-	headerResultCode   string = "FnProject-ResultCode"
-)
+const MaxDelay = 3600 * 1000 * 24
 
 var log = logrus.WithField("logger", "server")
 
@@ -46,14 +38,14 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	if methodValue, found := model.HttpMethod_value[strings.ToLower(method)]; found {
 		m = model.HttpMethod(methodValue)
 	} else {
-		m = model.HttpMethod_unknown_method
+		return nil, ErrUnsupportedHttpMethod
 	}
 
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
-	blob, err := s.blobStore.CreateBlob(contentType, body)
+	blob, err := s.BlobStore.CreateBlob(contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -72,62 +64,67 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 		},
 	}
 
-	response, err := s.graphManager.CompleteStageExternally(&request, 5*time.Second)
+	response, err := s.GraphManager.CompleteStageExternally(&request, s.requestTimeout)
 
 	return response, err
 }
 
 func (s *Server) handleStageOperation(c *gin.Context) {
 	graphID := c.Param("graphId")
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 	stageID := c.Param("stageId")
+	if !validStageId(graphID) {
+		renderError(ErrInvalidStageId, c)
+		return
+	}
 	operation := c.Param("operation")
 	body, err := c.GetRawData()
 	if err != nil {
-		message := "handleStageOperation can't get raw data from the request"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(ErrReadingInput, c)
 		return
 	}
 
-	// TODO: generic error handling (e.g. graph not found)
 	switch operation {
 	case "complete":
 		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
 		if err != nil {
-			message := "completeExternally returned an error trying to complete with success"
-			log.WithError(err).Error(message)
-			c.Status(http.StatusInternalServerError)
+			renderError(err, c)
 			return
 		}
-		c.Header(headerStageID, response.StageId)
+		c.Header(protocol.HeaderStageRef, response.StageId)
 		c.Status(http.StatusOK)
 	case "fail":
 		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
 		if err != nil {
-			message := "completeExternally returned an error trying to complete with failure"
-			log.WithError(err).Error(message)
-			c.Status(http.StatusInternalServerError)
+			renderError(err, c)
 			return
 		}
-		c.Header(headerStageID, response.StageId)
+		c.Header(protocol.HeaderStageRef, response.StageId)
 		c.Status(http.StatusOK)
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}
 		if other != "" {
+			if !validStageId(other) {
+				renderError(ErrInvalidDepStageId, c)
+				return
+			}
 			cids = append(cids, other)
 		}
 
 		completionOperation, found := model.CompletionOperation_value[operation]
 		if !found {
-			message := "invalid completion operation '" + operation + "'"
-			c.Data(http.StatusBadRequest, "text/plain", []byte(message))
+			renderError(ErrUnrecognisedCompletionOperation, c)
 			return
+
 		}
 
-		blob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
 		if err != nil {
-			renderError(err, c, "Failed to persist blob")
+			renderError(err, c)
 		}
 
 		// TODO: enforce valid content type
@@ -141,20 +138,26 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		response, err := s.addStage(request)
 
 		if err != nil {
-			renderError(err, c, "Graph Operation Failed ")
+			renderError(err, c)
 			return
 		}
 
-		c.Header(headerStageID, response.StageId)
+		c.Header(protocol.HeaderStageRef, response.StageId)
 		c.Status(http.StatusOK)
 	}
 }
-func renderError(err error, c *gin.Context, msg string) {
-	log.WithError(err).Error(msg)
+
+func renderError(err error, c *gin.Context) {
 	switch e := err.(type) {
-	case model.BadRequestError:
-		c.Data(400, "text/plain", []byte(e.UserMessage()))
+
+	case model.ValidationError, *protocol.BadProtoMessage:
+		c.Data(http.StatusBadRequest, "text/plain", []byte(e.Error()))
+	case *ServerErr:
+		{
+			c.Data(e.HttpStatus, "text/plain", []byte(e.Message))
+		}
 	default:
+		log.WithError(err).Error("Internal server error")
 		c.Status(http.StatusInternalServerError)
 	}
 }
@@ -163,43 +166,45 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
-	if functionID == "" {
-		c.Data(http.StatusBadRequest, "text/plain", []byte("Function ID must be provided"))
+	if !validFunctionId(functionID) {
+		log.WithField("function_id", functionID).Info("Invalid function iD ")
+		renderError(ErrInvalidFunctionId, c)
 		return
 	}
 	// TODO: Validate the format of the functionId
 
 	graphID, err := uuid.NewRandom()
 	if err != nil {
-		message := "can't get a UUID for the new graph"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c)
 		return
 	}
 
 	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
 
 	// TODO: sort out timeouts in a consistent way
-	result, err := s.graphManager.CreateGraph(req, 5*time.Second)
+	result, err := s.GraphManager.CreateGraph(req, s.requestTimeout)
 	if err != nil {
-		renderError(err, c, "failed to create new graph")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerThreadID, result.GraphId)
+	c.Header(protocol.HeaderThreadId, result.GraphId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) handleGraphState(c *gin.Context) {
 
 	graphID := c.Param("graphId")
-	log.Info("Requested graph with Id " + graphID)
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 
 	request := &model.GetGraphStateRequest{GraphId: graphID}
 
-	resp, err := s.graphManager.GetGraphState(request, 5*time.Second)
+	resp, err := s.GraphManager.GetGraphState(request, s.requestTimeout)
 
 	if err != nil {
-		renderError(err, c, "failed to read graph state")
+		renderError(err, c)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -216,13 +221,21 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
+	if !validStageId(stageID) {
+		renderError(ErrInvalidStageId, c)
+		return
+	}
+
 	request := model.GetStageResultRequest{
 		GraphId: graphID,
 		StageId: stageID,
 	}
 
-	// TODO: return 408 on timeout
-	response, err := s.graphManager.GetStageResult(&request, 5*time.Second)
+	response, err := s.GraphManager.GetStageResult(&request, s.requestTimeout)
 
 	if err == protoactor.ErrTimeout {
 		c.Data(http.StatusRequestTimeout, "text/plain", []byte("stage not completed"))
@@ -230,72 +243,66 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	if err != nil {
-		renderError(err, c, "Error getting stage result")
+		renderError(err, c)
 		return
 	}
 
 	result := response.GetResult()
 	datum := result.GetDatum()
 	val := datum.GetVal()
-	if val == nil {
-		message := "GetStageResult produced a result but the datum value is null"
-		log.Error(message)
-		c.Data(http.StatusInternalServerError, "text/plain", []byte(message))
-		return
-	}
 
 	switch v := val.(type) {
 
 	// TODO: refactor this by adding a writer to a context in proto/write.go
 	case *model.Datum_Error:
-		c.Header(headerDatumType, "error")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeError)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		err := v.Error
-		c.Header(headerErrorType, model.ErrorDatumType_name[int32(err.GetType())])
+		c.Header(protocol.HeaderErrorType, model.ErrorDatumType_name[int32(err.GetType())])
 		c.String(http.StatusOK, err.GetMessage())
 		return
 	case *model.Datum_Empty:
-		c.Header(headerDatumType, "empty")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeEmpty)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_Blob:
 		blob := v.Blob
-		blobData, err := s.blobStore.ReadBlobData(blob)
+		blobData, err := s.BlobStore.ReadBlobData(blob)
 		if err != nil {
-			renderError(err, c, "Error reading blob")
+			renderError(err, c)
 			return
 		}
-		c.Header(headerDatumType, "blob")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeBlob)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 
 		c.Data(http.StatusOK, blob.GetContentType(), blobData)
 		return
 	case *model.Datum_StageRef:
-		c.Header(headerDatumType, "stageref")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeStageRef)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		stageRef := v.StageRef
-		c.Header(headerStageID, stageRef.StageRef)
+		c.Header(protocol.HeaderStageRef, stageRef.StageRef)
 		c.Status(http.StatusOK)
 		return
 	case *model.Datum_HttpReq:
 		httpReq := v.HttpReq
 		var body []byte
 		if httpReq.Body != nil {
-			body, err = s.blobStore.ReadBlobData(httpReq.Body)
+			body, err = s.BlobStore.ReadBlobData(httpReq.Body)
 			if err != nil {
-				renderError(err, c, "Error reading blob")
+				renderError(err, c)
 				return
 			}
 		}
 
-		c.Header(headerDatumType, "httpreq")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHttpReq)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		for _, header := range httpReq.Headers {
-			c.Header(headerHeaderPrefix+header.GetKey(), header.GetValue())
+			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
 		}
 		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
-		c.Header(headerMethod, httpMethod)
+		c.Header(protocol.HeaderMethod, httpMethod)
 		c.Data(http.StatusOK, httpReq.Body.GetContentType(), body)
 		return
 	case *model.Datum_HttpResp:
@@ -303,19 +310,19 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		httpResp := v.HttpResp
 
 		if httpResp.Body != nil {
-			body, err = s.blobStore.ReadBlobData(httpResp.Body)
+			body, err = s.BlobStore.ReadBlobData(httpResp.Body)
 			if err != nil {
-				renderError(err, c, "Error reading blob")
+				renderError(err, c)
 				return
 			}
 		}
-		c.Header(headerDatumType, "httpresp")
-		c.Header(headerResultStatus, resultStatus(result))
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHttpResp)
+		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		for _, header := range httpResp.Headers {
-			c.Header(headerHeaderPrefix+header.GetKey(), header.GetValue())
+			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
 		}
-		statusCode := fmt.Sprintf("%d",httpResp.GetStatusCode())
-		c.Header(headerResultCode, statusCode)
+		statusCode := fmt.Sprintf("%d", httpResp.GetStatusCode())
+		c.Header(protocol.HeaderResultCode, statusCode)
 		c.Data(http.StatusOK, httpResp.Body.GetContentType(), body)
 		return
 	default:
@@ -327,24 +334,37 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
 	graphID := c.Param("graphId")
-
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 	request := &model.AddExternalCompletionStageRequest{GraphId: graphID}
 
 	response, err := s.addStage(request)
 
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	cidList := c.Query("cids")
 	graphID := c.Param("graphId")
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 	cids := strings.Split(cidList, ",")
 
+	for _, stageId := range cids {
+		if !validStageId(stageId) {
+			renderError(ErrInvalidDepStageId, c)
+			return
+		}
+	}
 	request := &model.AddChainedStageRequest{
 		GraphId:   graphID,
 		Operation: op,
@@ -356,10 +376,10 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 
 	// TODO: Actually some errors should be user errors here (e.g. AnyOf with zero dependencies)
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
@@ -373,17 +393,30 @@ func (s *Server) handleAnyOf(c *gin.Context) {
 
 func (s *Server) handleSupply(c *gin.Context) {
 	graphID := c.Param("graphId")
-	// TODO: Validate graphId: not empty
-
-	body, err := c.GetRawData()
-	if err != nil {
-		renderError(err, c, "Failed to read body")
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
+	ct := c.ContentType()
+	if ct == "" {
+		renderError(protocol.ErrMissingContentType, c)
 		return
 	}
 
-	blob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+	body, err := c.GetRawData()
 	if err != nil {
-		renderError(err, c, "Failed to create blob")
+		renderError(err, c)
+		return
+	}
+	if len(body) == 0 {
+		renderError(ErrMissingBody, c)
+		return
+	}
+
+	blob, err := s.BlobStore.CreateBlob(ct, body)
+	if err != nil {
+		renderError(err, c)
+		return
 	}
 
 	request := &model.AddChainedStageRequest{
@@ -393,44 +426,33 @@ func (s *Server) handleSupply(c *gin.Context) {
 		Deps:      []string{},
 	}
 
-	// TODO: handle user errors properly (E.g. graph not found)
 	response, err := s.addStage(request)
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) handleCompletedValue(c *gin.Context) {
 	graphID := c.Param("graphId")
-	// TODO: again, validate graphId
-
-	body, err := c.GetRawData()
-	if err != nil {
-		message := "completedValue cannot get raw request data"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 
-	var contentType = c.ContentType()
-	if contentType == "" {
-		// TODO: error with a bad request
-	}
-
-	bodyBlob, err := s.blobStore.CreateBlob(c.ContentType(), body)
+	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 	if err != nil {
-		renderError(err, c, "Failed to create blob")
+		renderError(err, c)
+		return
 	}
 
 	result := model.CompletionResult{
 		Successful: true,
-		Datum:      model.NewBlobDatum(bodyBlob),
+		Datum:      datum,
 	}
 
-	// TODO: generic error handling
 	request := &model.AddCompletedValueStageRequest{
 		GraphId: graphID,
 		Result:  &result,
@@ -438,172 +460,125 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 
 	response, err := s.addStage(request)
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) addStage(request model.AddStageCommand) (*model.AddStageResponse, error) {
-	// TODO: we should have a synchronous api in the graph manager instead of this
-	return s.graphManager.AddStage(request, 5*time.Second)
+	return s.GraphManager.AddStage(request, s.requestTimeout)
 }
 
 func (s *Server) handleCommit(c *gin.Context) {
 	graphID := c.Param("graphId")
 	request := model.CommitGraphRequest{GraphId: graphID}
 
-	response, err := s.graphManager.Commit(&request, 5*time.Second)
+	response, err := s.GraphManager.Commit(&request, s.requestTimeout)
 	if err != nil {
-		message := "handleCommit failed to commit"
-		log.WithError(err).Error(message)
-		c.Status(http.StatusInternalServerError)
+		renderError(err, c)
 		return
 	}
 
-	c.Header(headerThreadID, response.GraphId)
+	c.Header(protocol.HeaderThreadId, response.GraphId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) handleDelay(c *gin.Context) {
 	graphID := c.Param("graphId")
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 	delayMs := c.Query("delayMs")
 	if delayMs == "" {
-		log.Info("Empty or missing delay value supplied to add delay stage")
-		c.Status(http.StatusBadRequest)
+		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
 
 	delay, err := strconv.ParseInt(delayMs, 10, 64)
-	if err != nil {
-		log.Info("Invalid delay value supplied to add delay stage")
-		c.Status(http.StatusBadRequest)
+	if err != nil || delay < 0 || delay > MaxDelay{
+		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
 
-	// TODO: generic error handling (e.g. graph not found)
 	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
 
 	response, err := s.addStage(request)
 
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
-func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
-	var headers []*model.HttpHeader
-	for k, vs := range hs {
-		canonicalKey := http.CanonicalHeaderKey(k)
-		canonicalPrefix := http.CanonicalHeaderKey(headerHeaderPrefix)
-		if strings.HasPrefix(canonicalKey, canonicalPrefix) {
-			trimmedHeader := strings.TrimPrefix(canonicalKey, canonicalPrefix)
-			for _, v := range vs {
-				headers = append(headers, &model.HttpHeader{
-					Key:   trimmedHeader,
-					Value: v,
-				})
-			}
-		}
-	}
-	return headers
-}
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
 	graphID := c.Param("graphId")
-	// TODO: validate graphId not empty
-
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
 	functionID := c.Query("functionId")
-	if functionID == "" {
-		message := "Empty or missing functionId supplied to add invokeFunction stage"
-		log.Info(message)
-		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
-		return
-	}
-	// TODO: Validate the format of the functionId
 
-	body, err := c.GetRawData()
-	if err != nil {
-		message := "Invalid request body supplied to add invokeFunction stage"
-		log.Info(message)
-		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
+	if !validFunctionId(functionID) {
+		renderError(ErrInvalidFunctionId, c)
 		return
 	}
 
-	requestMethod := strings.ToLower(c.GetHeader(http.CanonicalHeaderKey(headerMethod)))
-	var method model.HttpMethod
-	if m, found := model.HttpMethod_value[requestMethod]; found {
-		method = model.HttpMethod(m)
-	} else {
-		message := "Empty, missing, or invalid HTTP method supplied to add invokeFunction stage"
-		log.Info(message)
-		c.Data(http.StatusBadRequest, "text/plain", []byte(message))
+	if c.GetHeader(protocol.HeaderDatumType) != protocol.DatumTypeHttpReq {
+		renderError(protocol.ErrInvalidDatumType, c)
 		return
 	}
 
-	var contentType = c.ContentType()
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-	var bodyBlob *model.BlobDatum = nil
-	if len(body) != 0 {
-		bodyBlob, err = s.blobStore.CreateBlob(c.ContentType(), body)
-		if err != nil {
-			renderError(err, c, "Failed to create blob")
-		}
-	}
+	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 
-	// TODO: test this with an empty request
 	request := &model.AddInvokeFunctionStageRequest{
 		GraphId:    graphID,
 		FunctionId: functionID,
-		Arg: &model.HttpReqDatum{
-			Body:    bodyBlob,
-			Headers: unwrapPrefixedHeaders(c.Request.Header),
-			Method:  method,
-		},
+		Arg:        datum.GetHttpReq(),
 	}
 
-	// TODO: generic error handling (e.g. graph does not exist)
 	response, err := s.addStage(request)
 	if err != nil {
-		renderError(err, c, "Failed to add stage")
+		renderError(err, c)
 		return
 	}
-	c.Header(headerStageID, response.StageId)
+	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
 
 type Server struct {
-	engine       *gin.Engine
-	graphManager actor.GraphManager
-	apiUrl       *url.URL
-	blobStore    persistence.BlobStore
-	listen       string
+	Engine         *gin.Engine
+	GraphManager   actor.GraphManager
+	apiUrl         *url.URL
+	BlobStore      persistence.BlobStore
+	listen         string
+	requestTimeout time.Duration
 }
 
 func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string) (*Server, error) {
 
 	s := &Server{
-		graphManager: manager,
-		engine:       gin.Default(),
-		listen:       listenAddress,
-		blobStore:    blobStore,
+		GraphManager:   manager,
+		Engine:         gin.Default(),
+		listen:         listenAddress,
+		BlobStore:      blobStore,
+		requestTimeout: 5 * time.Second,
 	}
 
-	s.engine.GET("/ping", func(c *gin.Context) {
+	s.Engine.GET("/ping", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
-	s.engine.GET("/wss", func(c *gin.Context) {
+	s.Engine.GET("/wss", func(c *gin.Context) {
 		query.WSSHandler(manager, c.Writer, c.Request)
 	})
 
-	graph := s.engine.Group("/graph")
+	graph := s.Engine.Group("/graph")
 	{
 		graph.POST("", s.handleCreateGraph)
 		graph.GET("/:graphId", s.handleGraphState)
@@ -630,5 +605,5 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 func (s *Server) Run() {
 	log.WithField("listen_url", s.listen).Info("Starting Completer server")
 
-	s.engine.Run(s.listen)
+	s.Engine.Run(s.listen)
 }

@@ -15,12 +15,11 @@ func TestRejectsUnrecognisedType(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, "unknown")
+	h.Add(HeaderDatumType, "unknown")
 	part := createPart( h, "")
 
 	_, err := DatumFromPart(store, part)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Unrecognised datum type")
+	assert.Equal(t, ErrInvalidDatumType,err)
 
 }
 
@@ -29,19 +28,19 @@ func TestRejectsDatumWithoutTypeHeader(t *testing.T) {
 
 	part := createPart( emptyHeaders(), "")
 	_, err := DatumFromPart(store, part)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "the "+headerDatumType+" header is not present")
+	assert.Equal(t, ErrMissingDatumType,err)
+
 }
 
 func TestRejectsBlobDatumWithNoContentType(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeBlob)
+	h.Add(HeaderDatumType, DatumTypeBlob)
 	part := createPart( h, "")
 	_, err := DatumFromPart(store, part)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "missing Content-Type header")
+	assert.Equal(t, ErrMissingContentType,err)
 
 }
 
@@ -50,8 +49,8 @@ func TestReadsEmptyBlobDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeBlob)
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeBlob)
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "")
 	d, err := DatumFromPart(store, part)
 
@@ -65,8 +64,8 @@ func TestReadsBlobDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeBlob)
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeBlob)
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "SOME CONTENT")
 	d, err := DatumFromPart(store, part)
 
@@ -80,7 +79,7 @@ func TestReadsActuallyEmptyDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeEmpty)
+	h.Add(HeaderDatumType, DatumTypeEmpty)
 	part := createPart( h, "")
 	d, err := DatumFromPart(store, part)
 
@@ -93,9 +92,9 @@ func TestReadErrorDatumAllTypes(t *testing.T) {
 		store := persistence.NewInMemBlobStore()
 
 		h := emptyHeaders()
-		h.Add(headerDatumType, datumTypeError)
-		h.Add(headerContentType, "text/plain")
-		h.Add(headerErrorType, errName)
+		h.Add(HeaderDatumType, DatumTypeError)
+		h.Add(HeaderContentType, "text/plain")
+		h.Add(HeaderErrorType, errName)
 		part := createPart( h, "blah")
 		d, err := DatumFromPart(store, part)
 
@@ -110,36 +109,36 @@ func TestRejectsErrorDatumIfNotTextPlain(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeError)
-	h.Add(headerContentType, "application/json")
-	h.Add(headerErrorType, "unknown_error")
+	h.Add(HeaderDatumType, DatumTypeError)
+	h.Add(HeaderContentType, "application/json")
+	h.Add(HeaderErrorType, "unknown_error")
 	part := createPart( h, "")
 	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid error datum content type")
+	assert.Equal(t, ErrInvalidContentType,err)
 }
 
 func TestRejectsErrorDatumIfNoErrorType(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeError)
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeError)
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "")
 	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no "+headerErrorType+" header defined")
+	assert.Equal(t, ErrMissingErrorType,err)
 }
 
 func TestReadErrorTypeEmptyBody(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeError)
-	h.Add(headerContentType, "text/plain")
-	h.Add(headerErrorType, "unknown_error")
+	h.Add(HeaderDatumType, DatumTypeError)
+	h.Add(HeaderContentType, "text/plain")
+	h.Add(HeaderErrorType, "unknown_error")
 	part := createPart( h, "")
 	d, err := DatumFromPart(store, part)
 
@@ -153,9 +152,9 @@ func TestReadErrorTypeUnrecognizedErrorIsCoercedToUnknownError(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeError)
-	h.Add(headerContentType, "text/plain")
-	h.Add(headerErrorType, "LA LA LA PLEASE IGNORE ME LA LA LA")
+	h.Add(HeaderDatumType, DatumTypeError)
+	h.Add(HeaderContentType, "text/plain")
+	h.Add(HeaderErrorType, "LA LA LA PLEASE IGNORE ME LA LA LA")
 	part := createPart( h, "blah")
 	d, err := DatumFromPart(store, part)
 
@@ -169,8 +168,8 @@ func TestReadsStageRefDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeStageRef)
-	h.Add(headerStageRef, "123")
+	h.Add(HeaderDatumType, DatumTypeStageRef)
+	h.Add(HeaderStageRef, "123")
 	part := createPart( h, "")
 	d, err := DatumFromPart(store, part)
 
@@ -183,25 +182,25 @@ func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeStageRef)
-	h.Add(headerStageRef, "")
+	h.Add(HeaderDatumType, DatumTypeStageRef)
+	h.Add(HeaderStageRef, "")
 	part := createPart( h, "")
 	_, err := DatumFromPart(store, part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid StageRef")
+	assert.Equal(t,ErrMissingStageRef,err)
 }
 
 func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpReq)
-	h.Add(headerMethod, "GET")
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderMethod, "GET")
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	d, err := DatumFromPart(store,part)
 
@@ -225,45 +224,45 @@ func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpReq)
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no "+headerMethod+" header defined")
+	assert.Equal(t,ErrMissingHttpMethod,err)
 }
 
 func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpReq)
-	h.Add(headerMethod, "SOME_INVALID_METHOD")
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderMethod, "SOME_INVALID_METHOD")
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "http method SOME_INVALID_METHOD is invalid")
+	assert.Equal(t,ErrInvalidHttpMethod,err)
 }
 
 func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpResp)
-	h.Add(headerResultCode, "200")
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderResultCode, "200")
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	d, err := DatumFromPart(store,part)
 
@@ -287,34 +286,33 @@ func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpResp)
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no "+headerResultCode+" header defined")
+	assert.Equal(t,ErrMissingResultCode,err)
 }
 
 func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(headerDatumType, datumTypeHttpResp)
-	h.Add(headerResultCode, "SOME_INVALID_CODE")
-	h.Add(headerHeaderPrefix+"single", "FOO")
-	h.Add(headerHeaderPrefix+"multi", "BAR")
-	h.Add(headerHeaderPrefix+"multi", "BAZ")
-	h.Add(headerContentType, "text/plain")
+	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderResultCode, "SOME_INVALID_CODE")
+	h.Add(HeaderHeaderPrefix+"single", "FOO")
+	h.Add(HeaderHeaderPrefix+"multi", "BAR")
+	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
+	h.Add(HeaderContentType, "text/plain")
 	part := createPart( h, "WOMBAT")
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Invalid HttpResp Datum :")
-	assert.Contains(t, err.Error(), "parsing \"SOME_INVALID_CODE\": invalid syntax")
+	assert.Equal(t,ErrInvalidResultCode,err)
 }
 
 func emptyHeaders() textproto.MIMEHeader {

@@ -34,7 +34,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	}
 
 	var m model.HttpMethod
-	if methodValue, found := model.HttpMethod_value[method]; found {
+	if methodValue, found := model.HttpMethod_value[strings.ToLower(method)]; found {
 		m = model.HttpMethod(methodValue)
 	} else {
 		return nil,ErrUnsupportedHttpMethod
@@ -150,7 +150,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 func renderError(err error, c *gin.Context) {
 	switch e := err.(type) {
 	case model.BadRequestError:
-		c.Data(400, "text/plain", []byte(e.UserMessage()))
+		c.Data(http.StatusBadRequest, "text/plain", []byte(e.UserMessage()))
 	case *ServerErr: {
 		c.Data(e.HttpStatus,"text/plain",[]byte(e.Message))
 	}

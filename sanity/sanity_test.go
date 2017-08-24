@@ -61,11 +61,14 @@ func TestExternalCompletion(t *testing.T) {
 	tc := NewCase("Completed Value")
 	tc.StartWithGraph("Creates External Completion").
 		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated()
-
-
-	tc.StartWithGraph("Completes External Completion Successful").
+	
+	tc.StartWithGraph("Completes External Completion Successfully").
 		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated().
 		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/complete").ExpectStatus(200)
+
+	tc.StartWithGraph("Fails External Completion Successfully").
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated().
+		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").ExpectStatus(200)
 
 
 	tc.Run(t, NewTestServer(t))

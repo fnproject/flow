@@ -1,15 +1,15 @@
 package query
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"encoding/json"
+	"github.com/gorilla/websocket"
 	"strings"
 )
 
@@ -28,7 +28,7 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 	}
 
 	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
-	sub := l.manager.SubscribeGraphEvents(sg.GraphID, 0, l.SendGraphMessage)
+	sub := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
 	l.subscriptions[sg.GraphID] = sub
 	return nil
 }
@@ -46,8 +46,8 @@ type jsonCommand struct {
 }
 
 var cmds = map[string](func() wsCommandHandler){
-	"subscribe":   func() (wsCommandHandler) { return &subscribeGraph{} },
-	"unsubscribe": func() (wsCommandHandler) { return &unSubscribeGraph{} },
+	"subscribe":   func() wsCommandHandler { return &subscribeGraph{} },
+	"unsubscribe": func() wsCommandHandler { return &unSubscribeGraph{} },
 }
 
 func extractCommand(data []byte) (wsCommandHandler, error) {
@@ -81,11 +81,12 @@ type wsWorker struct {
 }
 
 type rawEventMsg struct {
-	Type string `json:"type"`
+	Type string          `json:"type"`
+	Sub  string          `json:"sub"`
 	Data json.RawMessage `json:"data"`
 }
 
-func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent) {
+func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent, subscriptionId string) {
 	body := event.Event
 	protoType := proto.MessageName(body)
 
@@ -94,7 +95,7 @@ func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent) {
 		log.Warnf("Failed to convert to JSON: %s", err)
 		return
 	}
-	msgJson, err := json.Marshal(&rawEventMsg{Type: protoType, Data: json.RawMessage(bodyjson)})
+	msgJson, err := json.Marshal(&rawEventMsg{Type: protoType, Data: json.RawMessage(bodyjson), Sub: subscriptionId})
 
 	if err != nil {
 		log.Warnf("Failed to convert to JSON: %s", err)
@@ -108,7 +109,7 @@ func (l *wsWorker) Run() {
 	defer l.conn.Close()
 
 	lifecycleEventPred := func(event *persistence.StreamEvent) bool {
-		if !strings.HasPrefix(event.ActorName,"supervisor/") {
+		if !strings.HasPrefix(event.ActorName, "supervisor/") {
 			return false
 		}
 		switch event.Event.(type) {
@@ -120,9 +121,10 @@ func (l *wsWorker) Run() {
 		return false
 	}
 
-	sub := l.manager.StreamNewEvents(lifecycleEventPred, l.SendGraphMessage)
+	subscriptionId := "_all"
+	sub := l.manager.StreamNewEvents(lifecycleEventPred, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, subscriptionId) })
 
-	l.subscriptions["_all"] = sub
+	l.subscriptions[subscriptionId] = sub
 
 	// main cmd loop
 	for {
@@ -158,5 +160,5 @@ func (l *wsWorker) Close() {
 func NewWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
 	return &wsWorker{conn: conn,
 		subscriptions: make(map[string]*eventstream.Subscription),
-		manager: manager}
+		manager:       manager}
 }

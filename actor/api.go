@@ -40,7 +40,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
-		log.Warnf("Graph actor child failed %v", reason)
+		log.Warnf("Stopping failed graph actor due to error: %v", reason)
 		return actor.StopDirective
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)

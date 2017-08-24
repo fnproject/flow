@@ -2,6 +2,7 @@ package actor
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
@@ -80,7 +81,13 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 		child.Request(msg, context.Sender())
 
 	case *actor.Terminated:
-		s.log.Infof("Child actor %s terminated", msg.GetWho().Id)
+		if graphID, ok := getGraphID(msg.GetWho()); ok {
+			s.log.WithFields(logrus.Fields{"graph_id": graphID}).Info("Graph actor terminated")
+			if s.activeGraphs[graphID] {
+				s.log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("Graph actor crashed")
+				// TODO re-spawn failed graph actor and tell it to set its status to error
+			}
+		}
 
 	case *protoPersistence.ReplayComplete:
 		s.log.Infof("Respawning %d active graphs", len(s.activeGraphs))
@@ -88,6 +95,14 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 			s.spawnGraphActor(context, graphID)
 		}
 	}
+}
+
+func getGraphID(child *actor.PID) (string, bool) {
+	split := strings.Split(child.Id, supervisorName+"/")
+	if len(split) == 2 && len(split[1]) > 0 {
+		return split[1], true
+	}
+	return "", false
 }
 
 func (s *graphSupervisor) receiveEvent(context actor.Context) {

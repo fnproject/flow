@@ -17,6 +17,7 @@ import (
 // TODO: read this from configuration!
 const (
 	inactiveTimeout = time.Duration(24 * time.Hour)
+	readTimeout     = time.Duration(5 * time.Minute)
 )
 
 type graphActor struct {
@@ -51,9 +52,6 @@ func (g *graphActor) Receive(context actor.Context) {
 }
 
 func (g *graphActor) initGraph(event *model.GraphCreatedEvent) {
-	if g.graph != nil {
-		panic("Graph is already initialized!")
-	}
 	g.log = g.log.WithFields(logrus.Fields{"logger": "graph_actor", "graph_id": event.GraphId, "function_id": event.FunctionId})
 	g.graph = graph.New(event.GraphId, event.FunctionId, g)
 }
@@ -288,9 +286,8 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 		context.SetReceiveTimeout(inactiveTimeout)
 
 	case *actor.ReceiveTimeout:
-		g.log.Debugf("Passivating inactive actor %s", g.GetSelf().Id)
 		if g.graph != nil {
-			// tell supervisor to remove us from active graphs
+			g.log.Debugf("Requesting passivation of inactive actor %s", g.GetSelf().Id)
 			context.Parent().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 		}
 
@@ -300,8 +297,8 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 			g.graph.Recover()
 
 			if g.graph.IsCompleted() {
-				// tell supervisor to remove us from active graphs
-				context.Parent().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+				// graph is in read-only mode, so request passivation after read timeout
+				context.SetReceiveTimeout(readTimeout)
 			}
 		}
 
@@ -410,8 +407,6 @@ func (g *graphActor) OnCompleteGraph() {
 	if g.Recovering() {
 		return
 	}
-	g.log.Info("Completing graph in OnCompleteGraph")
-
 	g.persistAndUpdateGraph(&model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,

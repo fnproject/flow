@@ -148,6 +148,9 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 }
 
 func renderError(err error, c *gin.Context) {
+	if gin.Mode() == gin.DebugMode {
+		log.WithError(err).Error("Error occured in request")
+	}
 	switch e := err.(type) {
 
 	case model.ValidationError, *protocol.BadProtoMessage:
@@ -536,6 +539,10 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 
 	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 
+	if err !=nil {
+		renderError(err,c)
+		return
+	}
 	request := &model.AddInvokeFunctionStageRequest{
 		GraphId:    graphID,
 		FunctionId: functionID,

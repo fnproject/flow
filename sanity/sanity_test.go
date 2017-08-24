@@ -3,15 +3,14 @@ package sanity
 import (
 	"net/http"
 	"testing"
-	"github.com/stretchr/testify/require"
 	"github.com/fnproject/completer/server"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/actor"
 
-	"github.com/gin-gonic/gin"
 	"github.com/fnproject/completer/protocol"
 	"github.com/fnproject/completer/model"
 	"fmt"
+	"os"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -19,9 +18,10 @@ func TestGraphCreation(t *testing.T) {
 	tc.Call("Works ", http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
 	tc.Call("Rejects Missing function ID", http.MethodPost, "/graph").ExpectServerErr(server.ErrInvalidFunctionId)
 	tc.Call("Rejects Invalid function ID", http.MethodPost, "/graph?functionId=foo").ExpectServerErr(server.ErrInvalidFunctionId)
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t, testServer)
 }
 
+var testServer = NewTestServer()
 func TestSupply(t *testing.T) {
 	tc := NewCase("Supply")
 	tc.StartWithGraph("Creates node").
@@ -36,7 +36,7 @@ func TestSupply(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithHeader("content-type", "foo/bar").
 		ExpectServerErr(server.ErrMissingBody)
 
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t, testServer)
 }
 
 func TestCompletedValue(t *testing.T) {
@@ -53,7 +53,7 @@ func TestCompletedValue(t *testing.T) {
 	StageAcceptsHttpReqType(f)
 	StageAcceptsHttpRespType(f)
 
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t, testServer)
 }
 
 func TestExternalCompletion(t *testing.T) {
@@ -74,17 +74,26 @@ func TestExternalCompletion(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").
 		ExpectStatus(200)
 
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t, testServer)
 }
 
 func TestInvokeFunction(t *testing.T) {
 	tc := NewCase("Invoke Function")
 
-	tc.StartWithGraph("Works").
+	tc.StartWithGraph("Works Without Body").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
-		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET"}).WithBodyString("input").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET","fnproject-header-foo":"bar"}).
 		ExpectStageCreated()
-	tc.Run(t, NewTestServer(t))
+
+	tc.StartWithGraph("Works With Body").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "POST","fnproject-header-foo":"bar","content-type":"text/plain"}).WithBodyString("input").
+		ExpectStageCreated()
+
+
+
+
+	tc.Run(t, testServer)
 
 	tc.StartWithGraph("Rejects non-httpreq datum").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
@@ -95,7 +104,7 @@ func TestInvokeFunction(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction").
 		ExpectRequestErr(server.ErrInvalidFunctionId)
 
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t, testServer)
 }
 
 func TestDelay(t *testing.T) {
@@ -117,19 +126,24 @@ func TestDelay(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
-	tc.Run(t, NewTestServer(t))
+	tc.Run(t,testServer)
 }
 
-func NewTestServer(t *testing.T) *server.Server {
-	gin.SetMode(gin.DebugMode)
+func NewTestServer() *server.Server {
 
 	blobStorage := persistence.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
 	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:")
-	require.NoError(t, err)
 
+	if err !=nil {
+		panic(err)
+	}
 	s, err := server.New(graphManager, blobStorage, ":8081")
-	require.NoError(t, err)
+
+	if err !=nil {
+		panic(err)
+	}
+
 	return s
 
 }

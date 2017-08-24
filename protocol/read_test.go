@@ -220,6 +220,25 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	assert.Equal(t, "FOO", singleHeader[0])
 }
 
+
+
+func TestReadsHttpReqDatumWithNoBody(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
+	h := emptyHeaders()
+	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderMethod, "GET")
+	part := createPart( h, "")
+	d, err := DatumFromPart(store,part)
+
+	assert.NoError(t, err)
+	require.NotNil(t, d.GetHttpReq())
+	assert.Equal(t, model.HttpMethod_get, d.GetHttpReq().GetMethod())
+
+	assert.Nil(t,d.GetHttpReq().Body)
+
+}
+
 func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 

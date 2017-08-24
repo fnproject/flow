@@ -62,7 +62,7 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 	switch datumType {
 	case DatumTypeBlob:
 
-		blob, err := readBlob(store, part, header)
+		blob, err := readBlob(store, part, header,false)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,8 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 				}
 			}
 		}
-		blob, err := readBlob(store, part, header)
+
+		blob, err := readBlob(store, part, header,true)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +154,7 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 				}
 			}
 		}
-		blob, err := readBlob(store, part, header)
+		blob, err := readBlob(store, part, header,true)
 		if err != nil {
 			return nil, err
 		}
@@ -163,17 +164,23 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 	}
 }
 
-func readBlob(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader) (*model.BlobDatum, error) {
+func readBlob(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader,allowNil bool) (*model.BlobDatum, error) {
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(part)
+
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read blob datum from body")
+	}
+
+	data := buf.Bytes()
+	if allowNil && len(data) ==0 {
+		return nil,nil
+	}
 	contentType := header.Get(HeaderContentType)
 	if "" == contentType {
 		return nil, ErrMissingContentType
 	}
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(part)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read blob datum from body")
-	}
-	data := buf.Bytes()
+
 	blob, err := store.CreateBlob(contentType, data)
 	if err != nil {
 		return nil, err

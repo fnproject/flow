@@ -254,15 +254,16 @@ When a function call completes successfully, the completer will persist the HTTP
 
 ```
 FnProject-DatumType: httpresp
-FnProject-ResultStatus: success
+FnProject-ResultStatus: success        # waitForCompletion only
 FnProject-ResultCode: 200
 FnProject-Header-CUSTOM-HEADER: customValue
+FnProject-Exceptional: false           # carried with the datum when serialised by the completer; may be elided if false
 Content-Type: application/json
 
 ...function response body...
 ```
 
-In the Java runtime, this stage's value will be transparently coerced to the `FnResult` type. FnResult is a wrapped HTTP response including:
+In the Java runtime, this stage's value will be transparently coerced to the `HttpResponse` type. HttpResponse is a wrapped HTTP response including:
 * Status Code
 * Headers (without the `FnProject-Header-` prefix)
 * Body
@@ -275,16 +276,26 @@ As with successful invocations, the completer will store body, status and header
 
 ```
 FnProject-DatumType: httpresp
-FnProject-ResultStatus: failure
+FnProject-ResultStatus: failure        # waitForCompletion only
 FnProject-ResultCode: 500
 FnProject-Header-CUSTOM-HEADER: customValue
+FnProject-Exceptional: true            # carried with the datum when serialised by the completer
 Content-Type: application/json
 
 ...function response body...
 ```
 
-In the Java runtime, the stage's value will be coerced to a `FunctionInvocationException`, which like FnResult wraps the body, headers and status code of the original response.
+In the Java runtime, the stage's value will be wrapped in a `FunctionInvocationException`, which permits access to the underlying HttpResponse datum.
 
+Note: the FnProject-Exceptional attribute is *not* a part of the datum; in particular, if a runtime reserializes an HttpResponse (or HttpRequest), then the serialized form *should not* carry a success or failure.
+This means that the following code can chain HttpResponses type-correctly:
+
+```java
+   // ...
+   rt.invokeFunction(/* ... */)
+     .exceptionally((e) -> ((FunctionInvocationException) e).getFunctionResponse())
+     .thenApply((resp) -> /* ... */);
+```
 
 #### Platform Error
 
@@ -312,12 +323,13 @@ FnProject-DatumType: httpreq
 FnProject-Method: POST
 FnProject-ResultStatus: success
 FnProject-Header-CUSTOM-HEADER: user-12334
+FnProject-Exceptional: false          # may be elided if false; as above
 Content-Type: application/json
 
 ... request body...
 ```
 
-In the Java runtime, this stage's value will be transparently coerced to the `ExternalResult` type, which wraps the body and headers of the original request.
+In the Java runtime, this stage's value will be transparently coerced to the `HttpRequest` type, which wraps the body and headers of the original request.
 
 #### Failed Value
 
@@ -335,14 +347,16 @@ will result in the following being transmitted to the runtime:
 ```
 FnProject-DatumType: http
 FnProject-Method: POST
-FnProject-ResultStatus: failure
+FnProject-ResultStatus: failure        # waitForCompletion only
 FnProject-Header-CUSTOM-HEADER: user-12334
+FnProject-Exceptional: true
 Content-Type: application/json
 
 ...request body...
 ```
 
-In the Java runtime, this stage's value will be transparently coerced to the `FunctionInvocationException` type, which wraps the body and headers of the original request.
+In the Java runtime, this stage's value will be transparently wrapped in the `ExternalCompletionException` type, which wraps the body and headers of the original request.
+As in the case of an `HttpResponse`, the `FnProject-Exceptional` attribute is *not* carried on the datum itself or reserialized to the completer; it serves solely as a hint from the completer that the datum is being used in an exceptional path.
 
 
 ## Graph Completion & Committing the graph 

@@ -10,7 +10,6 @@ import (
 	"github.com/fnproject/completer/protocol"
 	"github.com/fnproject/completer/model"
 	"fmt"
-	"os"
 )
 
 func TestGraphCreation(t *testing.T) {

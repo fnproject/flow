@@ -225,19 +225,19 @@ func TestShouldGetAllStages(t *testing.T) {
 	assert.Equal(t, map[string]*CompletionStage{"0": s}, g.stages)
 }
 
-func TestShouldRejectUnknownStage(t *testing.T) {
+func TestShouldRejectUnknownOperationStage(t *testing.T) {
 	m := &MockedListener{}
 
 	g := New("graph", "function", m)
-	event := &model.StageAddedEvent{
-		StageId:      g.NextStageID(),
-		Op:           model.CompletionOperation_unknown_operation,
-		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{},
+
+	cmd := &model.AddChainedStageRequest{
+		GraphId:   "graph",
+		Operation: model.CompletionOperation_unknown_operation,
+		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      []string{},
 	}
 
-	assert.Error(t, g.UpdateWithEvent(event, false))
-
+	assert.NotNil(t, g.ValidateCommand(cmd))
 }
 
 func TestShouldRejectDuplicateStage(t *testing.T) {
@@ -245,14 +245,14 @@ func TestShouldRejectDuplicateStage(t *testing.T) {
 
 	g := New("graph", "function", m)
 	s := withSimpleStage(g, false)
+
 	event := &model.StageAddedEvent{
 		StageId:      string(s.ID),
 		Op:           model.CompletionOperation_supply,
 		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{},
 	}
-
-	assert.Error(t, g.UpdateWithEvent(event, false))
+	assert.Panics(t, func() { g.UpdateWithEvent(event, false) })
 }
 
 func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
@@ -260,14 +260,13 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	event := &model.StageAddedEvent{
-		StageId:      string("stage"),
-		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{},
+	cmd := &model.AddChainedStageRequest{
+		GraphId:   "graph",
+		Operation: model.CompletionOperation_thenApply,
+		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      []string{},
 	}
-
-	assert.Error(t, g.UpdateWithEvent(event, false))
+	assert.NotNil(t, g.ValidateCommand(cmd))
 }
 
 func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
@@ -275,30 +274,26 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	event := &model.StageAddedEvent{
-		StageId:      string("stage"),
-		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{"s1", "s2"},
+	cmd := &model.AddChainedStageRequest{
+		GraphId:   "graph",
+		Operation: model.CompletionOperation_thenApply,
+		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      []string{"s1", "s2"},
 	}
-
-	assert.Error(t, g.UpdateWithEvent(event, false))
-
+	assert.NotNil(t, g.ValidateCommand(cmd))
 }
 
 func TestShouldRejectStageWithUnknownDependency(t *testing.T) {
 	m := &MockedListener{}
 	g := New("graph", "function", m)
 
-	event := &model.StageAddedEvent{
-		StageId:      string("stage"),
-		Op:           model.CompletionOperation_thenApply,
-		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{"unknown"},
+	cmd := &model.AddChainedStageRequest{
+		GraphId:   "graph",
+		Operation: model.CompletionOperation_thenApply,
+		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      []string{"unknown"},
 	}
-
-	assert.Error(t, g.UpdateWithEvent(event, false))
-
+	assert.NotNil(t, g.ValidateCommand(cmd))
 }
 func TestShouldCompleteEmptyGraph(t *testing.T) {
 	m := &MockedListener{}
@@ -327,15 +322,13 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
 	g.UpdateWithEvent(&model.GraphCompletedEvent{GraphId: "graph", FunctionId: "function"}, true)
 
-	event := &model.StageAddedEvent{
-		StageId:      g.NextStageID(),
-		Op:           model.CompletionOperation_supply,
-		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Dependencies: []string{},
+	cmd := &model.AddChainedStageRequest{
+		GraphId:   "graph",
+		Operation: model.CompletionOperation_supply,
+		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      []string{},
 	}
-
-	err := g.UpdateWithEvent(event, false)
-	assert.Error(t, err)
+	assert.NotNil(t, g.ValidateCommand(cmd))
 	m.AssertExpectations(t)
 }
 

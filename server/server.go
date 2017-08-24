@@ -43,7 +43,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	}
 
 	var m model.HttpMethod
-	if methodValue, found := model.HttpMethod_value[method]; found {
+	if methodValue, found := model.HttpMethod_value[strings.ToLower(method)]; found {
 		m = model.HttpMethod(methodValue)
 	} else {
 		m = model.HttpMethod_unknown_method

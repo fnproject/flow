@@ -19,6 +19,7 @@ import (
 	"github.com/fnproject/completer/protocol"
 )
 
+const MaxDelay = 3600 * 1000 * 24
 
 var log = logrus.WithField("logger", "server")
 
@@ -37,7 +38,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	if methodValue, found := model.HttpMethod_value[strings.ToLower(method)]; found {
 		m = model.HttpMethod(methodValue)
 	} else {
-		return nil,ErrUnsupportedHttpMethod
+		return nil, ErrUnsupportedHttpMethod
 	}
 
 	if contentType == "" {
@@ -70,19 +71,19 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 
 func (s *Server) handleStageOperation(c *gin.Context) {
 	graphID := c.Param("graphId")
-	if !validGraphId(graphID){
-		renderError(ErrInvalidGraphId,c)
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	stageID := c.Param("stageId")
-	if !validStageId(graphID){
-		renderError(ErrInvalidStageId,c)
+	if !validStageId(graphID) {
+		renderError(ErrInvalidStageId, c)
 		return
 	}
 	operation := c.Param("operation")
 	body, err := c.GetRawData()
 	if err != nil {
-		renderError(ErrReadingInput,c)
+		renderError(ErrReadingInput, c)
 		return
 	}
 
@@ -90,7 +91,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 	case "complete":
 		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
 		if err != nil {
-			renderError(err,c)
+			renderError(err, c)
 			return
 		}
 		c.Header(protocol.HeaderStageRef, response.StageId)
@@ -98,7 +99,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 	case "fail":
 		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
 		if err != nil {
-			renderError(err,c)
+			renderError(err, c)
 			return
 		}
 		c.Header(protocol.HeaderStageRef, response.StageId)
@@ -108,7 +109,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		cids := []string{stageID}
 		if other != "" {
 			if !validStageId(other) {
-				renderError(ErrInvalidDepStageId,c)
+				renderError(ErrInvalidDepStageId, c)
 				return
 			}
 			cids = append(cids, other)
@@ -116,14 +117,14 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 		completionOperation, found := model.CompletionOperation_value[operation]
 		if !found {
-			renderError(ErrUnrecognisedCompletionOperation,c)
+			renderError(ErrUnrecognisedCompletionOperation, c)
 			return
 
 		}
 
 		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
 		if err != nil {
-			renderError(err,c)
+			renderError(err, c)
 		}
 
 		// TODO: enforce valid content type
@@ -146,35 +147,35 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 	}
 }
 
-
 func renderError(err error, c *gin.Context) {
 	switch e := err.(type) {
-	case model.BadRequestError:
-		c.Data(http.StatusBadRequest, "text/plain", []byte(e.UserMessage()))
-	case *ServerErr: {
-		c.Data(e.HttpStatus,"text/plain",[]byte(e.Message))
-	}
+
+	case model.ValidationError, *protocol.BadProtoMessage:
+		c.Data(http.StatusBadRequest, "text/plain", []byte(e.Error()))
+	case *ServerErr:
+		{
+			c.Data(e.HttpStatus, "text/plain", []byte(e.Message))
+		}
 	default:
 		log.WithError(err).Error("Internal server error")
 		c.Status(http.StatusInternalServerError)
 	}
 }
 
-
 func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
-	if  !validFunctionId(functionID){
-		log.WithField("function_id",functionID).Info("Invalid function iD ")
-		renderError(ErrInvalidFunctionId,c)
+	if !validFunctionId(functionID) {
+		log.WithField("function_id", functionID).Info("Invalid function iD ")
+		renderError(ErrInvalidFunctionId, c)
 		return
 	}
 	// TODO: Validate the format of the functionId
 
 	graphID, err := uuid.NewRandom()
 	if err != nil {
-		renderError(err,c)
+		renderError(err, c)
 		return
 	}
 
@@ -194,7 +195,7 @@ func (s *Server) handleGraphState(c *gin.Context) {
 
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 
@@ -221,14 +222,14 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	stageID := c.Param("stageId")
 
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	if !validStageId(stageID) {
 		renderError(ErrInvalidStageId, c)
 		return
 	}
-	
+
 	request := model.GetStageResultRequest{
 		GraphId: graphID,
 		StageId: stageID,
@@ -320,7 +321,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		for _, header := range httpResp.Headers {
 			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
 		}
-		statusCode := fmt.Sprintf("%d",httpResp.GetStatusCode())
+		statusCode := fmt.Sprintf("%d", httpResp.GetStatusCode())
 		c.Header(protocol.HeaderResultCode, statusCode)
 		c.Data(http.StatusOK, httpResp.Body.GetContentType(), body)
 		return
@@ -334,7 +335,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 func (s *Server) handleExternalCompletion(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	request := &model.AddExternalCompletionStageRequest{GraphId: graphID}
@@ -353,15 +354,15 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	cidList := c.Query("cids")
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	cids := strings.Split(cidList, ",")
 
-	for _,stageId:= range cids {
+	for _, stageId := range cids {
 		if !validStageId(stageId) {
-			renderError(ErrInvalidDepStageId,c)
-			return 
+			renderError(ErrInvalidDepStageId, c)
+			return
 		}
 	}
 	request := &model.AddChainedStageRequest{
@@ -393,25 +394,29 @@ func (s *Server) handleAnyOf(c *gin.Context) {
 func (s *Server) handleSupply(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
+	ct := c.ContentType()
+	if ct == "" {
+		renderError(protocol.ErrMissingContentType, c)
+		return
+	}
+
 	body, err := c.GetRawData()
 	if err != nil {
 		renderError(err, c)
 		return
 	}
-	if len(body) ==0 {
-		renderError(ErrMissingBody,c)
+	if len(body) == 0 {
+		renderError(ErrMissingBody, c)
 		return
 	}
-	ct:= c.ContentType()
-	if ct == ""{
-		renderError(protocol.ErrMissingContentType,c)
-	}
+
 	blob, err := s.BlobStore.CreateBlob(ct, body)
 	if err != nil {
 		renderError(err, c)
+		return
 	}
 
 	request := &model.AddChainedStageRequest{
@@ -433,11 +438,11 @@ func (s *Server) handleSupply(c *gin.Context) {
 func (s *Server) handleCompletedValue(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 
-	datum,err := protocol.DatumFromRequest(s.BlobStore,c.Request)
+	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
@@ -445,7 +450,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 
 	result := model.CompletionResult{
 		Successful: true,
-		Datum:     datum,
+		Datum:      datum,
 	}
 
 	request := &model.AddCompletedValueStageRequest{
@@ -472,7 +477,7 @@ func (s *Server) handleCommit(c *gin.Context) {
 
 	response, err := s.GraphManager.Commit(&request, s.requestTimeout)
 	if err != nil {
-		renderError(err,c)
+		renderError(err, c)
 		return
 	}
 
@@ -483,18 +488,18 @@ func (s *Server) handleCommit(c *gin.Context) {
 func (s *Server) handleDelay(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	delayMs := c.Query("delayMs")
 	if delayMs == "" {
-		renderError(ErrMissingOrInvalidDelay,c)
+		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
 
 	delay, err := strconv.ParseInt(delayMs, 10, 64)
-	if err != nil {
-		renderError(ErrMissingOrInvalidDelay,c)
+	if err != nil || delay < 0 || delay > MaxDelay{
+		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
 
@@ -510,72 +515,31 @@ func (s *Server) handleDelay(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func unwrapPrefixedHeaders(hs http.Header) []*model.HttpHeader {
-	var headers []*model.HttpHeader
-	for k, vs := range hs {
-		canonicalKey := http.CanonicalHeaderKey(k)
-		canonicalPrefix := http.CanonicalHeaderKey(protocol.HeaderHeaderPrefix)
-		if strings.HasPrefix(canonicalKey, canonicalPrefix) {
-			trimmedHeader := strings.TrimPrefix(canonicalKey, canonicalPrefix)
-			for _, v := range vs {
-				headers = append(headers, &model.HttpHeader{
-					Key:   trimmedHeader,
-					Value: v,
-				})
-			}
-		}
-	}
-	return headers
-}
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId,c)
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 	functionID := c.Query("functionId")
 
 	if !validFunctionId(functionID) {
-		renderError(ErrInvalidFunctionId,c)
+		renderError(ErrInvalidFunctionId, c)
 		return
 	}
 
-	body, err := c.GetRawData()
-	if err != nil {
-		renderError(ErrReadingInput,c)
+	if c.GetHeader(protocol.HeaderDatumType) != protocol.DatumTypeHttpReq {
+		renderError(protocol.ErrInvalidDatumType, c)
 		return
 	}
 
-	requestMethod := strings.ToLower(c.GetHeader(http.CanonicalHeaderKey(protocol.HeaderMethod)))
-	var method model.HttpMethod
-	if m, found := model.HttpMethod_value[requestMethod]; found {
-		method = model.HttpMethod(m)
-	} else {
-		renderError(protocol.ErrMissingHttpMethod,c)
-		return
-	}
-
-	var contentType = c.ContentType()
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-	var bodyBlob *model.BlobDatum = nil
-	if len(body) != 0 {
-		bodyBlob, err = s.BlobStore.CreateBlob(c.ContentType(), body)
-		if err != nil {
-			renderError(err, c)
-		}
-	}
+	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 
 	request := &model.AddInvokeFunctionStageRequest{
 		GraphId:    graphID,
 		FunctionId: functionID,
-		Arg: &model.HttpReqDatum{
-			Body:    bodyBlob,
-			Headers: unwrapPrefixedHeaders(c.Request.Header),
-			Method:  method,
-		},
+		Arg:        datum.GetHttpReq(),
 	}
 
 	response, err := s.addStage(request)

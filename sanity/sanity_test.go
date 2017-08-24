@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/fnproject/completer/protocol"
 	"github.com/fnproject/completer/model"
+	"fmt"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -38,7 +39,6 @@ func TestSupply(t *testing.T) {
 	tc.Run(t, NewTestServer(t))
 }
 
-
 func TestCompletedValue(t *testing.T) {
 	tc := NewCase("Completed Value")
 
@@ -56,30 +56,76 @@ func TestCompletedValue(t *testing.T) {
 	tc.Run(t, NewTestServer(t))
 }
 
-
 func TestExternalCompletion(t *testing.T) {
 	tc := NewCase("Completed Value")
+
 	tc.StartWithGraph("Creates External Completion").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated()
-	
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ExpectStageCreated()
+
 	tc.StartWithGraph("Completes External Completion Successfully").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated().
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ExpectStageCreated().
 		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/complete").ExpectStatus(200)
 
 	tc.StartWithGraph("Fails External Completion Successfully").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").ExpectStageCreated().
-		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").ExpectStatus(200)
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ExpectStageCreated().
+		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").
+		ExpectStatus(200)
 
+	tc.Run(t, NewTestServer(t))
+}
+
+func TestInvokeFunction(t *testing.T) {
+	tc := NewCase("Invoke Function")
+
+	tc.StartWithGraph("Works").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET"}).WithBodyString("input").
+		ExpectStageCreated()
+	tc.Run(t, NewTestServer(t))
+
+	tc.StartWithGraph("Rejects non-httpreq datum").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		WithHeaders(map[string]string{"fnproject-datumtype": "blob", "fnproject-method": "GET"}).WithBodyString("input").
+		ExpectRequestErr(protocol.ErrInvalidDatumType)
+
+	tc.StartWithGraph("Rejects missing functionId").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction").
+		ExpectRequestErr(server.ErrInvalidFunctionId)
+
+	tc.Run(t, NewTestServer(t))
+}
+
+func TestDelay(t *testing.T) {
+	tc := NewCase("Delay Call")
+
+	tc.StartWithGraph("Works").
+		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		ExpectStageCreated()
+
+	tc.StartWithGraph("Rejects Negative Delay").
+		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=-5").
+		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
+
+	tc.StartWithGraph("Rejects Large delay").
+		ThenCall(http.MethodPost, fmt.Sprintf("/graph/:graphId/delay?delayMs=%d", 3600*1000*24+1)).
+		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
+
+	tc.StartWithGraph("Rejects missing delay").
+		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs").
+		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
 	tc.Run(t, NewTestServer(t))
 }
 
 func NewTestServer(t *testing.T) *server.Server {
-	gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.DebugMode)
 
 	blobStorage := persistence.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
-	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:///")
+	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:")
 	require.NoError(t, err)
 
 	s, err := server.New(graphManager, blobStorage, ":8081")
@@ -87,9 +133,6 @@ func NewTestServer(t *testing.T) *server.Server {
 	return s
 
 }
-
-
-
 
 func StageAcceptsBlobType(s func(string) *apiCmd) {
 

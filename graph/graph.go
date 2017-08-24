@@ -291,7 +291,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		}
 		strategy, err := getStrategyFromOperation(addCmd.GetOperation())
 		if err != nil {
-			return model.NewInvalidOperationError(addCmd.GetGraphId(), addCmd.GetOperation().String())
+			return model.NewInvalidOperationError(addCmd.GetGraphId())
 		}
 
 		if addCmd.GetDependencyCount() < strategy.MinDependencies ||

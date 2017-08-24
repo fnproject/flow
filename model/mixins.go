@@ -61,19 +61,6 @@ func (m *InvalidGraphOperation) Error() string {
 	return m.Err
 }
 
-// BadRequestError corresponds to errors that are caused by bad user input
-type BadRequestError interface {
-	error
-	UserMessage() string
-}
-
-func (m *InvalidGraphOperation) UserMessage() string {
-	return m.Err
-}
-
-func (m *InvalidStageOperation) UserMessage() string {
-	return m.Err
-}
 
 type GraphMessage interface {
 	proto.Message

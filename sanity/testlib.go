@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"fmt"
 	"github.com/fnproject/completer/server"
-	"github.com/fnproject/completer/model"
 )
 
 type testCtx struct {
@@ -21,11 +20,13 @@ type testCtx struct {
 	t         *testing.T
 	graphId   string
 	stageId   string
+	lastResponse *http.Response
 }
 
 func (tc *testCtx) String() string {
 	return strings.Join(tc.narrative, " > ")
 }
+
 func (tc *testCtx) PushNarrative(narrative string) *testCtx {
 	newTc := *tc
 	newTc.narrative = append(tc.narrative, narrative)
@@ -63,6 +64,7 @@ func (tc *testCtx) Errorf(msg string, args ...interface{}) {
 	tc.failed = true
 	tc.t.Errorf("Expectation failed: \n\t\t%s ", strings.Join(tc.narrative, "\n\t\t ->  "))
 	tc.t.Errorf(msg, args...)
+	tc.t.Error("Last Response was: %v",tc.lastResponse)
 }
 
 const testFailed = "TestFailed"
@@ -70,10 +72,12 @@ const testFailed = "TestFailed"
 func (tc *testCtx) FailNow() {
 	panic(testFailed)
 }
+
 func (c *apiCmd) WithHeader(k string, v string) *apiCmd {
 	c.headers[k] = v
 	return c
 }
+
 func (c *apiCmd) WithHeaders(h map[string]string) *apiCmd {
 	for k, v := range h {
 		c.headers[k] = v
@@ -96,7 +100,7 @@ func (c *apiCmd) ExpectGraphCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
 		thread := resp.Header.Get("Fnproject-Threadid")
-		require.NotEmpty(ctx, thread, "ThreadID header must be present ")
+		require.NotEmpty(ctx, thread, "ThreadID header must be present in headers %v ",resp.Header)
 		ctx.graphId = thread
 	}, "Graph was created")
 }
@@ -110,15 +114,15 @@ func (c *apiCmd) ExpectStageCreated() *apiCmd {
 	}, "Stage was created")
 }
 
-func (c *apiCmd) ExpectRequestErr(serverErr model.BadRequestError) *apiCmd {
+func (c *apiCmd) ExpectRequestErr(serverErr error) *apiCmd {
 	return c.Expect(func(ctx *testCtx, resp *http.Response) {
 		assert.Equal(ctx, 400, resp.StatusCode)
 		assert.Equal(ctx, "text/plain", resp.Header.Get("content-type"))
 		buf := &bytes.Buffer{}
 		_, err := buf.ReadFrom(resp.Body)
 		require.NoError(ctx, err)
-		assert.Equal(ctx, serverErr.UserMessage(), string(buf.Bytes()), "Error body did not match")
-	}, "Request Error :  %s", serverErr.UserMessage())
+		assert.Equal(ctx, serverErr.Error(), string(buf.Bytes()), "Error body did not match")
+	}, "Request Error :  %s", serverErr.Error())
 }
 
 func (c *apiCmd) ExpectServerErr(serverErr *server.ServerErr) *apiCmd {
@@ -132,11 +136,6 @@ func (c *apiCmd) ExpectServerErr(serverErr *server.ServerErr) *apiCmd {
 	}, "Server Error : %d %s", serverErr.HttpStatus, serverErr.Message)
 }
 
-func (c *testCase) Call(description string, method string, path string) *apiCmd {
-	cmd := &apiCmd{narrative: description, method: method, path: path, headers: map[string]string{}}
-	c.tests = append(c.tests, cmd)
-	return cmd
-}
 
 func (c *apiCmd) WithBodyString(data string) (*apiCmd) {
 	c.body = []byte(data)
@@ -158,17 +157,14 @@ func (c *apiCmd) WithErrorDatum(errorType string, message string) (*apiCmd) {
 		"fnproject-errortype" : errorType,
 		"fnproject-datumtype": "error",
 	})
-
 }
+
 func (c *apiCmd) ThenCall(method string, path string) *apiCmd {
 	newCmd := &apiCmd{method: method, path: path, headers: map[string]string{}}
 	c.cmd = append(c.cmd, newCmd)
 	return newCmd
 }
 
-func (c *testCase) StartWithGraph(msg string) *apiCmd {
-	return c.Call(msg, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
-}
 
 func (c *apiCmd) ToReq(ctx *testCtx) *http.Request {
 	placeholders := func(key string) string {
@@ -209,10 +205,12 @@ func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
 	fmt.Printf("Test : %s\n", nuctx)
 
 	s.Engine.ServeHTTP(resp, req)
+	nuctx.lastResponse = resp.Result()
+
 
 	for _, check := range c.expect {
 		nuctx = nuctx.PushNarrative(check.narrative)
-		check.action(nuctx, resp.Result())
+		check.action(nuctx, nuctx.lastResponse)
 	}
 
 	for _, cmd := range c.cmd {
@@ -220,6 +218,18 @@ func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
 	}
 
 }
+
+
+func (c *testCase) Call(description string, method string, path string) *apiCmd {
+	cmd := &apiCmd{narrative: c.narrative + ":" +description, method: method, path: path, headers: map[string]string{}}
+	c.tests = append(c.tests, cmd)
+	return cmd
+}
+
+func (c *testCase) StartWithGraph(msg string) *apiCmd {
+	return c.Call(msg, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
+}
+
 func (tc *testCase) Run(t *testing.T, server *server.Server) {
 
 	defer func() {

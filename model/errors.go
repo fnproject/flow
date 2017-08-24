@@ -8,6 +8,7 @@ import (
 
 // ValidationError is the base interface for validation error messages that can be returned from graph actors
 type ValidationError interface {
+	error
 	proto.Message
 }
 
@@ -43,6 +44,6 @@ func NewInvalidStageDependenciesError(graphId string) ValidationError {
 	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to create stage with invalid dependencies"}
 }
 
-func NewInvalidOperationError(graphId string, op string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: fmt.Sprintf("Invalid stage operation %s", op)}
+func NewInvalidOperationError(graphId string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphId, Err: "Invalid stage operation"}
 }

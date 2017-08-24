@@ -1,47 +1,47 @@
 package protocol
 
-type badProtoMessage struct {
+type BadProtoMessage struct {
 	message string
 }
 
-func (bp *badProtoMessage) UserMessage() string {
+func (bp *BadProtoMessage) UserMessage() string {
 	return bp.Error()
 }
-func (bp *badProtoMessage) Error() string {
+func (bp *BadProtoMessage) Error() string {
 	return bp.message
 }
 
 
 var (
 
-	ErrMissingContentType =&badProtoMessage{
+	ErrMissingContentType =&BadProtoMessage{
 		message:    "Missing " + HeaderContentType + " header ",
 	}
-	ErrMissingHttpMethod = &badProtoMessage{
+	ErrMissingHttpMethod = &BadProtoMessage{
 		message:    "Missing " + HeaderMethod + " header ",
 	}
-	ErrInvalidHttpMethod = &badProtoMessage{
+	ErrInvalidHttpMethod = &BadProtoMessage{
 		message:    "Invalid " + HeaderMethod + " header ",
 	}
-	ErrMissingResultCode = &badProtoMessage{
+	ErrMissingResultCode = &BadProtoMessage{
 		message:    "Missing " + HeaderResultCode + " header ",
 	}
-	ErrInvalidResultCode = &badProtoMessage{
+	ErrInvalidResultCode = &BadProtoMessage{
 		message:    "Invalid " + HeaderResultCode + " header ",
 	}
-	ErrMissingErrorType = &badProtoMessage{
+	ErrMissingErrorType = &BadProtoMessage{
 		message:    "Missing " + HeaderErrorType + " header ",
 	}
-	ErrMissingDatumType = &badProtoMessage{
+	ErrMissingDatumType = &BadProtoMessage{
 		message:    "Missing " + HeaderDatumType + " header ",
 	}
-	ErrInvalidDatumType = &badProtoMessage{
+	ErrInvalidDatumType = &BadProtoMessage{
 		message:    "Missing " + HeaderDatumType + " header ",
 	}
-	ErrMissingStageRef =  &badProtoMessage{
+	ErrMissingStageRef =  &BadProtoMessage{
 		message : "Missing " + HeaderStageRef + " header",
 	}
-	ErrInvalidContentType = &badProtoMessage{
+	ErrInvalidContentType = &BadProtoMessage{
 		message : "Unsupported content type for datum",
 	}
 

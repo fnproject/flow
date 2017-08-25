@@ -20,7 +20,7 @@ Completion stages consist of the following :
   *  A *stage type* that describes what the stage should do, how arguments should be passed into the stage and how results of the stage should be handled see [Stage Types](#stage-types) for a list of supported stage types
   *  An *closure* that describes what code to run within the original function container, when the stage is activated -  Not all stage types require a closure (e.g. delay). The closure is interpreted by the calling function and may be of any type - in java this may for instance be a serialized lambda expression and its captured arguments. 
   *  Zero or more *stage dependencies* that trigger the stage, the stage type determines under which circumstances the dependencies cause the stage to trigger.
-  * A *stage value* : this corresponds to the (successful or failed) value associated with stage once it has completed - this value is used to trigger downstream stages.  
+  * A *stage result* : this corresponds to the (successful or failed) value associated with stage once it has completed - this value is used to trigger downstream stages.  
   
 
 
@@ -254,10 +254,9 @@ When a function call completes successfully, the completer will persist the HTTP
 
 ```
 FnProject-DatumType: httpresp
-FnProject-ResultStatus: success        # waitForCompletion only
+FnProject-ResultStatus: success        
 FnProject-ResultCode: 200
 FnProject-Header-CUSTOM-HEADER: customValue
-FnProject-Exceptional: false           # carried with the datum when serialised by the completer; may be elided if false
 Content-Type: application/json
 
 ...function response body...
@@ -276,10 +275,9 @@ As with successful invocations, the completer will store body, status and header
 
 ```
 FnProject-DatumType: httpresp
-FnProject-ResultStatus: failure        # waitForCompletion only
+FnProject-ResultStatus: failure        
 FnProject-ResultCode: 500
 FnProject-Header-CUSTOM-HEADER: customValue
-FnProject-Exceptional: true            # carried with the datum when serialised by the completer
 Content-Type: application/json
 
 ...function response body...
@@ -287,7 +285,7 @@ Content-Type: application/json
 
 In the Java runtime, the stage's value will be wrapped in a `FunctionInvocationException`, which permits access to the underlying HttpResponse datum.
 
-Note: the FnProject-Exceptional attribute is *not* a part of the datum; in particular, if a runtime reserializes an HttpResponse (or HttpRequest), then the serialized form *should not* carry a success or failure.
+
 This means that the following code can chain HttpResponses type-correctly:
 
 ```java
@@ -323,7 +321,6 @@ FnProject-DatumType: httpreq
 FnProject-Method: POST
 FnProject-ResultStatus: success
 FnProject-Header-CUSTOM-HEADER: user-12334
-FnProject-Exceptional: false          # may be elided if false; as above
 Content-Type: application/json
 
 ... request body...
@@ -349,14 +346,13 @@ FnProject-DatumType: http
 FnProject-Method: POST
 FnProject-ResultStatus: failure        # waitForCompletion only
 FnProject-Header-CUSTOM-HEADER: user-12334
-FnProject-Exceptional: true
 Content-Type: application/json
 
 ...request body...
 ```
 
 In the Java runtime, this stage's value will be transparently wrapped in the `ExternalCompletionException` type, which wraps the body and headers of the original request.
-As in the case of an `HttpResponse`, the `FnProject-Exceptional` attribute is *not* carried on the datum itself or reserialized to the completer; it serves solely as a hint from the completer that the datum is being used in an exceptional path.
+
 
 
 ## Graph Completion & Committing the graph 
@@ -402,7 +398,7 @@ We'll swagger this up at some point
 | /graph/${graph_id}/stage/${stage_id}/handle				| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletionStage.html#handle-java.util.function.BiFunction-). |
 | /graph/${graph_id}/stage/${stage_id}/exceptionally		| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletionStage.html#exceptionally-java.util.function.Function-). |
 
-Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage value by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
+Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage result by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
 
 Data is exchanged between the client and the completer and the completer and the function using HTTP multipart messages 
  

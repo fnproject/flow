@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
+	"strconv"
 	"strings"
+
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
 )
 
-// WritePartFromDatum emits a datum to an HTTP part
-func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
-
+func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
 	switch datum.Val.(type) {
 	case *model.Datum_Blob:
 		blob := datum.GetBlob()
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeBlob)
 		h.Add(HeaderContentType, blob.ContentType)
 		partWriter, err := writer.CreatePart(h)
@@ -30,7 +29,6 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 		return nil
 
 	case *model.Datum_Empty:
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeEmpty)
 		_, err := writer.CreatePart(h)
 		if err != nil {
@@ -38,7 +36,6 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 		}
 		return nil
 	case *model.Datum_Error:
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeError)
 		h.Add(HeaderContentType, "text/plain")
 
@@ -52,7 +49,6 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 		partWriter.Write([]byte(datum.GetError().Message))
 		return nil
 	case *model.Datum_StageRef:
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeStageRef)
 		h.Add(HeaderStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
 		_, err := writer.CreatePart(h)
@@ -61,7 +57,6 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 		}
 		return nil
 	case *model.Datum_HttpReq:
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeHttpReq)
 		httpreq := datum.GetHttpReq()
 		for _, datumHeader := range httpreq.Headers {
@@ -91,7 +86,6 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 
 		return nil
 	case *model.Datum_HttpResp:
-		h := textproto.MIMEHeader{}
 		h.Add(HeaderDatumType, DatumTypeHttpResp)
 		httpresp := datum.GetHttpResp()
 		for _, datumHeader := range httpresp.Headers {
@@ -123,4 +117,16 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 		return fmt.Errorf("unsupported datum type")
 
 	}
+}
+
+// WritePartFromDatum emits a datum to an HTTP part
+func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
+	return writePartFromDatum(textproto.MIMEHeader{}, store, datum, writer)
+}
+
+// WritePartFromResult emits a result to an HTTP part
+func WritePartFromResult(store persistence.BlobStore, result *model.CompletionResult, writer *multipart.Writer) error {
+	h := textproto.MIMEHeader{}
+	h.Add(HeaderExceptional, strconv.FormatBool(result.Successful))
+	return writePartFromDatum(h, store, result.Datum, writer)
 }

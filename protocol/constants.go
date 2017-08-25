@@ -9,8 +9,9 @@ const (
 	HeaderHeaderPrefix = "Fnproject-Header-"
 	HeaderErrorType    = "Fnproject-Errortype"
 	HeaderThreadId     = "Fnproject-Threadid"
+	HeaderExceptional  = "FnProject-Exceptional"
 
-	HeaderContentType  = "Content-Type"
+	HeaderContentType = "Content-Type"
 
 	DatumTypeBlob     = "blob"
 	DatumTypeEmpty    = "empty"

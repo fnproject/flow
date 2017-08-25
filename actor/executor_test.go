@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/fnproject/completer/persistence"
 )
 
 type MockClient struct {
@@ -51,7 +51,7 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	require.NotNil(t, result.Result.GetDatum().GetBlob())
 	blob := result.Result.GetDatum().GetBlob()
 	assert.Equal(t, "response/type", blob.ContentType)
-	assert.Equal(t, []byte("ResultBytes"), getBlobData(t, store,blob))
+	assert.Equal(t, []byte("ResultBytes"), getBlobData(t, store, blob))
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "POST", outbound.Method)
@@ -67,7 +67,7 @@ func TestShouldHandleHttpStageError(t *testing.T) {
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(nil, fmt.Errorf("error"))
 
-	result := givenValidInvokeStageRequest(store,m)
+	result := givenValidInvokeStageRequest(store, m)
 
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_stage_failed)
@@ -78,14 +78,13 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 	m := &MockClient{}
 	store := persistence.NewInMemBlobStore()
 
-
 	resp := givenEncapsulatedResponse(504,
 		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	result := givenValidInvokeStageRequest(store,m)
+	result := givenValidInvokeStageRequest(store, m)
 
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_stage_timeout)
@@ -96,14 +95,13 @@ func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 	m := &MockClient{}
 	store := persistence.NewInMemBlobStore()
 
-
 	resp := givenEncapsulatedResponse(200,
 		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	result := givenValidInvokeStageRequest(store,m)
+	result := givenValidInvokeStageRequest(store, m)
 
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_invalid_stage_response)
@@ -114,14 +112,13 @@ func TestShouldHandleFailedStageResponse(t *testing.T) {
 	m := &MockClient{}
 	store := persistence.NewInMemBlobStore()
 
-
 	resp := givenEncapsulatedResponse(500,
 		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	result := givenValidInvokeStageRequest(store,m)
+	result := givenValidInvokeStageRequest(store, m)
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_stage_failed)
 
@@ -143,8 +140,8 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	blob := createBlob(t,store,"body/type", []byte("body"))
-	result := givenValidFunctionRequest(store,m, blob)
+	blob := createBlob(t, store, "body/type", []byte("body"))
+	result := givenValidFunctionRequest(store, m, blob)
 
 	hasValidResult(t, result)
 	assert.True(t, result.Result.Successful)
@@ -152,7 +149,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	datum := hasValidHTTPRespResult(t, result, 201)
 
 	assert.Equal(t, "response/type", datum.Body.ContentType)
-	assert.Equal(t, []byte("ResultBytes"), getBlobData(t,store,datum.Body))
+	assert.Equal(t, []byte("ResultBytes"), getBlobData(t, store, datum.Body))
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "PUT", outbound.Method)
@@ -161,7 +158,6 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	br.ReadFrom(outbound.Body)
 	assert.Equal(t, []byte("body"), br.Bytes())
 }
-
 
 func TestShouldInvokeWithNoOutboundBody(t *testing.T) {
 	m := &MockClient{}
@@ -177,7 +173,7 @@ func TestShouldInvokeWithNoOutboundBody(t *testing.T) {
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	givenValidFunctionRequest(store,m, nil)
+	givenValidFunctionRequest(store, m, nil)
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "PUT", outbound.Method)
@@ -192,17 +188,16 @@ func TestShouldHandleFunctionNetworkError(t *testing.T) {
 	m := &MockClient{}
 	store := persistence.NewInMemBlobStore()
 
-
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(nil, fmt.Errorf("error"))
 
-	result := givenValidFunctionRequest(store,m, nil)
+	result := givenValidFunctionRequest(store, m, nil)
 	hasErrorResult(t, result, model.ErrorDatumType_function_invoke_failed)
 
 }
 
 func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 	m := &MockClient{}
-	store:= persistence.NewInMemBlobStore()
+	store := persistence.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 401,
@@ -215,7 +210,7 @@ func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 	}
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	result := givenValidFunctionRequest(store,m, nil)
+	result := givenValidFunctionRequest(store, m, nil)
 	hasValidHTTPRespResult(t, result, 401)
 	assert.False(t, result.Result.Successful)
 
@@ -223,7 +218,7 @@ func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 
 func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 	m := &MockClient{}
-	store:= persistence.NewInMemBlobStore()
+	store := persistence.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -235,7 +230,7 @@ func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 	}
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
-	result := givenValidFunctionRequest(store,m, nil)
+	result := givenValidFunctionRequest(store, m, nil)
 	datum := hasValidHTTPRespResult(t, result, 200)
 
 	assert.Equal(t, "application/octet-stream", datum.Body.ContentType)
@@ -273,10 +268,10 @@ func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte)
 
 func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *model.FaasInvocationResponse {
 	exec := &graphExecutor{
-		blobStore:store,
-		client:   m,
-		faasAddr: "http://faasaddr",
-		log:      testlog.WithField("Test", "logger"),
+		blobStore: store,
+		client:    m,
+		faasAddr:  "http://faasaddr",
+		log:       testlog.WithField("Test", "logger"),
 	}
 
 	closureBlob, err := store.CreateBlob("closure/type", []byte("closure"))
@@ -293,17 +288,17 @@ func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *m
 		FunctionId: "/function/id/",
 		Operation:  model.CompletionOperation_thenApply,
 		Closure:    closureBlob,
-		Args:       []*model.Datum{model.NewBlobDatum(argBlob), model.NewEmptyDatum()},
+		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(argBlob)), model.NewEmptyResult()},
 	})
 	return result
 }
 
-func givenValidFunctionRequest(store persistence.BlobStore,m *MockClient, body *model.BlobDatum) *model.FaasInvocationResponse {
+func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body *model.BlobDatum) *model.FaasInvocationResponse {
 	exec := &graphExecutor{
 		blobStore: store,
-		client:   m,
-		faasAddr: "http://faasaddr",
-		log:      testlog.WithField("Test", "logger"),
+		client:    m,
+		faasAddr:  "http://faasaddr",
+		log:       testlog.WithField("Test", "logger"),
 	}
 	result := exec.HandleInvokeFunctionRequest(&model.InvokeFunctionRequest{
 		GraphId:    "graph-id",
@@ -347,8 +342,7 @@ func getBlobData(t *testing.T, s persistence.BlobStore, blob *model.BlobDatum) [
 
 func createBlob(t *testing.T, store persistence.BlobStore, contentType string, data []byte) *model.BlobDatum {
 
-	blob,err := store.CreateBlob(contentType,data)
-	require.NoError(t,err)
+	blob, err := store.CreateBlob(contentType, data)
+	require.NoError(t, err)
 	return blob
 }
-

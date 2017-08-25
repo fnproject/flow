@@ -74,16 +74,12 @@ func succeedWithEmpty(stage *CompletionStage, listener CompletionEventListener, 
 
 // invokeWithoutArgs triggers invoking the closure with no args
 func invokeWithoutArgs(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
-	listener.OnExecuteStage(stage, []*model.Datum{})
+	listener.OnExecuteStage(stage, []*model.CompletionResult{})
 }
 
 // invokeWithResult triggers invoking the closure with no args
 func invokeWithResult(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
-	data := make([]*model.Datum, len(results))
-	for i, v := range results {
-		data[i] = v.GetDatum()
-	}
-	listener.OnExecuteStage(stage, data)
+	listener.OnExecuteStage(stage, results)
 }
 
 // invokeWithResultOrError triggers invoking the closure with a pair consisting of the  (result,<emtpy>) if the result is successful, or (<empty>,error) if the result is an error
@@ -95,11 +91,11 @@ func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventLis
 	}
 	result := results[0]
 
-	var args []*model.Datum
+	var args []*model.CompletionResult
 	if result.Successful {
-		args = []*model.Datum{result.Datum, model.NewEmptyDatum()}
+		args = []*model.CompletionResult{model.NewSuccessfulResult(result.Datum), model.NewEmptyResult()}
 	} else {
-		args = []*model.Datum{model.NewEmptyDatum(), result.Datum}
+		args = []*model.CompletionResult{model.NewEmptyResult(), model.NewFailedResult(result.Datum)}
 	}
 
 	listener.OnExecuteStage(stage, args)

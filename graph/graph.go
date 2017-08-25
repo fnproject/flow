@@ -21,7 +21,7 @@ const (
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
 type CompletionEventListener interface {
 	//OnExecuteStage indicates that  a stage is due to be executed with the given arguments
-	OnExecuteStage(stage *CompletionStage, datum []*model.Datum)
+	OnExecuteStage(stage *CompletionStage, results []*model.CompletionResult)
 	//OnCompleteStage indicates that a stage is finished and its result is available
 	OnCompleteStage(stage *CompletionStage, result *model.CompletionResult)
 	//OnCompose Stage indicates that another stage should be composed into this one

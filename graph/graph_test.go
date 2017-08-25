@@ -20,8 +20,8 @@ func (mock *MockedListener) OnCompleteGraph() {
 	mock.Called()
 }
 
-func (mock *MockedListener) OnExecuteStage(stage *CompletionStage, datum []*model.Datum) {
-	mock.Called(stage, datum)
+func (mock *MockedListener) OnExecuteStage(stage *CompletionStage, result []*model.CompletionResult) {
+	mock.Called(stage, result)
 }
 
 func (mock *MockedListener) OnComposeStage(stage *CompletionStage, composedStage *CompletionStage) {
@@ -48,7 +48,7 @@ func TestShouldCreateStageIds(t *testing.T) {
 func TestShouldTriggerNewValueOnAdd(t *testing.T) {
 	m := &MockedListener{}
 
-	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
+	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.CompletionResult{}).Return()
 
 	g := New("graph", "function", m)
 
@@ -74,7 +74,7 @@ func TestShouldCompleteValue(t *testing.T) {
 	m := &MockedListener{}
 	g := New("graph", "function", m)
 
-	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{}).Return()
+	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.CompletionResult{}).Return()
 	s := withSimpleStage(g, true)
 	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
@@ -99,7 +99,7 @@ func TestShouldTriggerOnCompleteSuccess(t *testing.T) {
 	value := model.NewBlobDatum(sampleBlob("blob"))
 	result := model.NewSuccessfulResult(value)
 
-	m.On("OnExecuteStage", s2, []*model.Datum{value}).Return()
+	m.On("OnExecuteStage", s2, []*model.CompletionResult{result}).Return()
 	g.UpdateWithEvent(&model.StageCompletedEvent{StageId: string(s1.ID), Result: result}, true)
 	m.AssertExpectations(t)
 
@@ -116,7 +116,7 @@ func TestShouldTriggerOnWhenDependentsAreComplete(t *testing.T) {
 	result := model.NewSuccessfulResult(value)
 	s1.complete(result)
 
-	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{value}).Return()
+	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.CompletionResult{result}).Return()
 	withAppendedStage(g, s1, true)
 
 	// No triggers
@@ -173,7 +173,7 @@ func TestShouldTriggerCompose(t *testing.T) {
 	result := model.NewSuccessfulResult(initial)
 	s1 := withSimpleStage(g, false)
 	s1.complete(result)
-	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.Datum{initial}).Return()
+	m.On("OnExecuteStage", mock.AnythingOfType("*graph.CompletionStage"), []*model.CompletionResult{result}).Return()
 	s2 := withComposeStage(g, s1, true)
 	m.AssertExpectations(t)
 

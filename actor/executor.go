@@ -12,9 +12,9 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/model"
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/protocol"
+	"github.com/sirupsen/logrus"
 )
 
 type graphExecutor struct {
@@ -43,8 +43,8 @@ func NewExecutor(faasAddress string, blobStore persistence.BlobStore) actor.Acto
 	client.Timeout = 300 * time.Second
 
 	return &graphExecutor{faasAddr: faasAddress,
-		log: logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
-		client: client,
+		log:       logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
+		client:    client,
 		blobStore: blobStore,
 	}
 }
@@ -79,8 +79,8 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 		}
 	}
-	for _, datum := range msg.Args {
-		err := protocol.WritePartFromDatum(exec.blobStore, datum, partWriter)
+	for _, result := range msg.Args {
+		err := protocol.WritePartFromResult(exec.blobStore, result, partWriter)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request")

@@ -95,7 +95,7 @@ func TestTriggerNever(t *testing.T) {
 func TestSucceedWithEmpty(t *testing.T) {
 	m := &MockedListener{}
 	s := pendingStage()
-	m.On("OnCompleteStage", s, model.NewSuccessfulResult(model.NewEmptyDatum()))
+	m.On("OnCompleteStage", s, model.NewEmptyResult())
 
 	succeedWithEmpty(s, m, []*model.CompletionResult{})
 	m.AssertExpectations(t)
@@ -104,19 +104,15 @@ func TestSucceedWithEmpty(t *testing.T) {
 func TestInvokeWithResult(t *testing.T) {
 	cases := [][]*model.CompletionResult{
 		{},
-		{model.NewSuccessfulResult(model.NewEmptyDatum())},
-		{model.NewSuccessfulResult(model.NewEmptyDatum()), model.NewFailedResult(aBlobDatum())},
+		{model.NewEmptyResult()},
+		{model.NewEmptyResult(), model.NewFailedResult(aBlobDatum())},
 	}
 
 	for _, c := range cases {
 		m := &MockedListener{}
 		s := pendingStage()
-		args := make([]*model.Datum, len(c))
-		for i, v := range c {
-			args[i] = v.Datum
-		}
 
-		m.On("OnExecuteStage", s, args)
+		m.On("OnExecuteStage", s, c)
 
 		invokeWithResult(s, m, c)
 		m.AssertExpectations(t)
@@ -126,21 +122,20 @@ func TestInvokeWithResult(t *testing.T) {
 func TestInvokeWithResultOrError(t *testing.T) {
 
 	type resultCase struct {
-		input []*model.CompletionResult
-		data  []*model.Datum
+		inputs  []*model.CompletionResult
+		results []*model.CompletionResult
 	}
 
 	cases := []resultCase{
-		{input: []*model.CompletionResult{model.NewSuccessfulResult(aBlobDatum())}, data: []*model.Datum{aBlobDatum(), model.NewEmptyDatum()}},
-		{input: []*model.CompletionResult{model.NewFailedResult(aBlobDatum())}, data: []*model.Datum{model.NewEmptyDatum(), aBlobDatum()}},
+		{inputs: []*model.CompletionResult{model.NewSuccessfulResult(aBlobDatum())}, results: []*model.CompletionResult{model.NewSuccessfulResult(aBlobDatum()), model.NewEmptyResult()}},
+		{inputs: []*model.CompletionResult{model.NewFailedResult(aBlobDatum())}, results: []*model.CompletionResult{model.NewEmptyResult(), model.NewFailedResult(aBlobDatum())}},
 	}
 
 	for _, c := range cases {
 		m := &MockedListener{}
 		s := pendingStage()
-
-		m.On("OnExecuteStage", s, c.data)
-		invokeWithResultOrError(s, m, c.input)
+		m.On("OnExecuteStage", s, c.results)
+		invokeWithResultOrError(s, m, c.inputs)
 		m.AssertExpectations(t)
 	}
 }
@@ -217,20 +212,17 @@ func TestReferencedStageResultFailsWithUnknownStage(t *testing.T) {
 
 }
 
-
-
-
 func TestReferencedStageResultComposesStage(t *testing.T) {
 	m := &MockedListener{}
 
 	g := New("graph", "fn", m)
 	composed := pendingStage()
 	composed.ID = "composed"
-	g.stages[composed.ID]= composed
+	g.stages[composed.ID] = composed
 
 	s := pendingStage()
 
-	m.On("OnComposeStage",s,composed )
+	m.On("OnComposeStage", s, composed)
 
 	referencedStageResult(s, g, model.NewSuccessfulResult(model.NewStageRefDatum(composed.ID)))
 
@@ -238,32 +230,32 @@ func TestReferencedStageResultComposesStage(t *testing.T) {
 
 }
 
-func TestParentStageResult (t *testing.T) {
+func TestParentStageResult(t *testing.T) {
 	m := &MockedListener{}
 
 	g := New("graph", "fn", m)
 	parent := pendingStage()
-	parent.ID ="parent"
-	r:= model.NewSuccessfulResult(aBlobDatum())
-	parent.result  = r
+	parent.ID = "parent"
+	r := model.NewSuccessfulResult(aBlobDatum())
+	parent.result = r
 
 	s := pendingStage()
 	s.dependencies = []*CompletionStage{parent}
 
-	m.On("OnCompleteStage",s, r)
+	m.On("OnCompleteStage", s, r)
 
-	parentStageResult(s, g, model.NewSuccessfulResult(model.NewEmptyDatum()))
+	parentStageResult(s, g, model.NewEmptyResult())
 
 	m.AssertExpectations(t)
 
 }
 
 func aBlobDatum() *model.Datum {
-	return model.NewBlobDatum(&model.BlobDatum{BlobId:"blob_id",ContentType:"text/play",Length:122})
+	return model.NewBlobDatum(&model.BlobDatum{BlobId: "blob_id", ContentType: "text/play", Length: 122})
 }
 
 func completedStage() *CompletionStage {
-	return &CompletionStage{ID: "1", result: model.NewSuccessfulResult(model.NewEmptyDatum())}
+	return &CompletionStage{ID: "1", result: model.NewEmptyResult()}
 }
 
 func TestTriggerAnyFail(t *testing.T) {

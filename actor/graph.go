@@ -318,7 +318,7 @@ func (g *graphActor) scheduleDelay(event *model.DelayScheduledEvent) {
 			g.pid.Tell(&model.CompleteDelayStageRequest{
 				GraphId: g.graph.ID,
 				StageId: event.StageId,
-				Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
+				Result:  model.NewEmptyResult(),
 			})
 		}()
 	} else {
@@ -326,7 +326,7 @@ func (g *graphActor) scheduleDelay(event *model.DelayScheduledEvent) {
 		g.pid.Tell(&model.CompleteDelayStageRequest{
 			GraphId: g.graph.ID,
 			StageId: event.StageId,
-			Result:  model.NewSuccessfulResult(model.NewEmptyDatum()),
+			Result:  model.NewEmptyResult(),
 		})
 	}
 }
@@ -369,13 +369,13 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 	}
 }
 
-func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, datum []*model.Datum) {
+func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
 	msg := &model.InvokeStageRequest{
 		FunctionId: g.graph.FunctionID,
 		GraphId:    g.graph.ID,
 		StageId:    stage.ID,
-		Args:       datum,
+		Args:       results,
 		Closure:    stage.GetClosure(),
 		Operation:  stage.GetOperation(),
 	}

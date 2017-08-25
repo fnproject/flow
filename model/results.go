@@ -9,11 +9,16 @@ func NewInternalErrorResult(code ErrorDatumType, message string) *CompletionResu
 	}
 }
 
+func NewEmptyResult() *CompletionResult {
+	return &CompletionResult{
+		Successful: true,
+		Datum:      NewEmptyDatum(),
+	}
+}
+
 func NewEmptyDatum() *Datum {
 	return &Datum{Val: &Datum_Empty{Empty: &EmptyDatum{}}}
 }
-
-
 
 func NewBlobDatum(blob *BlobDatum) *Datum {
 	return &Datum{

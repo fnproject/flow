@@ -253,7 +253,7 @@ message InvokeStageRequest {
     string stage_id = 2;
     string function_id = 3;
     CompletionOperation operation = 4;
-    repeated Datum args = 5;
+    repeated CompletionResult args = 5;
     BlobDatum closure = 6;
     bool exceptional = 7;
 }

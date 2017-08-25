@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
-	"strconv"
 	"strings"
 
 	"github.com/fnproject/completer/model"
@@ -127,6 +126,13 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 // WritePartFromResult emits a result to an HTTP part
 func WritePartFromResult(store persistence.BlobStore, result *model.CompletionResult, writer *multipart.Writer) error {
 	h := textproto.MIMEHeader{}
-	h.Add(HeaderExceptional, strconv.FormatBool(result.Successful))
+	h.Add(HeaderResultStatus, GetResultStatus(result))
 	return writePartFromDatum(h, store, result.Datum, writer)
+}
+
+func GetResultStatus(result *model.CompletionResult) string {
+	if result.GetSuccessful() {
+		return ResultStatusSuccess
+	}
+	return ResultStatusFailure
 }

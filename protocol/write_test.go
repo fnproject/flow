@@ -8,6 +8,7 @@ import (
 	"testing"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/model"
+	"github.com/stretchr/testify/require"
 )
 
 func TestShouldWriteSimpleBlob(t *testing.T) {
@@ -162,10 +163,39 @@ func TestShouldWriteHttpRespDatumWithNoBody(t *testing.T) {
 	assert.Empty(t, body)
 }
 
+func TestShouldAddResultStatusToResult(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
+	blob, err := store.CreateBlob("content/type", []byte("content"))
+	require.NoError(t, err)
+
+	headers, _ := writeResult(store, model.NewSuccessfulResult(model.NewBlobDatum(blob)))
+	assert.Equal(t, ResultStatusSuccess, headers.Get(HeaderResultStatus))
+
+	headers, _ = writeResult(store, model.NewFailedResult(model.NewBlobDatum(blob)))
+	assert.Equal(t, ResultStatusFailure, headers.Get(HeaderResultStatus))
+
+}
+
+func writeResult(store persistence.BlobStore, result *model.CompletionResult) (textproto.MIMEHeader, string) {
+	buf := new(bytes.Buffer)
+	pw := multipart.NewWriter(buf)
+	err := WritePartFromResult(store, result, pw)
+	if err != nil {
+		panic(err)
+	}
+	pw.Close()
+	headers, body := extractPart(buf, pw.Boundary())
+	return headers, body
+}
+
 func writeDatum(store persistence.BlobStore, datum *model.Datum) (textproto.MIMEHeader, string) {
 	buf := new(bytes.Buffer)
 	pw := multipart.NewWriter(buf)
-	WritePartFromDatum(store, datum, pw)
+	err := WritePartFromDatum(store, datum, pw)
+	if err != nil {
+		panic(err)
+	}
 	pw.Close()
 	headers, body := extractPart(buf, pw.Boundary())
 	return headers, body

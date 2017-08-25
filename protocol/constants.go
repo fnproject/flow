@@ -13,6 +13,9 @@ const (
 
 	HeaderContentType = "Content-Type"
 
+  	ResultStatusSuccess = "success"
+ 	ResultStatusFailure = "failure"
+
 	DatumTypeBlob     = "blob"
 	DatumTypeEmpty    = "empty"
 	DatumTypeError    = "error"

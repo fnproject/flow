@@ -40,10 +40,11 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	statusString := actualResponse.Header.Get(HeaderResultStatus)
 
 	var resultStatus bool
+
 	switch statusString {
-	case "success":
+	case ResultStatusSuccess:
 		resultStatus = true
-	case "failure":
+	case ResultStatusFailure:
 		resultStatus = false
 	default:
 		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", HeaderResultStatus, statusString)

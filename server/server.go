@@ -341,7 +341,9 @@ func (s *Server) handleExternalCompletion(c *gin.Context) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
-	request := &model.AddExternalCompletionStageRequest{GraphId: graphID}
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
+
+	request := &model.AddExternalCompletionStageRequest{GraphId: graphID,CreatorId:creatorID}
 
 	response, err := s.addStage(request)
 
@@ -362,6 +364,8 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	}
 	cids := strings.Split(cidList, ",")
 
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
+
 	for _, stageId := range cids {
 		if !validStageId(stageId) {
 			renderError(ErrInvalidDepStageId, c)
@@ -373,6 +377,7 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		Operation: op,
 		Closure:   nil,
 		Deps:      cids,
+		CreatorId:creatorID,
 	}
 
 	response, err := s.addStage(request)
@@ -400,6 +405,8 @@ func (s *Server) handleSupply(c *gin.Context) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
+
 	ct := c.ContentType()
 	if ct == "" {
 		renderError(protocol.ErrMissingContentType, c)
@@ -427,7 +434,9 @@ func (s *Server) handleSupply(c *gin.Context) {
 		Operation: model.CompletionOperation_supply,
 		Closure:   blob,
 		Deps:      []string{},
+		CreatorId: creatorID,
 	}
+
 
 	response, err := s.addStage(request)
 	if err != nil {
@@ -444,6 +453,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
 
 	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 	if err != nil {
@@ -459,6 +469,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 	request := &model.AddCompletedValueStageRequest{
 		GraphId: graphID,
 		Result:  &result,
+		CreatorId:creatorID,
 	}
 
 	response, err := s.addStage(request)
@@ -495,6 +506,8 @@ func (s *Server) handleDelay(c *gin.Context) {
 		return
 	}
 	delayMs := c.Query("delayMs")
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
+
 	if delayMs == "" {
 		renderError(ErrMissingOrInvalidDelay, c)
 		return
@@ -506,7 +519,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 		return
 	}
 
-	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,CreatorId:creatorID}
 
 	response, err := s.addStage(request)
 
@@ -526,6 +539,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		return
 	}
 	functionID := c.Query("functionId")
+	creatorID := c.GetHeader(protocol.HeaderCreatorId)
 
 	if !validFunctionId(functionID) {
 		renderError(ErrInvalidFunctionId, c)
@@ -547,6 +561,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		GraphId:    graphID,
 		FunctionId: functionID,
 		Arg:        datum.GetHttpReq(),
+		CreatorId: creatorID,
 	}
 
 	response, err := s.addStage(request)

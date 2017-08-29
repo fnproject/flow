@@ -84,11 +84,14 @@ FnProject-ThreadID: thread-abcd-12344
 
 HTTP POST requests to the Completer Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
 
+When a stage is created within another stage the client should send the `FnProject-CreatorID` header - containing the stage ID (received on the original invocation) to the completer. When a stage was created by the original function invocation, this header should be omitted. 
+
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
 ```
 POST /graph/thread-abcd-12344/supply HTTP/1.1
 FnProject-DatumType: blob
+FnProject-CreatorID: 0
 Content-type: application/java-serialized-object
 Content-length: 100 
 

@@ -9,7 +9,7 @@ const (
 	HeaderHeaderPrefix = "Fnproject-Header-"
 	HeaderErrorType    = "Fnproject-Errortype"
 	HeaderThreadId     = "Fnproject-Threadid"
-	HeaderExceptional  = "FnProject-Exceptional"
+	HeaderCreatorId    = "FnProject-Creatorid"
 
 	HeaderContentType = "Content-Type"
 

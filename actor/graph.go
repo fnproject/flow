@@ -134,6 +134,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 			Ts:           currentTimestamp(),
+			CreatorId:    msg.CreatorId,
 		})
 
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
@@ -146,6 +147,8 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
+			CreatorId:    msg.CreatorId,
+
 		})
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
@@ -163,6 +166,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
+			CreatorId:    msg.CreatorId,
 		})
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: stageID,
@@ -181,6 +185,8 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
+			CreatorId:    msg.CreatorId,
+
 		})
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
@@ -192,6 +198,8 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: stageID,
 			Op:      msg.GetOperation(),
 			Ts:      currentTimestamp(),
+			CreatorId:    msg.CreatorId,
+
 		})
 
 		g.executor.Request(&model.InvokeFunctionRequest{

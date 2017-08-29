@@ -371,7 +371,11 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 
 func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
-	msg := &model.InvokeStageRequest{
+	g.PersistReceive(&model.FaasInvocationStartedEvent{
+		StageId: stage.ID,
+		Ts:      currentTimestamp(),
+	})
+	req := &model.InvokeStageRequest{
 		FunctionId: g.graph.FunctionID,
 		GraphId:    g.graph.ID,
 		StageId:    stage.ID,
@@ -379,7 +383,7 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*mod
 		Closure:    stage.GetClosure(),
 		Operation:  stage.GetOperation(),
 	}
-	g.executor.Request(msg, g.GetSelf())
+	g.executor.Request(req, g.GetSelf())
 }
 
 //OnCompleteStage indicates that a stage is finished and its result is available

@@ -277,6 +277,9 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 	case *model.StageComposedEvent:
 		graph.handleStageComposed(e)
 
+	case *model.FaasInvocationStartedEvent:
+		// NOOP
+
 	default:
 		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
 	}

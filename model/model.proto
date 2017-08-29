@@ -270,7 +270,6 @@ message GraphCreatedEvent {
     string graph_id = 1;
     string function_id = 2;
     google.protobuf.Timestamp ts = 3;
-
 }
 
 message GraphCompletedEvent {
@@ -283,7 +282,6 @@ message GraphCompletedEvent {
 message GraphCommittedEvent {
     string graph_id = 1;
     google.protobuf.Timestamp ts = 2;
-
 }
 
 message StageAddedEvent {
@@ -292,14 +290,12 @@ message StageAddedEvent {
     BlobDatum closure = 3;
     repeated string dependencies = 4;
     google.protobuf.Timestamp ts = 5;
-
 }
 
 message StageCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
-
 }
 
 message StageComposedEvent {
@@ -308,9 +304,13 @@ message StageComposedEvent {
     google.protobuf.Timestamp ts = 3;
 }
 
+message FaasInvocationStartedEvent {
+    string stage_id = 1;
+    google.protobuf.Timestamp ts = 2;
+}
+
 message FaasInvocationCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
-    google.protobuf.Timestamp ts = 5;
-
+    google.protobuf.Timestamp ts = 3;
 }

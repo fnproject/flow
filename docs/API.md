@@ -45,7 +45,7 @@ When using _blob_ types, their media type must be defined by including the `Cont
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
 ```
-The _error_ type is always of type _text/plain_ and uses the body for its error message.
+The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
 
 The _empty_ datum type is used to signify a null/void type and has no body. 
 

@@ -36,8 +36,6 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 		return nil
 	case *model.Datum_Error:
 		h.Add(HeaderDatumType, DatumTypeError)
-		h.Add(HeaderContentType, "text/plain")
-
 		errorType := model.ErrorDatumType_name[int32(datum.GetError().Type)]
 		stringTypeName := strings.Replace(errorType, "_", "-", -1)
 		h.Add(HeaderErrorType, stringTypeName)
@@ -111,6 +109,16 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 			pw.Write(data)
 		}
 
+		return nil
+	case *model.Datum_Status:
+		h.Add(HeaderDatumType, DatumTypeStatus)
+		statusValue := model.StatusDatumType_name[int32(datum.GetStatus().Type)]
+		h.Add(HeaderStatusValue, statusValue)
+		partWriter, err := writer.CreatePart(h)
+		if err != nil {
+			return err
+		}
+		partWriter.Write([]byte(datum.GetError().Message))
 		return nil
 	default:
 		return fmt.Errorf("unsupported datum type")

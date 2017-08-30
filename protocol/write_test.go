@@ -2,12 +2,13 @@ package protocol
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"mime/multipart"
 	"net/textproto"
 	"testing"
-	"github.com/fnproject/completer/persistence"
+
 	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,8 +52,6 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 	headers, body := writeDatum(store, datum)
 	assert.Equal(t, DatumTypeError, headers.Get(HeaderDatumType))
 	assert.Equal(t, "function-timeout", headers.Get(HeaderErrorType))
-	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
-
 	assert.Equal(t, body, "error")
 }
 

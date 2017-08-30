@@ -68,7 +68,7 @@ message ErrorDatum {
 }
 
 enum StatusDatumType {
-    unknown_status = 0;
+    unknown = 0;
     succeeded = 1;
     failed = 2;
     cancelled = 3;

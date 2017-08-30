@@ -47,3 +47,7 @@ func NewInvalidStageDependenciesError(graphId string) ValidationError {
 func NewInvalidOperationError(graphId string) ValidationError {
 	return &InvalidGraphOperation{GraphId: graphId, Err: "Invalid stage operation"}
 }
+
+func NewFailedToRegisterCallback(graphId string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to register OnTerminate callback"}
+}

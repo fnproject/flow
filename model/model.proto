@@ -61,9 +61,22 @@ message EmptyDatum {
 message StageRefDatum {
     string stage_ref = 1;
 }
+
 message ErrorDatum {
     ErrorDatumType type = 1;
     string message = 2;
+}
+
+enum StatusDatumType {
+    unknown_status = 0;
+    succeeded = 1;
+    failed = 2;
+    cancelled = 3;
+    killed = 4;
+}
+
+message StatusDatum {
+    StatusDatumType type = 1;
 }
 
 message Datum {
@@ -74,6 +87,7 @@ message Datum {
         StageRefDatum stage_ref = 4;
         HttpReqDatum http_req = 5;
         HttpRespDatum http_resp = 6;
+        StatusDatum status = 7;
     }
 }
 
@@ -139,7 +153,7 @@ message CommitGraphRequest {
     string graph_id = 1;
 }
 
-message CommitGraphProcessed {
+message GraphRequestProcessed {
     string graph_id = 1;
 }
 
@@ -261,6 +275,18 @@ message InvokeStageRequest {
     bool exceptional = 7;
 }
 
+message InvokeOnTerminateRequest {
+    string graph_id = 1;
+    string function_id = 2;
+    Datum status = 3;
+    BlobDatum closure = 4;
+}
+
+message AddOnTerminateRequest {
+    string graph_id = 1;
+    BlobDatum closure = 2;
+}
+
 // Events
 
 message DelayScheduledEvent {
@@ -318,4 +344,10 @@ message FaasInvocationCompletedEvent {
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
     string call_id = 4;
+}
+
+message OnTerminateAddedEvent {
+    string graph_id = 1;
+    BlobDatum closure = 2;
+    google.protobuf.Timestamp ts = 3;
 }

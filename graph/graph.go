@@ -39,6 +39,7 @@ type CompletionGraph struct {
 	log           *logrus.Entry
 	committed     bool
 	completed     bool
+	onTerminateCb *model.BlobDatum
 }
 
 // New Creates a new graph
@@ -61,6 +62,10 @@ func (graph *CompletionGraph) GetStages() []*CompletionStage {
 		stages = append(stages, stage)
 	}
 	return stages
+}
+
+func (graph *CompletionGraph) OnTerminateClosure() *model.BlobDatum {
+	return graph.onTerminateCb
 }
 
 // IsCommitted Has the graph been marked as committed by HandleCommitted
@@ -191,6 +196,13 @@ func (graph *CompletionGraph) handleStageComposed(event *model.StageComposedEven
 	graph.tryCompleteComposedStage(outer, inner)
 }
 
+// handleOnTerminate adds the associated closure callback to this graph to execute
+// upon terminating the graph
+func (graph *CompletionGraph) handleOnTerminate(event *model.OnTerminateAddedEvent) {
+	graph.log.Info("Setting OnTerminate callback")
+	graph.onTerminateCb = event.Closure
+}
+
 // Recover Trigger recovers of any pending nodes in the graph
 // any triggered nodes that were pending when the graph is active will be failed with a stage recovery failed error
 func (graph *CompletionGraph) Recover() {
@@ -278,7 +290,10 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 		graph.handleStageComposed(e)
 
 	case *model.FaasInvocationStartedEvent:
-		// NOOP
+	// NOOP
+
+	case *model.OnTerminateAddedEvent:
+		graph.handleOnTerminate(e)
 
 	default:
 		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
@@ -328,6 +343,12 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		if valid := graph.validateStages(append(make([]string, 0), msg.StageId)); !valid {
 			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
 		}
+
+	case *model.AddOnTerminateRequest:
+		if graph.onTerminateCb != nil {
+			return model.NewFailedToRegisterCallback(msg.GraphId)
+		}
+
 	}
 
 	return nil

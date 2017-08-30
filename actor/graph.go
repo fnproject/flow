@@ -222,7 +222,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
-		response := &model.CommitGraphProcessed{GraphId: msg.GraphId}
+		response := &model.GraphRequestProcessed{GraphId: msg.GraphId}
 		if g.graph.IsCommitted() {
 			// idempotent
 			context.Respond(response)
@@ -230,6 +230,16 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 		g.log.Debug("Committing graph")
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
+		context.Respond(response)
+
+	case *model.AddOnTerminateRequest:
+		response := &model.GraphRequestProcessed{GraphId: msg.GraphId}
+		g.log.Debug("Adding OnTerminate callback")
+		g.persistAndUpdateGraph(&model.OnTerminateAddedEvent{
+			GraphId: msg.GraphId,
+			Closure: msg.Closure,
+			Ts:      currentTimestamp(),
+		})
 		context.Respond(response)
 
 	case *model.GetStageResultRequest:
@@ -424,6 +434,18 @@ func (g *graphActor) OnCompleteGraph() {
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
+
+	if onTerminate := g.graph.OnTerminateClosure(); onTerminate != nil {
+		g.log.Info("Invoking OnTerminate on completed graph")
+		req := &model.InvokeOnTerminateRequest{
+			FunctionId: g.graph.FunctionID,
+			GraphId:    g.graph.ID,
+			Status:     model.NewSuccessfulStatusDatum(),
+			Closure:    onTerminate,
+		}
+		g.executor.Request(req, g.GetSelf())
+	}
+
 	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 }
 

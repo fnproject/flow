@@ -36,6 +36,7 @@ type httpClient interface {
 type ExecHandler interface {
 	HandleInvokeStageRequest(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
 	HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
+	HandleOnTerminateRequest(msg *model.InvokeStageRequest)
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
@@ -55,13 +56,11 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go func() {
-			sender.Tell(exec.HandleInvokeStageRequest(msg))
-		}()
+		go sender.Tell(exec.HandleInvokeStageRequest(msg))
 	case *model.InvokeFunctionRequest:
-		go func() {
-			sender.Tell(exec.HandleInvokeFunctionRequest(msg))
-		}()
+		go sender.Tell(exec.HandleInvokeFunctionRequest(msg))
+	case *model.InvokeOnTerminateRequest:
+		go exec.HandleOnTerminateRequest(msg)
 	}
 }
 
@@ -72,6 +71,7 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	buf := new(bytes.Buffer)
 
 	partWriter := multipart.NewWriter(buf)
+	defer partWriter.Close()
 
 	if msg.Closure != nil {
 		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
@@ -89,7 +89,6 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 		}
 	}
-	partWriter.Close()
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
@@ -125,6 +124,35 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, errorMessage string, callId string) *model.FaasInvocationResponse {
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
+}
+
+func (exec *graphExecutor) HandleOnTerminateRequest(msg *model.InvokeOnTerminateRequest) {
+	functionLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "function_id": msg.FunctionId})
+	functionLog.Info("Running OnTerminate callback")
+
+	buf := new(bytes.Buffer)
+	partWriter := multipart.NewWriter(buf)
+	defer partWriter.Close()
+
+	if err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter); err != nil {
+		exec.log.Error("Failed to create multipart body", err)
+		return
+	}
+	result := &model.CompletionResult{Successful: true, Datum: msg.Status}
+	if err := protocol.WritePartFromResult(exec.blobStore, result, partWriter); err != nil {
+		exec.log.Error("Failed to create multipart body", err)
+		return
+	}
+
+	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
+	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
+	req.Header.Set("FnProject-ThreadID", msg.GraphId)
+
+	if resp, err := exec.client.Do(req); err != nil {
+		functionLog.Errorf("Http error invoking stage %s", err.Error())
+	} else if resp.StatusCode != 200 {
+		functionLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
+	}
 }
 
 func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {

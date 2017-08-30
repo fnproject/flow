@@ -57,3 +57,11 @@ func NewHttpReqDatum(httpreq *HttpReqDatum) *Datum {
 		},
 	}
 }
+
+func NewSuccessfulStatusDatum() *Datum {
+	return &Datum{
+		Val: &Datum_Status{
+			Status: &StatusDatum{Type: StatusDatumType_succeeded},
+		},
+	}
+}

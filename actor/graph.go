@@ -194,6 +194,12 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Ts:      currentTimestamp(),
 		})
 
+		g.PersistReceive(&model.FaasInvocationStartedEvent{
+			StageId: stageID,
+			Ts:      currentTimestamp(),
+			FunctionId:msg.FunctionId,
+		})
+
 		g.executor.Request(&model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    stageID,
@@ -262,6 +268,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: msg.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
+			CallId: msg.CallId,
 		})
 
 	case *model.DeactivateGraphRequest:
@@ -374,6 +381,7 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*mod
 	g.PersistReceive(&model.FaasInvocationStartedEvent{
 		StageId: stage.ID,
 		Ts:      currentTimestamp(),
+		FunctionId:g.graph.FunctionID,
 	})
 	req := &model.InvokeStageRequest{
 		FunctionId: g.graph.FunctionID,

@@ -181,7 +181,10 @@ message FaasInvocationResponse {
     string graph_id = 1;
     string stage_id = 2;
     string function_id = 3;
+
     CompletionResult result = 4;
+    string call_id = 5;
+
 }
 
 message GetGraphStateRequest {
@@ -307,10 +310,12 @@ message StageComposedEvent {
 message FaasInvocationStartedEvent {
     string stage_id = 1;
     google.protobuf.Timestamp ts = 2;
+    string function_id = 3;
 }
 
 message FaasInvocationCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
+    string call_id = 4;
 }

@@ -37,9 +37,13 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	// Note headers names have to be well-formed here.
 	resp := givenEncapsulatedResponse(200,
 		map[string][]string{
+			"Fn_call_id": {"CALLID"},
+		},
+		map[string][]string{
 			"Content-Type":           {"response/type"},
 			"Fnproject-Resultstatus": {"success"},
-			"Fnproject-Datumtype":    {"blob"}},
+			"Fnproject-Datumtype":    {"blob"},
+		},
 		[]byte("ResultBytes"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
@@ -47,6 +51,7 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	result := givenValidInvokeStageRequest(store, m)
 
 	hasValidResult(t, result)
+	assert.Equal(t, result.CallId, "CALLID")
 	assert.True(t, result.Result.Successful)
 	require.NotNil(t, result.Result.GetDatum().GetBlob())
 	blob := result.Result.GetDatum().GetBlob()
@@ -79,6 +84,9 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(504,
+		map[string][]string{
+			"Fn_call_id": {"CALLID"},
+		},
 		map[string][]string{},
 		[]byte("error"))
 
@@ -86,6 +94,7 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 
 	result := givenValidInvokeStageRequest(store, m)
 
+	assert.Equal(t, result.CallId, "CALLID")
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_stage_timeout)
 
@@ -96,6 +105,9 @@ func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(200,
+		map[string][]string{
+			"Fn_call_id": {"CALLID"},
+		},
 		map[string][]string{},
 		[]byte("error"))
 
@@ -103,6 +115,7 @@ func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 
 	result := givenValidInvokeStageRequest(store, m)
 
+	assert.Equal(t, result.CallId, "CALLID")
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_invalid_stage_response)
 
@@ -113,12 +126,16 @@ func TestShouldHandleFailedStageResponse(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(500,
+		map[string][]string{
+			"Fn_call_id": {"CALLID"},
+		},
 		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
 	result := givenValidInvokeStageRequest(store, m)
+	assert.Equal(t, result.CallId, "CALLID")
 	hasValidResult(t, result)
 	hasErrorResult(t, result, model.ErrorDatumType_stage_failed)
 
@@ -131,6 +148,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: 201,
 		Header: map[string][]string{
+			"Fn_call_id":   {"CALLID"},
 			"Content-Type": {"response/type"},
 			"RHeader_1":    {"h1val"},
 			"RHeader_2":    {"h2val1", "h2val2"},
@@ -145,6 +163,8 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 
 	hasValidResult(t, result)
 	assert.True(t, result.Result.Successful)
+
+	assert.Equal(t, result.CallId, "CALLID")
 
 	datum := hasValidHTTPRespResult(t, result, 201)
 
@@ -247,7 +267,7 @@ func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, 
 	return datum
 }
 
-func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte) *http.Response {
+func givenEncapsulatedResponse(outerStatusCode int, outerHeaders http.Header, headers http.Header, body []byte) *http.Response {
 	buf := &bytes.Buffer{}
 	// we ignore the inner code of the frame here
 	encap := &http.Response{
@@ -260,8 +280,8 @@ func givenEncapsulatedResponse(statusCode int, headers http.Header, body []byte)
 	}
 	encap.Write(buf)
 	return &http.Response{
-		StatusCode: statusCode,
-		Header:     map[string][]string{},
+		StatusCode: outerStatusCode,
+		Header:     outerHeaders,
 		Body:       ioutil.NopCloser(buf),
 	}
 }

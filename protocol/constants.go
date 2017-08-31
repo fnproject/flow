@@ -8,9 +8,8 @@ const (
 	HeaderMethod       = "Fnproject-Method"
 	HeaderHeaderPrefix = "Fnproject-Header-"
 	HeaderErrorType    = "Fnproject-Errortype"
-	HeaderStatusValue  = "Fnproject-Statusvalue"
+	HeaderStateType    = "Fnproject-Statetype"
 	HeaderThreadId     = "Fnproject-Threadid"
-	HeaderExceptional  = "FnProject-Exceptional"
 
 	HeaderContentType = "Content-Type"
 
@@ -23,5 +22,5 @@ const (
 	DatumTypeStageRef = "stageref"
 	DatumTypeHttpReq  = "httpreq"
 	DatumTypeHttpResp = "httpresp"
-	DatumTypeStatus   = "status"
+	DatumTypeState    = "state"
 )

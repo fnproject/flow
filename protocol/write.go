@@ -110,10 +110,10 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 		}
 
 		return nil
-	case *model.Datum_Status:
-		h.Add(HeaderDatumType, DatumTypeStatus)
-		statusValue := model.StatusDatumType_name[int32(datum.GetStatus().Type)]
-		h.Add(HeaderStatusValue, statusValue)
+	case *model.Datum_State:
+		h.Add(HeaderDatumType, DatumTypeState)
+		stateType := model.StateDatumType_name[int32(datum.GetState().Type)]
+		h.Add(HeaderStateType, stateType)
 		partWriter, err := writer.CreatePart(h)
 		if err != nil {
 			return err

@@ -440,7 +440,7 @@ func (g *graphActor) OnCompleteGraph() {
 		req := &model.InvokeOnTerminateRequest{
 			FunctionId: g.graph.FunctionID,
 			GraphId:    g.graph.ID,
-			Status:     model.NewSuccessfulStatusDatum(),
+			Status:     model.NewSuccessfulStateDatum(),
 			Closure:    onTerminate,
 		}
 		g.executor.Request(req, g.GetSelf())

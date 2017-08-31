@@ -67,16 +67,16 @@ message ErrorDatum {
     string message = 2;
 }
 
-enum StatusDatumType {
-    unknown = 0;
+enum StateDatumType {
+    unknown_state = 0;
     succeeded = 1;
     failed = 2;
     cancelled = 3;
     killed = 4;
 }
 
-message StatusDatum {
-    StatusDatumType type = 1;
+message StateDatum {
+    StateDatumType type = 1;
 }
 
 message Datum {
@@ -87,7 +87,7 @@ message Datum {
         StageRefDatum stage_ref = 4;
         HttpReqDatum http_req = 5;
         HttpRespDatum http_resp = 6;
-        StatusDatum status = 7;
+        StateDatum state = 7;
     }
 }
 

@@ -232,10 +232,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
 		context.Respond(response)
 
-	case *model.AddOnTerminateRequest:
+	case *model.AddTerminationHookRequest:
 		response := &model.GraphRequestProcessed{GraphId: msg.GraphId}
-		g.log.Debug("Adding OnTerminate callback")
-		g.persistAndUpdateGraph(&model.OnTerminateAddedEvent{
+		g.log.Debug("Adding termination hook")
+		g.persistAndUpdateGraph(&model.TerminationHookAddedEvent{
 			GraphId: msg.GraphId,
 			Closure: msg.Closure,
 			Ts:      currentTimestamp(),
@@ -435,13 +435,13 @@ func (g *graphActor) OnCompleteGraph() {
 		Ts:         currentTimestamp(),
 	})
 
-	if onTerminate := g.graph.OnTerminateClosure(); onTerminate != nil {
-		g.log.Info("Invoking OnTerminate on completed graph")
-		req := &model.InvokeOnTerminateRequest{
+	if terminationHook := g.graph.TerminationHook(); terminationHook != nil {
+		g.log.Info("Invoking termination hook on completed graph")
+		req := &model.InvokeTerminationHookRequest{
 			FunctionId: g.graph.FunctionID,
 			GraphId:    g.graph.ID,
 			Status:     model.NewSuccessfulStateDatum(),
-			Closure:    onTerminate,
+			Closure:    terminationHook,
 		}
 		g.executor.Request(req, g.GetSelf())
 	}

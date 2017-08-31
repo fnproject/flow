@@ -275,14 +275,14 @@ message InvokeStageRequest {
     bool exceptional = 7;
 }
 
-message InvokeOnTerminateRequest {
+message InvokeTerminationHookRequest {
     string graph_id = 1;
     string function_id = 2;
     Datum status = 3;
     BlobDatum closure = 4;
 }
 
-message AddOnTerminateRequest {
+message AddTerminationHookRequest {
     string graph_id = 1;
     BlobDatum closure = 2;
 }
@@ -346,7 +346,7 @@ message FaasInvocationCompletedEvent {
     string call_id = 4;
 }
 
-message OnTerminateAddedEvent {
+message TerminationHookAddedEvent {
     string graph_id = 1;
     BlobDatum closure = 2;
     google.protobuf.Timestamp ts = 3;

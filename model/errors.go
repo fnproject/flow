@@ -49,5 +49,5 @@ func NewInvalidOperationError(graphId string) ValidationError {
 }
 
 func NewFailedToRegisterCallback(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to register OnTerminate callback"}
+	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add termination hook"}
 }

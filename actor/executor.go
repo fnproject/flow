@@ -34,9 +34,9 @@ type httpClient interface {
 // ExecHandler abstracts the FaaS execution backend
 // implementations must handle all errors and return an appropriate invocation responser
 type ExecHandler interface {
-	HandleInvokeStageRequest(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
-	HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
-	HandleOnTerminateRequest(msg *model.InvokeStageRequest)
+	HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
+	HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
+	HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest)
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
@@ -56,15 +56,15 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go sender.Tell(exec.HandleInvokeStageRequest(msg))
+		go sender.Tell(exec.HandleInvokeStage(msg))
 	case *model.InvokeFunctionRequest:
-		go sender.Tell(exec.HandleInvokeFunctionRequest(msg))
-	case *model.InvokeOnTerminateRequest:
-		go exec.HandleOnTerminateRequest(msg)
+		go sender.Tell(exec.HandleInvokeFunction(msg))
+	case *model.InvokeTerminationHookRequest:
+		go exec.HandleInvokeTerminationHook(msg)
 	}
 }
 
-func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
+func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
 	stageLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "stage_id": msg.StageId, "function_id": msg.FunctionId, "operation": msg.Operation})
 	stageLog.Info("Running Stage")
 
@@ -126,9 +126,9 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
 }
 
-func (exec *graphExecutor) HandleOnTerminateRequest(msg *model.InvokeOnTerminateRequest) {
+func (exec *graphExecutor) HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest) {
 	functionLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "function_id": msg.FunctionId})
-	functionLog.Info("Running OnTerminate callback")
+	functionLog.Info("Running termination hook")
 
 	buf := new(bytes.Buffer)
 	partWriter := multipart.NewWriter(buf)
@@ -155,7 +155,7 @@ func (exec *graphExecutor) HandleOnTerminateRequest(msg *model.InvokeOnTerminate
 	}
 }
 
-func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
+func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg
 
 	method := strings.ToUpper(model.HttpMethod_name[int32(datum.Method)])

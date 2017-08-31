@@ -39,7 +39,8 @@ type CompletionGraph struct {
 	log           *logrus.Entry
 	committed     bool
 	completed     bool
-	onTerminateCb *model.BlobDatum
+	// TODO this should be a list
+	terminationHook *model.BlobDatum
 }
 
 // New Creates a new graph
@@ -64,8 +65,8 @@ func (graph *CompletionGraph) GetStages() []*CompletionStage {
 	return stages
 }
 
-func (graph *CompletionGraph) OnTerminateClosure() *model.BlobDatum {
-	return graph.onTerminateCb
+func (graph *CompletionGraph) TerminationHook() *model.BlobDatum {
+	return graph.terminationHook
 }
 
 // IsCommitted Has the graph been marked as committed by HandleCommitted
@@ -196,11 +197,11 @@ func (graph *CompletionGraph) handleStageComposed(event *model.StageComposedEven
 	graph.tryCompleteComposedStage(outer, inner)
 }
 
-// handleOnTerminate adds the associated closure callback to this graph to execute
+// handlerTerminationHookAdded adds the associated closure callback to this graph to execute
 // upon terminating the graph
-func (graph *CompletionGraph) handleOnTerminate(event *model.OnTerminateAddedEvent) {
-	graph.log.Info("Setting OnTerminate callback")
-	graph.onTerminateCb = event.Closure
+func (graph *CompletionGraph) handlerTerminationHookAdded(event *model.TerminationHookAddedEvent) {
+	graph.log.Info("Setting termination hook")
+	graph.terminationHook = event.Closure
 }
 
 // Recover Trigger recovers of any pending nodes in the graph
@@ -292,8 +293,8 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 	case *model.FaasInvocationStartedEvent:
 	// NOOP
 
-	case *model.OnTerminateAddedEvent:
-		graph.handleOnTerminate(e)
+	case *model.TerminationHookAddedEvent:
+		graph.handlerTerminationHookAdded(e)
 
 	default:
 		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
@@ -344,8 +345,8 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
 		}
 
-	case *model.AddOnTerminateRequest:
-		if graph.onTerminateCb != nil {
+	case *model.AddTerminationHookRequest:
+		if graph.terminationHook != nil {
 			return model.NewFailedToRegisterCallback(msg.GraphId)
 		}
 

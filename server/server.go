@@ -559,7 +559,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) handleOnTerminate(c *gin.Context) {
+func (s *Server) handleAddTerminationHook(c *gin.Context) {
 	graphID := c.Param("graphId")
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
@@ -578,12 +578,12 @@ func (s *Server) handleOnTerminate(c *gin.Context) {
 		return
 	}
 
-	request := &model.AddOnTerminateRequest{
+	request := &model.AddTerminationHookRequest{
 		GraphId: graphID,
 		Closure: blob,
 	}
 
-	if _, err := s.GraphManager.OnTerminate(request, s.requestTimeout); err != nil {
+	if _, err := s.GraphManager.AddTerminationHook(request, s.requestTimeout); err != nil {
 		renderError(err, c)
 		return
 	}
@@ -630,7 +630,7 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 		graph.POST("/:graphId/anyOf", s.handleAnyOf)
 		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
 		graph.POST("/:graphId/commit", s.handleCommit)
-		graph.POST("/:graphId/onterminate", s.handleOnTerminate)
+		graph.POST("/:graphId/terminationHook", s.handleAddTerminationHook)
 
 		stage := graph.Group("/:graphId/stage")
 		{

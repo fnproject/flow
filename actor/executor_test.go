@@ -302,7 +302,7 @@ func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *m
 	if err != nil {
 		panic(err)
 	}
-	result := exec.HandleInvokeStageRequest(&model.InvokeStageRequest{
+	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
@@ -320,7 +320,7 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
-	result := exec.HandleInvokeFunctionRequest(&model.InvokeFunctionRequest{
+	result := exec.HandleInvokeFunction(&model.InvokeFunctionRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
@@ -335,6 +335,26 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 		},
 	})
 	return result
+}
+
+func givenValidTerminationHookRequest(store persistence.BlobStore, m *MockClient) {
+	exec := &graphExecutor{
+		blobStore: store,
+		client:    m,
+		faasAddr:  "http://faasaddr",
+		log:       testlog.WithField("Test", "logger"),
+	}
+
+	closureBlob, err := store.CreateBlob("closure/type", []byte("closure"))
+	if err != nil {
+		panic(err)
+	}
+	exec.HandleInvokeTerminationHook(&model.InvokeTerminationHookRequest{
+		GraphId:    "graph-id",
+		FunctionId: "/function/id/",
+		Closure:    closureBlob,
+		Status:     model.NewSuccessfulStateDatum(),
+	})
 }
 
 func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {

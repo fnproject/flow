@@ -26,7 +26,7 @@ type GraphManager interface {
 	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
 	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack)
 	UnsubscribeStream(sub *eventstream.Subscription)
-	OnTerminate(*model.AddOnTerminateRequest, time.Duration) (*model.GraphRequestProcessed, error)
+	AddTerminationHook(*model.AddTerminationHookRequest, time.Duration) (*model.GraphRequestProcessed, error)
 }
 
 type actorManager struct {
@@ -131,8 +131,8 @@ func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Durati
 	return r.(*model.GraphRequestProcessed), e
 }
 
-func (m *actorManager) OnTerminate(req *model.AddOnTerminateRequest, timeout time.Duration) (*model.GraphRequestProcessed, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Registering OnTerminate callback")
+func (m *actorManager) AddTerminationHook(req *model.AddTerminationHookRequest, timeout time.Duration) (*model.GraphRequestProcessed, error) {
+	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Adding termination hook")
 	r, e := m.forwardRequest(req, timeout)
 	if e != nil {
 		return nil, e

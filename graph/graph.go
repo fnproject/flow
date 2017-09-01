@@ -15,7 +15,8 @@ import (
 var log = logrus.WithField("logger", "graph")
 
 const (
-	maxDelaySeconds = 900
+	maxDelaySeconds     = 900
+	maxTerminationHooks = 100
 )
 
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
@@ -32,15 +33,14 @@ type CompletionEventListener interface {
 
 // CompletionGraph describes the graph itself
 type CompletionGraph struct {
-	ID            string
-	FunctionID    string
-	stages        map[string]*CompletionStage
-	eventListener CompletionEventListener
-	log           *logrus.Entry
-	committed     bool
-	completed     bool
-	// TODO this should be a list
-	terminationHook *model.BlobDatum
+	ID               string
+	FunctionID       string
+	stages           map[string]*CompletionStage
+	eventListener    CompletionEventListener
+	log              *logrus.Entry
+	committed        bool
+	completed        bool
+	terminationHooks []*model.BlobDatum // used as stack
 }
 
 // New Creates a new graph
@@ -65,8 +65,15 @@ func (graph *CompletionGraph) GetStages() []*CompletionStage {
 	return stages
 }
 
-func (graph *CompletionGraph) TerminationHook() *model.BlobDatum {
-	return graph.terminationHook
+func (graph *CompletionGraph) PopTerminationHook() (last *model.BlobDatum, ok bool) {
+	lastIndex := len(graph.terminationHooks) - 1
+	if lastIndex < 0 {
+		ok = false
+		return
+	}
+	last, ok = graph.terminationHooks[lastIndex], true
+	graph.terminationHooks = graph.terminationHooks[:lastIndex]
+	return
 }
 
 // IsCommitted Has the graph been marked as committed by HandleCommitted
@@ -199,9 +206,12 @@ func (graph *CompletionGraph) handleStageComposed(event *model.StageComposedEven
 
 // handlerTerminationHookAdded adds the associated closure callback to this graph to execute
 // upon terminating the graph
-func (graph *CompletionGraph) handlerTerminationHookAdded(event *model.TerminationHookAddedEvent) {
-	graph.log.Info("Setting termination hook")
-	graph.terminationHook = event.Closure
+func (graph *CompletionGraph) handleTerminationHookAdded(event *model.TerminationHookAddedEvent) {
+	if graph.terminationHooks == nil {
+		graph.terminationHooks = make([]*model.BlobDatum, 0, 1)
+	}
+	graph.log.Debug("Adding termination hook")
+	graph.terminationHooks = append(graph.terminationHooks, event.Closure)
 }
 
 // Recover Trigger recovers of any pending nodes in the graph
@@ -294,7 +304,7 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 	// NOOP
 
 	case *model.TerminationHookAddedEvent:
-		graph.handlerTerminationHookAdded(e)
+		graph.handleTerminationHookAdded(e)
 
 	default:
 		graph.log.Warnf("Ignoring event of unknown type %v", reflect.TypeOf(e))
@@ -346,10 +356,12 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		}
 
 	case *model.AddTerminationHookRequest:
-		if graph.terminationHook != nil {
+		if graph.IsCompleted() {
+			return model.NewGraphCompletedError(msg.GetGraphId())
+		}
+		if len(graph.terminationHooks) > maxTerminationHooks {
 			return model.NewFailedToRegisterCallback(msg.GraphId)
 		}
-
 	}
 
 	return nil

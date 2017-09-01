@@ -118,7 +118,9 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 		if err != nil {
 			return err
 		}
-		partWriter.Write([]byte(datum.GetError().Message))
+		// not part of protocol, but avoids problems with having an empty body
+		partWriter.Write([]byte(stateType))
+
 		return nil
 	default:
 		return fmt.Errorf("unsupported datum type")

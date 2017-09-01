@@ -281,6 +281,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			CallId: msg.CallId,
 		})
 
+	case *model.TerminationHookInvocationResponse:
+		g.log.Debug("Processed termination hook")
+		g.invokeTerminationHooks()
+
 	case *model.DeactivateGraphRequest:
 		g.log.Debug("Telling supervisor graph is completed")
 		// tell supervisor to remove us from active graphs
@@ -435,18 +439,24 @@ func (g *graphActor) OnCompleteGraph() {
 		Ts:         currentTimestamp(),
 	})
 
-	if terminationHook := g.graph.TerminationHook(); terminationHook != nil {
-		g.log.Info("Invoking termination hook on completed graph")
+	g.invokeTerminationHooks()
+}
+
+// sends this actor a DeactivateGraphRequest if no termination hooks are left to process
+func (g *graphActor) invokeTerminationHooks() {
+	if hook, success := g.graph.PopTerminationHook(); success {
+		g.log.Info("Invoking next termination hook on completed graph")
 		req := &model.InvokeTerminationHookRequest{
 			FunctionId: g.graph.FunctionID,
 			GraphId:    g.graph.ID,
-			Status:     model.NewSuccessfulStateDatum(),
-			Closure:    terminationHook,
+			Status:     model.NewSuccessfulStateDatum(), // TODO in the future there will be more states
+			Closure:    hook,
 		}
 		g.executor.Request(req, g.GetSelf())
-	}
 
-	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+	} else {
+		g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+	}
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph

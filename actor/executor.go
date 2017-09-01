@@ -60,7 +60,7 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	case *model.InvokeFunctionRequest:
 		go sender.Tell(exec.HandleInvokeFunction(msg))
 	case *model.InvokeTerminationHookRequest:
-		go exec.HandleInvokeTerminationHook(msg)
+		go sender.Tell(exec.HandleInvokeTerminationHook(msg))
 	}
 }
 
@@ -99,10 +99,11 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	if err != nil {
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, "HTTP error on stage invocation: Can the completer talk to the functions server?", "")
 	}
+	defer resp.Body.Close()
 
 	callId := resp.Header.Get(FnCallIDHeader)
 
-	if resp.StatusCode != 200 {
+	if !successfulResponse(resp) {
 		stageLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
@@ -126,9 +127,11 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
 }
 
-func (exec *graphExecutor) HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest) {
+func (exec *graphExecutor) HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest) (res *model.TerminationHookInvocationResponse) {
 	functionLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "function_id": msg.FunctionId})
 	functionLog.Info("Running termination hook")
+
+	res = &model.TerminationHookInvocationResponse{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
 
 	buf := new(bytes.Buffer)
 	partWriter := multipart.NewWriter(buf)
@@ -148,11 +151,16 @@ func (exec *graphExecutor) HandleInvokeTerminationHook(msg *model.InvokeTerminat
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
 	req.Header.Set("FnProject-ThreadID", msg.GraphId)
 
-	if resp, err := exec.client.Do(req); err != nil {
-		functionLog.Errorf("Http error invoking stage %s", err.Error())
-	} else if resp.StatusCode != 200 {
-		functionLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
+	resp, err := exec.client.Do(req)
+	if err != nil {
+		functionLog.Errorf("Http error invoking termination hook %s", err.Error())
 	}
+	defer resp.Body.Close()
+
+	if !successfulResponse(resp) {
+		functionLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error when invoking termination hook")
+	}
+	return
 }
 
 func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
@@ -191,6 +199,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		return invokeFailed(msg, "Failed to call function", "")
 
 	}
+	defer resp.Body.Close()
 
 	callId := resp.Header.Get(FnCallIDHeader)
 	buf := &bytes.Buffer{}
@@ -229,17 +238,14 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 				Body:       blob,
 				StatusCode: uint32(resp.StatusCode)}}}
 
-	var boolResult bool
-	// assume any non-error codes are success
-	// TODO doc in spec
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		boolResult = true
-	} else {
-		boolResult = false
-	}
-
-	result := &model.CompletionResult{Successful: boolResult, Datum: resultDatum}
+	result := &model.CompletionResult{Successful: successfulResponse(resp), Datum: resultDatum}
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callId}
+}
+
+func successfulResponse(resp *http.Response) bool {
+	// assume any non-error codes are successful
+	// TODO doc in spec
+	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
 func invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callId string) *model.FaasInvocationResponse {

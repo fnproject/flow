@@ -179,6 +179,30 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	assert.Equal(t, []byte("body"), br.Bytes())
 }
 
+func TestShouldInvokeTerminationHookNormally(t *testing.T) {
+	m := &MockClient{}
+	store := persistence.NewInMemBlobStore()
+
+	resp := &http.Response{
+		StatusCode: 201,
+		Body:       ioutil.NopCloser(bytes.NewReader([]byte("ResultBytes"))),
+	}
+
+	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
+
+	result := givenValidTerminationHookRequest(store, m)
+
+	hasValidTerminationResult(t, result)
+
+	require.NotNil(t, result.GraphId)
+	require.NotNil(t, result.FunctionId)
+
+	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
+	assert.Equal(t, "POST", outbound.Method)
+	assert.Contains(t, outbound.Header.Get("Content-type"), "multipart/form-data; boundary=")
+	assert.Equal(t, "graph-id", outbound.Header.Get("Fnproject-threadid"))
+}
+
 func TestShouldInvokeWithNoOutboundBody(t *testing.T) {
 	m := &MockClient{}
 	store := persistence.NewInMemBlobStore()
@@ -337,7 +361,7 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 	return result
 }
 
-func givenValidTerminationHookRequest(store persistence.BlobStore, m *MockClient) {
+func givenValidTerminationHookRequest(store persistence.BlobStore, m *MockClient) *model.TerminationHookInvocationResponse {
 	exec := &graphExecutor{
 		blobStore: store,
 		client:    m,
@@ -349,7 +373,7 @@ func givenValidTerminationHookRequest(store persistence.BlobStore, m *MockClient
 	if err != nil {
 		panic(err)
 	}
-	exec.HandleInvokeTerminationHook(&model.InvokeTerminationHookRequest{
+	return exec.HandleInvokeTerminationHook(&model.InvokeTerminationHookRequest{
 		GraphId:    "graph-id",
 		FunctionId: "/function/id/",
 		Closure:    closureBlob,
@@ -363,8 +387,13 @@ func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	assert.Equal(t, "graph-id", result.GraphId)
 	require.NotNil(t, result.Result)
 	require.NotNil(t, result.Result.GetDatum())
-
 }
+
+func hasValidTerminationResult(t *testing.T, result *model.TerminationHookInvocationResponse) {
+	assert.Equal(t, "/function/id/", result.FunctionId)
+	assert.Equal(t, "graph-id", result.GraphId)
+}
+
 func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType model.ErrorDatumType) {
 	assert.False(t, result.Result.Successful)
 	require.NotNil(t, result.Result.GetDatum())

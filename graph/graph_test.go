@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/fnproject/completer/model"
@@ -330,6 +331,67 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	}
 	assert.NotNil(t, g.ValidateCommand(cmd))
 	m.AssertExpectations(t)
+}
+
+func TestShouldPreventAddingTerminationHookToCompletedGraph(t *testing.T) {
+	m := &MockedListener{}
+
+	g := New("graph", "function", m)
+	m.On("OnCompleteGraph").Return()
+	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
+	g.UpdateWithEvent(&model.GraphCompletedEvent{GraphId: "graph", FunctionId: "function"}, true)
+
+	cmd := &model.AddTerminationHookRequest{
+		GraphId: "graph",
+		Closure: &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+	}
+	assert.NotNil(t, g.ValidateCommand(cmd))
+	m.AssertExpectations(t)
+}
+
+func TestShouldPreventAddingOverMaxTerminationHooksToGraph(t *testing.T) {
+	m := &MockedListener{}
+
+	g := New("graph", "function", m)
+
+	for i := 0; i < maxTerminationHooks+1; i++ {
+		ev := &model.TerminationHookAddedEvent{
+			GraphId: "graph",
+			Closure: &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		}
+		g.handleTerminationHookAdded(ev)
+	}
+
+	cmd := &model.AddTerminationHookRequest{
+		GraphId: "graph",
+		Closure: &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+	}
+	assert.NotNil(t, g.ValidateCommand(cmd))
+}
+
+func TestShouldPopTerminationHooksInLIFOOrder(t *testing.T) {
+	m := &MockedListener{}
+
+	g := New("graph", "function", m)
+
+	noHooks := 5
+	for i := 0; i < noHooks; i++ {
+		ev := &model.TerminationHookAddedEvent{
+			GraphId: "graph",
+			Closure: &model.BlobDatum{BlobId: strconv.Itoa(i), ContentType: "application/octet-stream"},
+		}
+		g.handleTerminationHookAdded(ev)
+	}
+
+	for i := noHooks - 1; i >= 0; i-- {
+		next, ok := g.PopTerminationHook()
+		assert.True(t, ok)
+		assert.NotNil(t, next)
+		assert.Equal(t, next.BlobId, strconv.Itoa(i))
+	}
+	next, ok := g.PopTerminationHook()
+	assert.False(t, ok)
+	assert.Nil(t, next)
 }
 
 func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {

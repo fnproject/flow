@@ -224,6 +224,17 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
+	timeout := s.requestTimeout
+
+	if timeoutMs := c.Query("timeoutMs"); timeoutMs != "" {
+		t, err := time.ParseDuration(timeoutMs + "ms")
+		if err != nil {
+			renderError(ErrInvalidGetTimeout, c)
+			return
+		}
+		timeout = t
+	}
+
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -238,7 +249,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		StageId: stageID,
 	}
 
-	response, err := s.GraphManager.GetStageResult(&request, s.requestTimeout)
+	response, err := s.GraphManager.GetStageResult(&request, timeout)
 
 	if err == protoactor.ErrTimeout {
 		c.Data(http.StatusRequestTimeout, "text/plain", []byte("stage not completed"))

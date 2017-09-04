@@ -9,6 +9,8 @@ import (
 	"testing"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/model"
+	"net/http"
+	"io/ioutil"
 )
 
 func TestRejectsUnrecognisedType(t *testing.T) {
@@ -131,6 +133,21 @@ func TestRejectsErrorDatumIfNoErrorType(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, ErrMissingErrorType,err)
 }
+
+
+func TestRejectsErrorDatumIfNoContentType(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
+	h := emptyHeaders()
+	h.Add(HeaderDatumType, DatumTypeError)
+	h.Add(HeaderErrorType, "unknown_error")
+	part := createPart( h, "")
+	_, err := DatumFromPart(store, part)
+
+	assert.Error(t, err)
+	assert.Equal(t, ErrMissingContentType,err)
+}
+
 
 func TestReadErrorTypeEmptyBody(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
@@ -299,6 +316,87 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	singleHeader := d.GetHttpResp().GetHeaderValues("Single")
 	require.Equal(t, 1, len(singleHeader))
 	assert.Equal(t, "FOO", singleHeader[0])
+}
+
+
+
+func TestReadsSuccessfulEncapsulatedResultFromHttpResp(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
+	h := http.Header{}
+	h.Add(HeaderDatumType, DatumTypeBlob)
+	h.Add(HeaderResultCode, "200")
+	h.Add(HeaderContentType, "text/plain")
+	h.Add(HeaderResultStatus,ResultStatusSuccess)
+
+	content := []byte("content")
+	innerResp:= &http.Response{
+
+		Header: h,
+		StatusCode: 200,
+		Body: ioutil.NopCloser(bytes.NewReader(content)),
+	}
+
+	buf:= bytes.Buffer{}
+
+	err:= innerResp.Write(&buf)
+	require.NoError(t,err)
+
+	outerResp:= &http.Response{
+		StatusCode:200,
+		Body: ioutil.NopCloser(bytes.NewReader(buf.Bytes())),
+	}
+
+	result, err := CompletionResultFromEncapsulatedResponse(store,outerResp)
+
+	require.NoError(t,err)
+
+	val,err:= store.ReadBlobData(result.Datum.GetBlob())
+
+	assert.True(t,result.Successful)
+	assert.Equal(t,content,val)
+	assert.Equal(t,"text/plain",result.Datum.GetBlob().ContentType)
+
+}
+
+
+func TestReadsFailedncapsulatedResultFromHttpResp(t *testing.T) {
+	store := persistence.NewInMemBlobStore()
+
+	h := http.Header{}
+	h.Add(HeaderDatumType, DatumTypeBlob)
+	h.Add(HeaderResultCode, "200")
+	h.Add(HeaderContentType, "text/plain")
+	h.Add(HeaderResultStatus,ResultStatusFailure)
+
+	content := []byte("content")
+	innerResp:= &http.Response{
+
+		Header: h,
+		StatusCode: 200,
+		Body: ioutil.NopCloser(bytes.NewReader(content)),
+	}
+
+	buf:= bytes.Buffer{}
+
+	err:= innerResp.Write(&buf)
+	require.NoError(t,err)
+
+	outerResp:= &http.Response{
+		StatusCode:200,
+		Body: ioutil.NopCloser(bytes.NewReader(buf.Bytes())),
+	}
+
+	result, err := CompletionResultFromEncapsulatedResponse(store,outerResp)
+
+	require.NoError(t,err)
+
+	val,err:= store.ReadBlobData(result.Datum.GetBlob())
+
+	assert.False(t,result.Successful)
+	assert.Equal(t,content,val)
+	assert.Equal(t,"text/plain",result.Datum.GetBlob().ContentType)
+
 }
 
 func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {

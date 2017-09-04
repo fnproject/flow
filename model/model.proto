@@ -282,8 +282,9 @@ message InvokeStageRequest {
 message InvokeTerminationHookRequest {
     string graph_id = 1;
     string function_id = 2;
-    Datum status = 3;
-    BlobDatum closure = 4;
+    string hook_id = 3;
+    Datum status = 4;
+    BlobDatum closure = 5;
 }
 
 message AddTerminationHookRequest {
@@ -352,6 +353,7 @@ message FaasInvocationCompletedEvent {
 
 message TerminationHookAddedEvent {
     string graph_id = 1;
-    BlobDatum closure = 2;
-    google.protobuf.Timestamp ts = 3;
+    string hook_id = 2;
+    BlobDatum closure = 3;
+    google.protobuf.Timestamp ts = 4;
 }

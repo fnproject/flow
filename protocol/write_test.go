@@ -176,6 +176,19 @@ func TestShouldAddResultStatusToResult(t *testing.T) {
 
 }
 
+func TestShouldWriteStateDatum(t *testing.T){
+	store := persistence.NewInMemBlobStore()
+
+	stateDatum := model.NewSuccessfulStateDatum()
+
+	headers,body := writeDatum(store,stateDatum)
+
+	assert.Equal(t,DatumTypeState,headers.Get(HeaderDatumType))
+	assert.Equal(t,"succeeded",headers.Get(HeaderStateType))
+	assert.Equal(t,"succeeded", body)
+
+}
+
 func writeResult(store persistence.BlobStore, result *model.CompletionResult) (textproto.MIMEHeader, string) {
 	buf := new(bytes.Buffer)
 	pw := multipart.NewWriter(buf)

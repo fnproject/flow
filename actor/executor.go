@@ -36,7 +36,6 @@ type httpClient interface {
 type ExecHandler interface {
 	HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
 	HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
-	HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest)
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
@@ -59,9 +58,8 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 		go sender.Tell(exec.HandleInvokeStage(msg))
 	case *model.InvokeFunctionRequest:
 		go sender.Tell(exec.HandleInvokeFunction(msg))
-	case *model.InvokeTerminationHookRequest:
-		go sender.Tell(exec.HandleInvokeTerminationHook(msg))
 	}
+
 }
 
 func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
@@ -127,41 +125,6 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
 }
 
-func (exec *graphExecutor) HandleInvokeTerminationHook(msg *model.InvokeTerminationHookRequest) (res *model.TerminationHookInvocationResponse) {
-	functionLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "function_id": msg.FunctionId})
-	functionLog.Info("Running termination hook")
-
-	res = &model.TerminationHookInvocationResponse{GraphId: msg.GraphId, FunctionId: msg.FunctionId}
-
-	buf := new(bytes.Buffer)
-	partWriter := multipart.NewWriter(buf)
-	defer partWriter.Close()
-
-	if err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter); err != nil {
-		exec.log.Error("Failed to create multipart body", err)
-		return
-	}
-	result := &model.CompletionResult{Successful: true, Datum: msg.Status}
-	if err := protocol.WritePartFromResult(exec.blobStore, result, partWriter); err != nil {
-		exec.log.Error("Failed to create multipart body", err)
-		return
-	}
-
-	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
-	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
-	req.Header.Set("FnProject-ThreadID", msg.GraphId)
-
-	resp, err := exec.client.Do(req)
-	if err != nil {
-		functionLog.Errorf("Http error invoking termination hook %s", err.Error())
-	}
-	defer resp.Body.Close()
-
-	if !successfulResponse(resp) {
-		functionLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error when invoking termination hook")
-	}
-	return
-}
 
 func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg

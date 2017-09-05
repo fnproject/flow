@@ -5,15 +5,34 @@ import (
 	"github.com/fnproject/completer/model"
 )
 
+type ExecutionPhase string
+
+const MainExecPhase = ExecutionPhase("main")
+const TerminationExecPhase = ExecutionPhase("termination")
+
+type StageDependency interface {
+	GetID() string
+	IsResolved() bool
+	IsFailed() bool
+	IsSuccessful() bool
+	GetResult() *model.CompletionResult
+}
+
+// This is an input that obeys StageDependency
+type RawDependency struct {
+	ID     string
+	result *model.CompletionResult
+}
+
 // CompletionStage is a node in  Graph
 type CompletionStage struct {
+	result    *model.CompletionResult
 	ID        string
 	operation model.CompletionOperation
 	strategy  strategy
 	// optional closure
 	closure      *model.BlobDatum
-	result       *model.CompletionResult
-	dependencies []*CompletionStage
+	dependencies []StageDependency
 	// Composed children
 	children     []*CompletionStage
 	whenComplete *actor.Future
@@ -21,40 +40,41 @@ type CompletionStage struct {
 	composeReference *CompletionStage
 	// this only prevents a a stage from triggering twice in the same generation
 	triggered bool
+
+	// When this node runs
+	execPhase ExecutionPhase
 }
 
-func (stage *CompletionStage) GetDeps() []*CompletionStage {
-	return stage.dependencies
+func (stage *RawDependency) GetID() string {
+	return stage.ID
 }
 
-// GetOperation returns the operation for this stage
-func (stage *CompletionStage) GetOperation() model.CompletionOperation {
-	return stage.operation
+func (r *RawDependency) GetResult() *model.CompletionResult {
+	return r.result
 }
 
-// GetClosure returns the closure for this stage
-func (stage *CompletionStage) GetClosure() *model.BlobDatum {
-	return stage.closure
+func (r *RawDependency) IsResolved() bool {
+	return r.result != nil
+}
+
+func (r *RawDependency) IsSuccessful() bool {
+	return r.IsResolved() && r.result.Successful
+}
+
+func (r *RawDependency) IsFailed() bool {
+	return r.IsResolved() && !r.result.Successful
+}
+func (r *RawDependency) SetResult(result *model.CompletionResult) {
+	r.result = result
+}
+
+func (stage *CompletionStage) GetID() string {
+	return stage.ID
 }
 
 // GetResult returns this stage's result if available
 func (stage *CompletionStage) GetResult() *model.CompletionResult {
 	return stage.result
-}
-
-// WhenComplete returns a Future returning a *model.CompletionResult
-func (stage *CompletionStage) WhenComplete() *actor.Future {
-	return stage.whenComplete
-}
-
-func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
-	stage.triggered = true
-	if stage.result == nil {
-		stage.result = result
-		stage.whenComplete.PID().Tell(result)
-		return true
-	}
-	return false
 }
 
 // IsResolved is this stage resolved or pending
@@ -70,6 +90,35 @@ func (stage *CompletionStage) IsSuccessful() bool {
 // IsFailed indicates if the stage failed
 func (stage *CompletionStage) IsFailed() bool {
 	return stage.IsResolved() && !stage.result.Successful
+}
+
+func (stage *CompletionStage) GetDeps() []StageDependency {
+	return stage.dependencies
+}
+
+// GetOperation returns the operation for this stage
+func (stage *CompletionStage) GetOperation() model.CompletionOperation {
+	return stage.operation
+}
+
+// GetClosure returns the closure for this stage
+func (stage *CompletionStage) GetClosure() *model.BlobDatum {
+	return stage.closure
+}
+
+// WhenComplete returns a Future returning a *model.CompletionResult
+func (stage *CompletionStage) WhenComplete() *actor.Future {
+	return stage.whenComplete
+}
+
+func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
+	stage.triggered = true
+	if stage.result == nil {
+		stage.result = result
+		stage.whenComplete.PID().Tell(result)
+		return true
+	}
+	return false
 }
 
 func (stage *CompletionStage) IsTriggered() bool {

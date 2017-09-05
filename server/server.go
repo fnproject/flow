@@ -578,15 +578,19 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 		return
 	}
 
-	request := &model.AddTerminationHookRequest{
+	request := &model.AddChainedStageRequest{
 		GraphId: graphID,
 		Closure: blob,
+		Operation: model.CompletionOperation_terminationHook,
+		Deps: []string{},
 	}
 
-	if _, err := s.GraphManager.AddTerminationHook(request, s.requestTimeout); err != nil {
+	_, err = s.GraphManager.AddStage(request, s.requestTimeout)
+	if err != nil {
 		renderError(err, c)
 		return
 	}
+	// API does not currently return stage IDs for termination hooks
 	c.Status(http.StatusOK)
 }
 
@@ -621,7 +625,6 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 	{
 		graph.POST("", s.handleCreateGraph)
 		graph.GET("/:graphId", s.handleGraphState)
-
 		graph.POST("/:graphId/supply", s.handleSupply)
 		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
 		graph.POST("/:graphId/completedValue", s.handleCompletedValue)

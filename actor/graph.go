@@ -208,6 +208,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}, g.GetSelf())
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
+
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
 		stage := g.graph.GetStage(msg.StageId)
@@ -222,7 +223,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
-		response := &model.GraphRequestProcessed{GraphId: msg.GraphId}
+		response := &model.GraphRequestProcessedResponse{GraphId: msg.GraphId}
 		if g.graph.IsCommitted() {
 			// idempotent
 			context.Respond(response)
@@ -230,16 +231,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 		g.log.Debug("Committing graph")
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
-		context.Respond(response)
-
-	case *model.AddTerminationHookRequest:
-		response := &model.GraphRequestProcessed{GraphId: msg.GraphId}
-		g.log.Debug("Adding termination hook")
-		g.persistAndUpdateGraph(&model.TerminationHookAddedEvent{
-			GraphId: msg.GraphId,
-			Closure: msg.Closure,
-			Ts:      currentTimestamp(),
-		})
 		context.Respond(response)
 
 	case *model.GetStageResultRequest:
@@ -280,10 +271,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Ts:      currentTimestamp(),
 			CallId: msg.CallId,
 		})
-
-	case *model.TerminationHookInvocationResponse:
-		g.log.Debug("Processed termination hook")
-		g.invokeTerminationHooks()
 
 	case *model.DeactivateGraphRequest:
 		g.log.Debug("Telling supervisor graph is completed")
@@ -373,7 +360,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 		stageDeps := s.GetDeps()
 		deps := make([]string, len(stageDeps))
 		for i, dep := range stageDeps {
-			deps[i] = dep.ID
+			deps[i] = dep.GetID()
 		}
 
 		rep := &model.GetGraphStateResponse_StageRepresentation{
@@ -428,35 +415,31 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 	})
 }
 
-//OnCompleteGraph indicates that the graph is now finished and cannot be modified
-func (g *graphActor) OnCompleteGraph() {
+func (g *graphActor) OnGraphExecutionFinished() {
 	if g.Recovering() {
 		return
 	}
+
+	g.persistAndUpdateGraph(&model.GraphTerminatingEvent{
+		GraphId:    g.graph.ID,
+		FunctionId: g.graph.FunctionID,
+		Ts:         currentTimestamp(),
+	})
+
+}
+
+
+func (g *graphActor) OnGraphComplete() {
+	if g.Recovering() {
+		return
+	}
+
 	g.persistAndUpdateGraph(&model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
 
-	g.invokeTerminationHooks()
-}
-
-// sends this actor a DeactivateGraphRequest if no termination hooks are left to process
-func (g *graphActor) invokeTerminationHooks() {
-	if hook, success := g.graph.PopTerminationHook(); success {
-		g.log.Info("Invoking next termination hook on completed graph")
-		req := &model.InvokeTerminationHookRequest{
-			FunctionId: g.graph.FunctionID,
-			GraphId:    g.graph.ID,
-			Status:     model.NewSuccessfulStateDatum(), // TODO in the future there will be more states
-			Closure:    hook,
-		}
-		g.executor.Request(req, g.GetSelf())
-
-	} else {
-		g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
-	}
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph

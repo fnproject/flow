@@ -48,6 +48,11 @@ func NewInvalidOperationError(graphId string) ValidationError {
 	return &InvalidGraphOperation{GraphId: graphId, Err: "Invalid stage operation"}
 }
 
-func NewFailedToRegisterCallback(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add termination hook"}
+func NewTooManyStagesError(graphId string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add stage, graph has maximum number of stages"}
+}
+
+
+func NewTooManyTerminatinoHooksError(graphId string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add termination hook, graph has maximum number of termination hooks"}
 }

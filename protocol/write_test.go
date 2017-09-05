@@ -179,7 +179,7 @@ func TestShouldAddResultStatusToResult(t *testing.T) {
 func TestShouldWriteStateDatum(t *testing.T){
 	store := persistence.NewInMemBlobStore()
 
-	stateDatum := model.NewSuccessfulStateDatum()
+	stateDatum := model.NewStateDatum(model.StateDatumType_succeeded)
 
 	headers,body := writeDatum(store,stateDatum)
 

@@ -29,7 +29,7 @@ func TestUnknownOperationShouldRaiseError(t *testing.T) {
 }
 
 func TestTriggerAllEmpty(t *testing.T) {
-	trigger, status, inputs := triggerAll([]*CompletionStage{})
+	trigger, status, inputs := triggerAll([]StageDependency{})
 	assert.True(t, trigger)
 	assert.Equal(t, true, status)
 	assert.Empty(t, inputs)
@@ -39,7 +39,7 @@ func TestTriggerAllEmpty(t *testing.T) {
 func TestTriggerAllCompleted(t *testing.T) {
 	s1 := completedStage()
 	s2 := completedStage()
-	trigger, status, inputs := triggerAll([]*CompletionStage{s1, s2})
+	trigger, status, inputs := triggerAll([]StageDependency{s1, s2})
 	assert.True(t, trigger)
 	assert.Equal(t, true, status)
 	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
@@ -47,27 +47,27 @@ func TestTriggerAllCompleted(t *testing.T) {
 }
 
 func TestTriggerAllPartial(t *testing.T) {
-	trigger, _, _ := triggerAll([]*CompletionStage{completedStage(), pendingStage()})
+	trigger, _, _ := triggerAll([]StageDependency{completedStage(), pendingStage()})
 	assert.False(t, trigger)
 }
 
 func TestTriggerAllPartialOneFailed(t *testing.T) {
 	failed := failedStage()
-	trigger, res, inputs := triggerAll([]*CompletionStage{completedStage(), pendingStage(), failed})
+	trigger, res, inputs := triggerAll([]StageDependency{completedStage(), pendingStage(), failed})
 	assert.True(t, trigger)
 	assert.Equal(t, false, res)
 	assert.Equal(t, []*model.CompletionResult{failed.result}, inputs)
 }
 
 func TestTriggerAnyEmpty(t *testing.T) {
-	trigger, _, _ := triggerAny([]*CompletionStage{})
+	trigger, _, _ := triggerAny([]StageDependency{})
 	assert.False(t, trigger)
 
 }
 
 func TestTriggerAnyPartial(t *testing.T) {
 	s1 := completedStage()
-	trigger, status, inputs := triggerAny([]*CompletionStage{s1, pendingStage()})
+	trigger, status, inputs := triggerAny([]StageDependency{s1, pendingStage()})
 	assert.True(t, trigger)
 	assert.Equal(t, true, status)
 	assert.Equal(t, []*model.CompletionResult{s1.result}, inputs)
@@ -76,19 +76,19 @@ func TestTriggerAnyPartial(t *testing.T) {
 
 func TestTriggerAnyPartialFailure(t *testing.T) {
 	s1 := failedStage()
-	trigger, _, _ := triggerAny([]*CompletionStage{s1, pendingStage()})
+	trigger, _, _ := triggerAny([]StageDependency{s1, pendingStage()})
 	assert.False(t, trigger)
 }
 
 func TestTriggerAnyCompleteFailure(t *testing.T) {
-	trigger, result, inputs := triggerAny([]*CompletionStage{failedStage(), failedStage()})
+	trigger, result, inputs := triggerAny([]StageDependency{failedStage(), failedStage()})
 	assert.True(t, trigger)
 	assert.False(t, result)
 	assert.Equal(t, []*model.CompletionResult{model.NewFailedResult(model.NewEmptyDatum())}, inputs)
 }
 
 func TestTriggerNever(t *testing.T) {
-	trigger, _, _ := triggerNever([]*CompletionStage{completedStage()})
+	trigger, _, _ := triggerNever([]StageDependency{completedStage()})
 	assert.False(t, trigger)
 }
 
@@ -240,7 +240,7 @@ func TestParentStageResult(t *testing.T) {
 	parent.result = r
 
 	s := pendingStage()
-	s.dependencies = []*CompletionStage{parent}
+	s.dependencies = []StageDependency{parent}
 
 	m.On("OnCompleteStage", s, r)
 
@@ -260,7 +260,7 @@ func completedStage() *CompletionStage {
 
 func TestTriggerAnyFail(t *testing.T) {
 	s1 := failedStage()
-	trigger, status, inputs := triggerAny([]*CompletionStage{s1})
+	trigger, status, inputs := triggerAny([]StageDependency{s1})
 	assert.True(t, trigger)
 	assert.Equal(t, false, status)
 	assert.Equal(t, []*model.CompletionResult{s1.result}, inputs)

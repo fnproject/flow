@@ -111,6 +111,8 @@ enum CompletionOperation {
     anyOf = 16;
     externalCompletion = 17;
     exceptionally = 18;
+    terminationHook = 19;
+
 }
 
 // Commands
@@ -153,7 +155,7 @@ message CommitGraphRequest {
     string graph_id = 1;
 }
 
-message GraphRequestProcessed {
+message GraphRequestProcessedResponse {
     string graph_id = 1;
 }
 
@@ -250,6 +252,8 @@ message GetStageResultResponse {
     CompletionResult result = 3;
 }
 
+
+
 message InvalidGraphOperation {
     string graph_id = 1;
     string err = 2;
@@ -279,33 +283,35 @@ message InvokeStageRequest {
     bool exceptional = 7;
 }
 
-message InvokeTerminationHookRequest {
-    string graph_id = 1;
-    string function_id = 2;
-    string hook_id = 3;
-    Datum status = 4;
-    BlobDatum closure = 5;
-}
 
-message AddTerminationHookRequest {
-    string graph_id = 1;
-    BlobDatum closure = 2;
-}
 
 // Events
 
+// A delay has started - this marks the relative start of an event when a delay node is recovered
 message DelayScheduledEvent {
     string stage_id = 1;
     int64 time_ms = 2;
     google.protobuf.Timestamp ts = 3;
 }
 
+// Graph created
 message GraphCreatedEvent {
     string graph_id = 1;
     string function_id = 2;
     google.protobuf.Timestamp ts = 3;
 }
 
+
+// Graph termination has started - no more changes can be made to this graph
+// this will be fillowed by a completion event when any termination hooks have run
+message GraphTerminatingEvent {
+    string graph_id = 1;
+    string function_id = 2;
+    StateDatumType state = 3;
+    google.protobuf.Timestamp ts = 4;
+}
+
+// Graph is complete  and will no longer change
 message GraphCompletedEvent {
     string graph_id = 1;
     string function_id = 2;
@@ -313,11 +319,15 @@ message GraphCompletedEvent {
 
 }
 
+// The graph is committed - this typically indicates that the function that created the thread has completed
+// once this event has been posted the graph will finish when all active or pending nodes have completed.
 message GraphCommittedEvent {
     string graph_id = 1;
     google.protobuf.Timestamp ts = 2;
+
 }
 
+// A stage was added to the graph
 message StageAddedEvent {
     string stage_id = 1;
     CompletionOperation op = 2;
@@ -326,34 +336,34 @@ message StageAddedEvent {
     google.protobuf.Timestamp ts = 5;
 }
 
+
+
+
+// A stage completed  - downstream stages may be triggered
 message StageCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
 }
 
+// A stage was composed into  stage_id  - stage_id will compelete with the saem result as composed_stage_id
 message StageComposedEvent {
     string stage_id = 1;
     string composed_stage_id = 2;
     google.protobuf.Timestamp ts = 3;
 }
 
+// A call to the FaaS has started
 message FaasInvocationStartedEvent {
     string stage_id = 1;
     google.protobuf.Timestamp ts = 2;
     string function_id = 3;
 }
 
+// A call to the FaaS completed
 message FaasInvocationCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
     string call_id = 4;
-}
-
-message TerminationHookAddedEvent {
-    string graph_id = 1;
-    string hook_id = 2;
-    BlobDatum closure = 3;
-    google.protobuf.Timestamp ts = 4;
 }

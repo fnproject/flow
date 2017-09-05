@@ -20,13 +20,12 @@ type GraphManager interface {
 	AddStage(model.AddStageCommand, time.Duration) (*model.AddStageResponse, error)
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
-	Commit(*model.CommitGraphRequest, time.Duration) (*model.GraphRequestProcessed, error)
+	Commit(*model.CommitGraphRequest, time.Duration) (*model.GraphRequestProcessedResponse, error)
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
 	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
 	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
 	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack)
 	UnsubscribeStream(sub *eventstream.Subscription)
-	AddTerminationHook(*model.AddTerminationHookRequest, time.Duration) (*model.GraphRequestProcessed, error)
 }
 
 type actorManager struct {
@@ -122,23 +121,15 @@ func (m *actorManager) CompleteStageExternally(req *model.CompleteStageExternall
 	return r.(*model.CompleteStageExternallyResponse), e
 }
 
-func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Duration) (*model.GraphRequestProcessed, error) {
+func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Duration) (*model.GraphRequestProcessedResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Committing graph")
 	r, e := m.forwardRequest(req, timeout)
 	if e != nil {
 		return nil, e
 	}
-	return r.(*model.GraphRequestProcessed), e
+	return r.(*model.GraphRequestProcessedResponse), e
 }
 
-func (m *actorManager) AddTerminationHook(req *model.AddTerminationHookRequest, timeout time.Duration) (*model.GraphRequestProcessed, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Adding termination hook")
-	r, e := m.forwardRequest(req, timeout)
-	if e != nil {
-		return nil, e
-	}
-	return r.(*model.GraphRequestProcessed), e
-}
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {
 

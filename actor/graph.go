@@ -57,11 +57,13 @@ func (g *graphActor) initGraph(event *model.GraphCreatedEvent) {
 }
 
 func (g *graphActor) receiveEvent(event model.Event) {
-
 	switch e := event.(type) {
 
 	case *model.GraphCreatedEvent:
 		g.initGraph(e)
+
+	case *model.DelayScheduledEvent:
+		g.scheduleDelay(e)
 
 	default:
 		if g.graph == nil {
@@ -195,9 +197,9 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		})
 
 		g.PersistReceive(&model.FaasInvocationStartedEvent{
-			StageId: stageID,
-			Ts:      currentTimestamp(),
-			FunctionId:msg.FunctionId,
+			StageId:    stageID,
+			Ts:         currentTimestamp(),
+			FunctionId: msg.FunctionId,
 		})
 
 		g.executor.Request(&model.InvokeFunctionRequest{
@@ -207,7 +209,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Arg:        msg.Arg,
 		}, g.GetSelf())
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
-
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
@@ -250,7 +251,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		})
 
 	case *model.CompleteDelayStageRequest:
-		if g.graph.IsCompleted() {
+		if stage := g.graph.GetStage(msg.StageId); stage != nil && stage.IsResolved() {
 			// avoids accumulating duplicate StageCompletedEvents
 			return
 		}
@@ -269,11 +270,11 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			StageId: msg.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
-			CallId: msg.CallId,
+			CallId:  msg.CallId,
 		})
 
 	case *model.DeactivateGraphRequest:
-		g.log.Debug("Telling supervisor graph is completed")
+		g.log.Debug("Requesting supervisor to deactivate graph")
 		// tell supervisor to remove us from active graphs
 		context.Parent().Tell(msg)
 
@@ -318,24 +319,21 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 func (g *graphActor) scheduleDelay(event *model.DelayScheduledEvent) {
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := event.TimeMs - timeMillis()
+	delayReq := &model.CompleteDelayStageRequest{
+		GraphId: g.graph.ID,
+		StageId: event.StageId,
+		Result:  model.NewEmptyResult(),
+	}
 	if delayMs > 0 {
 		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Scheduling delayed completion of stage")
 		// Wait for the delay in a goroutine so we can complete the request in the meantime
 		go func() {
 			<-time.After(time.Duration(delayMs) * time.Millisecond)
-			g.pid.Tell(&model.CompleteDelayStageRequest{
-				GraphId: g.graph.ID,
-				StageId: event.StageId,
-				Result:  model.NewEmptyResult(),
-			})
+			g.pid.Tell(delayReq)
 		}()
 	} else {
 		g.log.WithFields(logrus.Fields{"stage_id": event.StageId}).Debug("Queuing completion of delayed stage")
-		g.pid.Tell(&model.CompleteDelayStageRequest{
-			GraphId: g.graph.ID,
-			StageId: event.StageId,
-			Result:  model.NewEmptyResult(),
-		})
+		g.pid.Tell(delayReq)
 	}
 }
 
@@ -380,9 +378,9 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
 	g.PersistReceive(&model.FaasInvocationStartedEvent{
-		StageId: stage.ID,
-		Ts:      currentTimestamp(),
-		FunctionId:g.graph.FunctionID,
+		StageId:    stage.ID,
+		Ts:         currentTimestamp(),
+		FunctionId: g.graph.FunctionID,
 	})
 	req := &model.InvokeStageRequest{
 		FunctionId: g.graph.FunctionID,
@@ -428,7 +426,6 @@ func (g *graphActor) OnGraphExecutionFinished() {
 
 }
 
-
 func (g *graphActor) OnGraphComplete() {
 	if g.Recovering() {
 		return
@@ -440,6 +437,7 @@ func (g *graphActor) OnGraphComplete() {
 		Ts:         currentTimestamp(),
 	})
 
+	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph

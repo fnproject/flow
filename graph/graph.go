@@ -15,7 +15,7 @@ import (
 var log = logrus.WithField("logger", "graph")
 
 const (
-	maxDelaySeconds     = 900
+	maxDelaySeconds     = 86400
 	maxStages           = 1000
 	maxTerminationHooks = 100
 )
@@ -28,20 +28,20 @@ type CompletionEventListener interface {
 	OnCompleteStage(stage *CompletionStage, result *model.CompletionResult)
 	//OnCompose Stage indicates that another stage should be composed into this one
 	OnComposeStage(stage *CompletionStage, composedStage *CompletionStage)
-	//OnGraphExecutionFinished indicates that the graph is now finished and cannot be modified
+	//OnGraphExecutionFinished indicates that the graph is now finished executing all user stages and cannot be structurally modified
 	OnGraphExecutionFinished()
-	//OnGraphComplete indicates that the graph has completed
+	//OnGraphComplete indicates that the graph has completed processing and can be safely passivated
 	OnGraphComplete()
 }
 
 //  Lifecycle state of graph
-type GraphState string;
+type GraphState string
 
 const (
 	StateInitial     = GraphState("initial")
 	StateCommitted   = GraphState("committed")
 	StateTerminating = GraphState("terminating")
-	StateCompleted   = GraphState("complete")
+	StateCompleted   = GraphState("completed")
 )
 
 // CompletionGraph describes the graph itself
@@ -84,9 +84,9 @@ func (graph *CompletionGraph) GetStages() []*CompletionStage {
 
 // IsCommitted Has the graph been marked as committed by HandleCommitted
 func (graph *CompletionGraph) IsCommitted() bool {
-	switch(graph.state) {
+	switch graph.state {
 	case StateInitial:
-		return false;
+		return false
 	default:
 		return true
 	}
@@ -191,7 +191,7 @@ func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, sho
 }
 
 func (graph *CompletionGraph) handleAddTerminationHook(event *model.StageAddedEvent) {
-	log.WithField("stage_id",event.StageId).Info("Adding termination hook")
+	log.WithField("stage_id", event.StageId).Info("Adding termination hook")
 	strategy, err := getStrategyFromOperation(model.CompletionOperation_terminationHook)
 	if err != nil {
 		panic(fmt.Sprintf("invalid/unsupported operation %s", event.Op))
@@ -277,6 +277,7 @@ func (graph *CompletionGraph) Recover() {
 		graph.log.Info("Retrieved stages from storage")
 	}
 
+	graph.triggerReadyStages()
 	graph.checkForExecutionFinished()
 }
 
@@ -314,7 +315,7 @@ func (graph *CompletionGraph) getPendingCount(phase ExecutionPhase) uint32 {
 }
 
 func (graph *CompletionGraph) canModifyGraph() bool {
-	switch(graph.state) {
+	switch graph.state {
 	case StateInitial, StateCommitted:
 		return true
 	default:
@@ -330,14 +331,14 @@ func (graph *CompletionGraph) checkForExecutionFinished() {
 		if pendingCount == 0 {
 			graph.eventListener.OnGraphExecutionFinished()
 		} else {
-			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending executions before graph can will terminate")
+			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending executions before graph can terminate")
 		}
 	case StateTerminating:
 		pendingCount := graph.getPendingCount(TerminationExecPhase)
 		if pendingCount == 0 {
 			graph.eventListener.OnGraphComplete()
 		} else {
-			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending shutdown stages  before graph can be completed")
+			graph.log.WithFields(logrus.Fields{"pending": pendingCount}).Info("Pending shutdown stages before graph can be completed")
 		}
 
 	case StateInitial, StateCompleted:
@@ -346,7 +347,7 @@ func (graph *CompletionGraph) checkForExecutionFinished() {
 
 }
 
-// UpdateWithEvent updates this graph's state according to the received event
+// UpdateWithEvent updates this graph's state acGetGraphStateRequestcording to the received event
 func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool) {
 	switch e := event.(type) {
 	case *model.GraphCommittedEvent:
@@ -372,7 +373,9 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 		graph.handleStageCompleted(e, mayTrigger)
 
 	case *model.FaasInvocationCompletedEvent:
-		graph.handleInvokeComplete(e)
+		if mayTrigger {
+			graph.handleInvokeComplete(e)
+		}
 
 	case *model.StageComposedEvent:
 		graph.handleStageComposed(e)
@@ -391,7 +394,6 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 	if addCmd, ok := cmd.(model.AddStageCommand); ok {
 		if !graph.canModifyGraph() {
 			return model.NewGraphCompletedError(addCmd.GetGraphId())
-
 		}
 		strategy, err := getStrategyFromOperation(addCmd.GetOperation())
 		if err != nil {
@@ -411,7 +413,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 			var hookCount int
 			for _, s := range graph.stages {
 				if s.GetOperation() == model.CompletionOperation_terminationHook {
-					hookCount ++
+					hookCount++
 				}
 			}
 			if hookCount >= maxTerminationHooks {
@@ -431,6 +433,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		if valid := graph.validateStages(msg.Deps); !valid {
 			return model.NewInvalidStageDependenciesError(msg.GraphId)
 		}
+
 	case *model.CompleteStageExternallyRequest:
 		stage := graph.GetStage(msg.StageId)
 		if stage == nil {

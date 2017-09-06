@@ -36,6 +36,7 @@ FnProject-DatumType: error
 FnProject-DatumType: stageref
 FnProject-DatumType: httpreq
 FnProject-DatumType: httpresp
+FnProject-DatumType: state
 ```
 
 When using _blob_ types, their media type must be defined by including the `Content-Type` header. For example, to transmit a serialized Java value the following headers must be included in the request/response:
@@ -45,7 +46,9 @@ When using _blob_ types, their media type must be defined by including the `Cont
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
 ```
-The _error_ type is always of type _text/plain_ and uses the body for its error message.
+The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
+
+The _state_ datum represents the state of a cloud thread, with the additional header `Fnproject-Statetype` taking on one of the values _succeeded_, _failed_, _cancelled_, or _killed_.
 
 The _empty_ datum type is used to signify a null/void type and has no body. 
 

@@ -208,6 +208,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}, g.GetSelf())
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
+
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
 		stage := g.graph.GetStage(msg.StageId)
@@ -222,7 +223,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
-		response := &model.CommitGraphProcessed{GraphId: msg.GraphId}
+		response := &model.GraphRequestProcessedResponse{GraphId: msg.GraphId}
 		if g.graph.IsCommitted() {
 			// idempotent
 			context.Respond(response)
@@ -359,7 +360,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 		stageDeps := s.GetDeps()
 		deps := make([]string, len(stageDeps))
 		for i, dep := range stageDeps {
-			deps[i] = dep.ID
+			deps[i] = dep.GetID()
 		}
 
 		rep := &model.GetGraphStateResponse_StageRepresentation{
@@ -414,17 +415,31 @@ func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage 
 	})
 }
 
-//OnCompleteGraph indicates that the graph is now finished and cannot be modified
-func (g *graphActor) OnCompleteGraph() {
+func (g *graphActor) OnGraphExecutionFinished() {
 	if g.Recovering() {
 		return
 	}
+
+	g.persistAndUpdateGraph(&model.GraphTerminatingEvent{
+		GraphId:    g.graph.ID,
+		FunctionId: g.graph.FunctionID,
+		Ts:         currentTimestamp(),
+	})
+
+}
+
+
+func (g *graphActor) OnGraphComplete() {
+	if g.Recovering() {
+		return
+	}
+
 	g.persistAndUpdateGraph(&model.GraphCompletedEvent{
 		GraphId:    g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
-	g.GetSelf().Tell(&model.DeactivateGraphRequest{GraphId: g.graph.ID})
+
 }
 
 // persistAndUpdateGraph saves an event before applying it to the graph

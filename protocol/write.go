@@ -36,8 +36,6 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 		return nil
 	case *model.Datum_Error:
 		h.Add(HeaderDatumType, DatumTypeError)
-		h.Add(HeaderContentType, "text/plain")
-
 		errorType := model.ErrorDatumType_name[int32(datum.GetError().Type)]
 		stringTypeName := strings.Replace(errorType, "_", "-", -1)
 		h.Add(HeaderErrorType, stringTypeName)
@@ -110,6 +108,18 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 			}
 			pw.Write(data)
 		}
+
+		return nil
+	case *model.Datum_State:
+		h.Add(HeaderDatumType, DatumTypeState)
+		stateType := model.StateDatumType_name[int32(datum.GetState().Type)]
+		h.Add(HeaderStateType, stateType)
+		partWriter, err := writer.CreatePart(h)
+		if err != nil {
+			return err
+		}
+		// not part of protocol, but avoids problems with having an empty body
+		partWriter.Write([]byte(stateType))
 
 		return nil
 	default:

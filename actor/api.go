@@ -20,7 +20,7 @@ type GraphManager interface {
 	AddStage(model.AddStageCommand, time.Duration) (*model.AddStageResponse, error)
 	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
 	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
-	Commit(*model.CommitGraphRequest, time.Duration) (*model.CommitGraphProcessed, error)
+	Commit(*model.CommitGraphRequest, time.Duration) (*model.GraphRequestProcessedResponse, error)
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
 	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
 	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
@@ -65,9 +65,10 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	supervisor, _ := actor.SpawnNamed(supervisorProps, supervisorName)
 
 	return &actorManager{
-		log:        log,
-		supervisor: supervisor,
-		executor:   executor, persistenceProvider: wrappedProvider,
+		log:                 log,
+		supervisor:          supervisor,
+		executor:            executor,
+		persistenceProvider: wrappedProvider,
 	}, nil
 }
 
@@ -120,14 +121,15 @@ func (m *actorManager) CompleteStageExternally(req *model.CompleteStageExternall
 	return r.(*model.CompleteStageExternallyResponse), e
 }
 
-func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Duration) (*model.CommitGraphProcessed, error) {
+func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Duration) (*model.GraphRequestProcessedResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Committing graph")
 	r, e := m.forwardRequest(req, timeout)
 	if e != nil {
 		return nil, e
 	}
-	return r.(*model.CommitGraphProcessed), e
+	return r.(*model.GraphRequestProcessedResponse), e
 }
+
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {
 

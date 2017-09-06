@@ -6,17 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+	"net/url"
+
 	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/protocol"
 	"github.com/fnproject/completer/query"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"net/url"
-	"github.com/fnproject/completer/persistence"
-	"fmt"
-	"github.com/fnproject/completer/protocol"
 )
 
 const MaxDelay = 3600 * 1000 * 24
@@ -125,6 +126,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
 		if err != nil {
 			renderError(err, c)
+			return
 		}
 
 		// TODO: enforce valid content type
@@ -501,7 +503,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 	}
 
 	delay, err := strconv.ParseInt(delayMs, 10, 64)
-	if err != nil || delay < 0 || delay > MaxDelay{
+	if err != nil || delay < 0 || delay > MaxDelay {
 		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
@@ -517,7 +519,6 @@ func (s *Server) handleDelay(c *gin.Context) {
 	c.Header(protocol.HeaderStageRef, response.StageId)
 	c.Status(http.StatusOK)
 }
-
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
 	graphID := c.Param("graphId")
@@ -539,8 +540,8 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 
 	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 
-	if err !=nil {
-		renderError(err,c)
+	if err != nil {
+		renderError(err, c)
 		return
 	}
 	request := &model.AddInvokeFunctionStageRequest{
@@ -555,6 +556,41 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		return
 	}
 	c.Header(protocol.HeaderStageRef, response.StageId)
+	c.Status(http.StatusOK)
+}
+
+func (s *Server) handleAddTerminationHook(c *gin.Context) {
+	graphID := c.Param("graphId")
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
+		return
+	}
+
+	body, err := c.GetRawData()
+	if err != nil {
+		renderError(ErrReadingInput, c)
+		return
+	}
+
+	blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
+	if err != nil {
+		renderError(err, c)
+		return
+	}
+
+	request := &model.AddChainedStageRequest{
+		GraphId: graphID,
+		Closure: blob,
+		Operation: model.CompletionOperation_terminationHook,
+		Deps: []string{},
+	}
+
+	_, err = s.GraphManager.AddStage(request, s.requestTimeout)
+	if err != nil {
+		renderError(err, c)
+		return
+	}
+	// API does not currently return stage IDs for termination hooks
 	c.Status(http.StatusOK)
 }
 
@@ -589,7 +625,6 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 	{
 		graph.POST("", s.handleCreateGraph)
 		graph.GET("/:graphId", s.handleGraphState)
-
 		graph.POST("/:graphId/supply", s.handleSupply)
 		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
 		graph.POST("/:graphId/completedValue", s.handleCompletedValue)
@@ -598,6 +633,7 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 		graph.POST("/:graphId/anyOf", s.handleAnyOf)
 		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
 		graph.POST("/:graphId/commit", s.handleCommit)
+		graph.POST("/:graphId/terminationHook", s.handleAddTerminationHook)
 
 		stage := graph.Group("/:graphId/stage")
 		{

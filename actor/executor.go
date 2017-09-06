@@ -34,8 +34,8 @@ type httpClient interface {
 // ExecHandler abstracts the FaaS execution backend
 // implementations must handle all errors and return an appropriate invocation responser
 type ExecHandler interface {
-	HandleInvokeStageRequest(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
-	HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
+	HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse
+	HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
@@ -55,23 +55,21 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go func() {
-			sender.Tell(exec.HandleInvokeStageRequest(msg))
-		}()
+		go sender.Tell(exec.HandleInvokeStage(msg))
 	case *model.InvokeFunctionRequest:
-		go func() {
-			sender.Tell(exec.HandleInvokeFunctionRequest(msg))
-		}()
+		go sender.Tell(exec.HandleInvokeFunction(msg))
 	}
+
 }
 
-func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
+func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
 	stageLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "stage_id": msg.StageId, "function_id": msg.FunctionId, "operation": msg.Operation})
 	stageLog.Info("Running Stage")
 
 	buf := new(bytes.Buffer)
 
 	partWriter := multipart.NewWriter(buf)
+	defer partWriter.Close()
 
 	if msg.Closure != nil {
 		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
@@ -89,7 +87,6 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 
 		}
 	}
-	partWriter.Close()
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
@@ -100,10 +97,11 @@ func (exec *graphExecutor) HandleInvokeStageRequest(msg *model.InvokeStageReques
 	if err != nil {
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, "HTTP error on stage invocation: Can the completer talk to the functions server?", "")
 	}
+	defer resp.Body.Close()
 
 	callId := resp.Header.Get(FnCallIDHeader)
 
-	if resp.StatusCode != 200 {
+	if !successfulResponse(resp) {
 		stageLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
@@ -127,7 +125,8 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
 }
 
-func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
+
+func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg
 
 	method := strings.ToUpper(model.HttpMethod_name[int32(datum.Method)])
@@ -163,6 +162,7 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 		return invokeFailed(msg, "Failed to call function", "")
 
 	}
+	defer resp.Body.Close()
 
 	callId := resp.Header.Get(FnCallIDHeader)
 	buf := &bytes.Buffer{}
@@ -201,17 +201,14 @@ func (exec *graphExecutor) HandleInvokeFunctionRequest(msg *model.InvokeFunction
 				Body:       blob,
 				StatusCode: uint32(resp.StatusCode)}}}
 
-	var boolResult bool
-	// assume any non-error codes are success
-	// TODO doc in spec
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		boolResult = true
-	} else {
-		boolResult = false
-	}
-
-	result := &model.CompletionResult{Successful: boolResult, Datum: resultDatum}
+	result := &model.CompletionResult{Successful: successfulResponse(resp), Datum: resultDatum}
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callId}
+}
+
+func successfulResponse(resp *http.Response) bool {
+	// assume any non-error codes are successful
+	// TODO doc in spec
+	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
 func invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callId string) *model.FaasInvocationResponse {

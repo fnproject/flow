@@ -302,7 +302,7 @@ func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *m
 	if err != nil {
 		panic(err)
 	}
-	result := exec.HandleInvokeStageRequest(&model.InvokeStageRequest{
+	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
@@ -320,7 +320,7 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
-	result := exec.HandleInvokeFunctionRequest(&model.InvokeFunctionRequest{
+	result := exec.HandleInvokeFunction(&model.InvokeFunctionRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
@@ -337,14 +337,16 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 	return result
 }
 
+
 func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	assert.Equal(t, "/function/id/", result.FunctionId)
 	assert.Equal(t, "stage-id", result.StageId)
 	assert.Equal(t, "graph-id", result.GraphId)
 	require.NotNil(t, result.Result)
 	require.NotNil(t, result.Result.GetDatum())
-
 }
+
+
 func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType model.ErrorDatumType) {
 	assert.False(t, result.Result.Successful)
 	require.NotNil(t, result.Result.GetDatum())

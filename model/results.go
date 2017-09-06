@@ -57,3 +57,11 @@ func NewHttpReqDatum(httpreq *HttpReqDatum) *Datum {
 		},
 	}
 }
+
+func NewStateDatum(stateType StateDatumType) *Datum {
+	return &Datum{
+		Val: &Datum_State{
+			State: &StateDatum{Type: stateType},
+		},
+	}
+}

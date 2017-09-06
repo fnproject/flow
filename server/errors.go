@@ -33,6 +33,11 @@ var (
 		Message:    "Body is required",
 	}
 
+	ErrInvalidGetTimeout = &ServerErr{
+		HttpStatus: http.StatusBadRequest,
+		Message:    "Invalid timeoutMs parameter",
+	}
+
 	ErrMissingOrInvalidDelay = &ServerErr{
 		HttpStatus: http.StatusBadRequest,
 		Message:    "Invalid or missing delayMs parameter ",

@@ -202,10 +202,6 @@ message FaasInvocationResponse {
     string call_id = 5;
 }
 
-message TerminationHookInvocationResponse {
-    string graph_id = 1;
-    string function_id = 2;
-}
 
 message GetGraphStateRequest {
     string graph_id = 1;

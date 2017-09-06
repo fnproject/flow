@@ -346,10 +346,6 @@ func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	require.NotNil(t, result.Result.GetDatum())
 }
 
-func hasValidTerminationResult(t *testing.T, result *model.TerminationHookInvocationResponse) {
-	assert.Equal(t, "/function/id/", result.FunctionId)
-	assert.Equal(t, "graph-id", result.GraphId)
-}
 
 func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType model.ErrorDatumType) {
 	assert.False(t, result.Result.Successful)

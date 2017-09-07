@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	MaxDelay           = 3600 * 1000 * 24
-	maxGetStageTimeout = 1 * time.Hour
+	MaxDelay                      = 3600 * 1000 * 24
+	actorRequestTimeout           = 1 * time.Second
+	defaultGetStageRequestTimeout = 1 * time.Hour
 )
 
 var log = logrus.WithField("logger", "server")
@@ -229,7 +230,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
-	timeout := maxGetStageTimeout
+	timeout := defaultGetStageRequestTimeout
 
 	if timeoutMs := c.Query("timeoutMs"); timeoutMs != "" {
 		t, err := time.ParseDuration(timeoutMs + "ms")
@@ -238,7 +239,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 			return
 		}
 		tInt := int64(t)
-		if tInt > 0 && tInt < int64(maxGetStageTimeout) {
+		if tInt == 0 {
+			timeout = defaultGetStageRequestTimeout
+		} else if tInt < int64(actorRequestTimeout) {
+			// don't go under the default timeout for communicating with the actor system
+			timeout = actorRequestTimeout
+		} else if tInt < int64(defaultGetStageRequestTimeout) {
 			timeout = t
 		}
 	}
@@ -627,7 +633,7 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 		Engine:         gin.Default(),
 		listen:         listenAddress,
 		BlobStore:      blobStore,
-		requestTimeout: 5 * time.Second,
+		requestTimeout: actorRequestTimeout,
 	}
 
 	s.Engine.GET("/ping", func(c *gin.Context) {

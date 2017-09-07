@@ -15,9 +15,10 @@ import (
 var log = logrus.WithField("logger", "graph")
 
 const (
-	maxDelaySeconds     = 86400
-	maxStages           = 1000
-	maxTerminationHooks = 100
+	maxDelaySeconds      = 86400
+	maxStages            = 1000
+	maxTerminationHooks  = 100
+	stageCallbackTimeout = 10000 * time.Hour // wait indefinitely
 )
 
 // CompletionEventListener is a callback interface to receive notifications about stage triggers and graph events
@@ -176,7 +177,7 @@ func (graph *CompletionGraph) handleStageAdded(event *model.StageAddedEvent, sho
 		operation:    event.Op,
 		strategy:     strategy,
 		closure:      event.Closure,
-		whenComplete: actor.NewFuture(10000 * time.Hour), // can take indefinitely long
+		whenComplete: actor.NewFuture(stageCallbackTimeout),
 		dependencies: deps,
 		execPhase:    MainExecPhase,
 	}

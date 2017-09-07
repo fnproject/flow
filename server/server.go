@@ -20,7 +20,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const MaxDelay = 3600 * 1000 * 24
+const (
+	MaxDelay           = 3600 * 1000 * 24
+	maxGetStageTimeout = 1 * time.Hour
+)
 
 var log = logrus.WithField("logger", "server")
 
@@ -226,7 +229,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
-	timeout := s.requestTimeout
+	timeout := maxGetStageTimeout
 
 	if timeoutMs := c.Query("timeoutMs"); timeoutMs != "" {
 		t, err := time.ParseDuration(timeoutMs + "ms")
@@ -234,7 +237,10 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 			renderError(ErrInvalidGetTimeout, c)
 			return
 		}
-		timeout = t
+		tInt := int64(t)
+		if tInt > 0 && tInt < int64(maxGetStageTimeout) {
+			timeout = t
+		}
 	}
 
 	if !validGraphId(graphID) {
@@ -590,10 +596,10 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 	}
 
 	request := &model.AddChainedStageRequest{
-		GraphId: graphID,
-		Closure: blob,
+		GraphId:   graphID,
+		Closure:   blob,
 		Operation: model.CompletionOperation_terminationHook,
-		Deps: []string{},
+		Deps:      []string{},
 	}
 
 	_, err = s.GraphManager.AddStage(request, s.requestTimeout)

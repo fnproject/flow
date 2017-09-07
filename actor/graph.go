@@ -12,6 +12,7 @@ import (
 	"github.com/fnproject/completer/persistence"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
+	"regexp"
 )
 
 // TODO: read this from configuration!
@@ -190,6 +191,12 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		stageID := g.graph.NextStageID()
 
+		realFunctionID,err:= resolveFunctionId(g.graph.FunctionID,msg.FunctionId)
+		if err !=nil {
+			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s",g.graph.FunctionID,msg.FunctionId,err))
+		}
+
+
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageID,
 			Op:      msg.GetOperation(),
@@ -199,13 +206,13 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.PersistReceive(&model.FaasInvocationStartedEvent{
 			StageId:    stageID,
 			Ts:         currentTimestamp(),
-			FunctionId: msg.FunctionId,
+			FunctionId: realFunctionID,
 		})
 
 		g.executor.Request(&model.InvokeFunctionRequest{
 			GraphId:    g.graph.ID,
 			StageId:    stageID,
-			FunctionId: msg.FunctionId,
+			FunctionId: realFunctionID,
 			Arg:        msg.Arg,
 		}, g.GetSelf())
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
@@ -281,6 +288,25 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 	default:
 		g.log.Debugf("Ignoring command of unknown type %v", reflect.TypeOf(msg))
 	}
+}
+
+var appIdRegex = regexp.MustCompile("^([^/]+)/(.*)$")
+
+
+func resolveFunctionId(original string, relative string)(string ,error){
+	orig,err := model.ParseFunctionId(original)
+	if err !=nil {
+		return "",err
+	}
+	rel,err := model.ParseFunctionId(relative)
+	if err !=nil {
+		return "",err
+	}
+
+	if rel.AppId == "." {
+		rel.AppId = orig.AppId
+	}
+	return rel.String(),nil
 }
 
 func (g *graphActor) receiveMessage(context actor.Context) {

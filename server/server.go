@@ -175,12 +175,11 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
-	if !validFunctionId(functionID) {
+	if !validFunctionId(functionID,false) {
 		log.WithField("function_id", functionID).Info("Invalid function iD ")
 		renderError(ErrInvalidFunctionId, c)
 		return
 	}
-	// TODO: Validate the format of the functionId
 
 	graphID, err := uuid.NewRandom()
 	if err != nil {
@@ -190,7 +189,6 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 
 	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
 
-	// TODO: sort out timeouts in a consistent way
 	result, err := s.GraphManager.CreateGraph(req, s.requestTimeout)
 	if err != nil {
 		renderError(err, c)
@@ -281,6 +279,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 
 	switch v := val.(type) {
 
+	
 	// TODO: refactor this by adding a writer to a context in proto/write.go
 	case *model.Datum_Error:
 		c.Header(protocol.HeaderDatumType, protocol.DatumTypeError)
@@ -551,7 +550,8 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 	}
 	functionID := c.Query("functionId")
 
-	if !validFunctionId(functionID) {
+
+	if !validFunctionId(functionID,true) {
 		renderError(ErrInvalidFunctionId, c)
 		return
 	}
@@ -560,6 +560,8 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		renderError(protocol.ErrInvalidDatumType, c)
 		return
 	}
+
+
 
 	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 

@@ -1,24 +1,30 @@
 package server
 
-import "regexp"
-
-var fnIdRegex = regexp.MustCompile("^[a-zA-Z0-9_\\-]{1,255}/[a-zA-Z0-9_/\\-]{0,255}$")
+import (
+	"github.com/fnproject/completer/model"
+	"regexp"
+)
 
 var graphIdRegx = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
 
 var stageIdRegx = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
 
+func validFunctionId(functionId string, allowRelative bool) bool {
+	fn, err := model.ParseFunctionId(functionId)
 
-func validFunctionId(functionId string) bool{
-	return fnIdRegex.MatchString(functionId)
+	if err != nil {
+		return false
+	}
+	if fn.IsRelative() && !allowRelative {
+		return false
+	}
+	return true
 }
 
-
-func validGraphId(graphIdId string) bool{
+func validGraphId(graphIdId string) bool {
 	return graphIdRegx.MatchString(graphIdId)
 }
 
-
-func validStageId(stageId string) bool{
+func validStageId(stageId string) bool {
 	return stageIdRegx.MatchString(stageId)
 }

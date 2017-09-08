@@ -191,11 +191,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		stageID := g.graph.NextStageID()
 
-		realFunctionID,err:= resolveFunctionId(g.graph.FunctionID,msg.FunctionId)
-		if err !=nil {
-			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s",g.graph.FunctionID,msg.FunctionId,err))
+		realFunctionID, err := resolveFunctionId(g.graph.FunctionID, msg.FunctionId)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s", g.graph.FunctionID, msg.FunctionId, err))
 		}
-
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			StageId: stageID,
@@ -292,21 +291,20 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 
 var appIdRegex = regexp.MustCompile("^([^/]+)/(.*)$")
 
-
-func resolveFunctionId(original string, relative string)(string ,error){
-	orig,err := model.ParseFunctionId(original)
-	if err !=nil {
-		return "",err
+func resolveFunctionId(original string, relative string) (string, error) {
+	orig, err := model.ParseFunctionId(original)
+	if err != nil {
+		return "", err
 	}
-	rel,err := model.ParseFunctionId(relative)
-	if err !=nil {
-		return "",err
+	rel, err := model.ParseFunctionId(relative)
+	if err != nil {
+		return "", err
 	}
 
 	if rel.AppId == "." {
 		rel.AppId = orig.AppId
 	}
-	return rel.String(),nil
+	return rel.String(), nil
 }
 
 func (g *graphActor) receiveMessage(context actor.Context) {

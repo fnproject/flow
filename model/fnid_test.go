@@ -1,10 +1,10 @@
 package model
 
 import (
-	"strings"
 	"github.com/stretchr/testify/assert"
-	"testing"
 	"github.com/stretchr/testify/require"
+	"strings"
+	"testing"
 )
 
 func TestFunctionIdValidation(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFunctionIdValidation(t *testing.T) {
 			t.Errorf("Expecting %s to parse, but does not", c.fnId)
 			continue
 		}
-		if err == nil && !c.works{
+		if err == nil && !c.works {
 			t.Errorf("Expecting %s not to parse, but did", c.fnId)
 			continue
 		}
@@ -46,10 +46,10 @@ func TestFunctionIdValidation(t *testing.T) {
 			continue
 		}
 
-		require.NotNil(t,parsed)
-		assert.Equal(t,c.appId,parsed.AppId)
-		assert.Equal(t,c.path,parsed.Path)
-		assert.Equal(t,c.query,parsed.Query)
+		require.NotNil(t, parsed)
+		assert.Equal(t, c.appId, parsed.AppId)
+		assert.Equal(t, c.path, parsed.Path)
+		assert.Equal(t, c.query, parsed.Query)
 
 	}
 }

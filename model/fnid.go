@@ -1,8 +1,8 @@
 package model
 
 import (
-	"regexp"
 	"fmt"
+	"regexp"
 )
 
 type FunctionID struct {
@@ -11,7 +11,6 @@ type FunctionID struct {
 	// Query including ? if present
 	Query string
 }
-
 
 func (fid *FunctionID) IsRelative() bool {
 	return fid.AppId == "."
@@ -28,7 +27,7 @@ func ParseFunctionId(fnId string) (*FunctionID, error) {
 	res := fnIdRegex.FindStringSubmatch(fnId)
 
 	if res == nil {
-		return nil, fmt.Errorf("invalid function ID");
+		return nil, fmt.Errorf("invalid function ID")
 	}
 
 	return &FunctionID{

@@ -431,6 +431,8 @@ func (s *Server) handleSupply(c *gin.Context) {
 		return
 	}
 
+	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
+
 	body, err := c.GetRawData()
 	if err != nil {
 		renderError(err, c)
@@ -448,10 +450,11 @@ func (s *Server) handleSupply(c *gin.Context) {
 	}
 
 	request := &model.AddChainedStageRequest{
-		GraphId:   graphID,
-		Operation: model.CompletionOperation_supply,
-		Closure:   blob,
-		Deps:      []string{},
+		GraphId:      graphID,
+		Operation:    model.CompletionOperation_supply,
+		Closure:      blob,
+		Deps:         []string{},
+		CodeLocation: codeLoc,
 	}
 
 	response, err := s.addStage(request)

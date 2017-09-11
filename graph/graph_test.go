@@ -236,10 +236,10 @@ func TestShouldRejectUnknownOperationStage(t *testing.T) {
 	g := New("graph", "function", m)
 
 	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
-		Operation: model.CompletionOperation_unknown_operation,
-		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
-		Deps:      []string{},
+		GraphId:   		"graph",
+		Operation: 		model.CompletionOperation_unknown_operation,
+		Closure:   		&model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
+		Deps:      		[]string{},
 	}
 
 	assert.NotNil(t, g.ValidateCommand(cmd))

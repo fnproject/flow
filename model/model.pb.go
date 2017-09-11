@@ -766,10 +766,11 @@ func _Datum_OneofSizer(msg proto.Message) (n int) {
 
 // Commands
 type AddChainedStageRequest struct {
-	GraphId   string              `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	Operation CompletionOperation `protobuf:"varint,2,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
-	Closure   *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
-	Deps      []string            `protobuf:"bytes,4,rep,name=deps" json:"deps,omitempty"`
+	GraphId      string              `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	Operation    CompletionOperation `protobuf:"varint,2,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
+	Closure      *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
+	Deps         []string            `protobuf:"bytes,4,rep,name=deps" json:"deps,omitempty"`
+	CodeLocation string              `protobuf: "bytes,5,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddChainedStageRequest) Reset()                    { *m = AddChainedStageRequest{} }
@@ -803,6 +804,13 @@ func (m *AddChainedStageRequest) GetDeps() []string {
 		return m.Deps
 	}
 	return nil
+}
+
+func (m *AddChainedStageRequest) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
 }
 
 type AddCompletedValueStageRequest struct {
@@ -1684,6 +1692,7 @@ type StageAddedEvent struct {
 	Closure      *BlobDatum                 `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
 	Dependencies []string                   `protobuf:"bytes,4,rep,name=dependencies" json:"dependencies,omitempty"`
 	Ts           *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=ts" json:"ts,omitempty"`
+	CodeLocation string                     `protobuf:"bytes,6,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *StageAddedEvent) Reset()                    { *m = StageAddedEvent{} }
@@ -1724,6 +1733,13 @@ func (m *StageAddedEvent) GetTs() *google_protobuf.Timestamp {
 		return m.Ts
 	}
 	return nil
+}
+
+func (m *StageAddedEvent) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
 }
 
 // A stage completed  - downstream stages may be triggered

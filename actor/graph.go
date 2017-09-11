@@ -136,6 +136,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Closure:      msg.Closure,
 			Dependencies: msg.Deps,
 			Ts:           currentTimestamp(),
+			CodeLocation: msg.CodeLocation,
 		})
 
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})

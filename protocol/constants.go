@@ -11,6 +11,7 @@ const (
 	HeaderErrorType    = "Fnproject-Errortype"
 	HeaderStateType    = "Fnproject-Statetype"
 	HeaderThreadId     = "Fnproject-Threadid"
+	HeaderCodeLocation = "Fnproject-Codeloc"
 
 	HeaderContentType = "Content-Type"
 

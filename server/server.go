@@ -194,7 +194,7 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 		renderError(err, c)
 		return
 	}
-	c.Header(protocol.HeaderThreadId, result.GraphId)
+	c.Header(protocol.HeaderFlowId, result.GraphId)
 	c.Status(http.StatusOK)
 }
 
@@ -508,7 +508,7 @@ func (s *Server) handleCommit(c *gin.Context) {
 		return
 	}
 
-	c.Header(protocol.HeaderThreadId, response.GraphId)
+	c.Header(protocol.HeaderFlowId, response.GraphId)
 	c.Status(http.StatusOK)
 }
 

@@ -12,9 +12,9 @@ The [Invoke API](#completer-invoke-api) between the completer and a the fn servi
 
 ## Key Concepts: 
 
-A *thread* is a single graph of computation associated with a single function, created from an invocation of that function. Threads are identified by a `ThreadID`. 
+A *flow* is a single graph of computation associated with a single function, created from an invocation of that function. Flows are identified by a `FlowID`.
 
-A *completion stage* is a single node in the thread graph that is created by user code either from the original function invocation or from a subsequent *continuation invocation* of that graph. Completion stages are identified by a `StageID` which is unique within the respective graph.  
+A *completion stage* is a single node in the flow graph that is created by user code either from the original function invocation or from a subsequent *continuation invocation* of that graph. Completion stages are identified by a `StageID` which is unique within the respective graph.
 
 Completion stages consist of the following : 
   *  A *stage type* that describes what the stage should do, how arguments should be passed into the stage and how results of the stage should be handled see [Stage Types](#stage-types) for a list of supported stage types
@@ -76,11 +76,11 @@ Content-length: 0
 
 ```
 
-The completer returns with an empty response containing the new thread ID in the FnProject-ThreadID header: 
+The completer returns with an empty response containing the new thread ID in the FnProject-FlowID header:
 
 ```
 HTTP/1.1 200 OK 
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: thread-abcd-12344
 ``` 
 
 ### Runtime creates a stage in the graph
@@ -133,7 +133,7 @@ For example:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: thread-abcd-12344
 FnProject-StageID: 2
 Content-Length: 707419
 
@@ -418,7 +418,7 @@ Example request:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: thread-abcd-12344
 FnProject-StageID: 2
 Content-Length: 707419
 

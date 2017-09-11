@@ -61,7 +61,7 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "POST", outbound.Method)
 	assert.Contains(t, outbound.Header.Get("Content-type"), "multipart/form-data; boundary=")
-	assert.Equal(t, "graph-id", outbound.Header.Get("Fnproject-threadid"))
+	assert.Equal(t, "graph-id", outbound.Header.Get("Fnproject-FlowId"))
 	assert.Equal(t, "stage-id", outbound.Header.Get("Fnproject-stageid"))
 
 }

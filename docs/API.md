@@ -1,20 +1,20 @@
-# Threads API 
+# Fn Flow API
 
-This document defines how to interact with threads via the completer, and how the completer invokes threads via fn.
+This document defines how to interact with flows via the completer, and how the completer invokes flow stages via fn.
 
 There are two API call contracts: 
 
-The [Client API](#completer-client-api) between a client function and the completer: Functions make calls to the completer to create threads and append completion stages , the completer stores these and invokes the stages when they are triggered.   
+The [Client API](#completer-client-api) between a client function and the completer: Functions make calls to the completer to create flows and append completion stages , the completer stores these and invokes the stages when they are triggered.
 
-The [Invoke API](#completer-invoke-api) between the completer and a the fn service: The completer invokes back into fn via it's public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer. 
+The [Invoke API](#completer-invoke-api) between the completer and a the fn service: The completer invokes back into fn via its public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer.
 
  
 
 ## Key Concepts: 
 
-A *thread* is a single graph of computation associated with a single function, created from an invocation of that function. Threads are identified by a `ThreadID`. 
+A *flow* is a single graph of computation associated with a single function, created from an invocation of that function. Flows are identified by a `FlowID`.
 
-A *completion stage* is a single node in the thread graph that is created by user code either from the original function invocation or from a subsequent *continuation invocation* of that graph. Completion stages are identified by a `StageID` which is unique within the respective graph.  
+A *completion stage* is a single node in the flow graph that is created by user code either from the original function invocation or from a subsequent *continuation invocation* of that graph. Completion stages are identified by a `StageID` which is unique within the respective graph.
 
 Completion stages consist of the following : 
   *  A *stage type* that describes what the stage should do, how arguments should be passed into the stage and how results of the stage should be handled see [Stage Types](#stage-types) for a list of supported stage types
@@ -48,7 +48,7 @@ FnProject-DatumType: blob
 ```
 The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
 
-The _state_ datum represents the state of a cloud thread, with the additional header `Fnproject-Statetype` taking on one of the values _succeeded_, _failed_, _cancelled_, or _killed_.
+The _state_ datum represents the state of a flow, with the additional header `Fnproject-Statetype` taking on one of the values _succeeded_, _failed_, _cancelled_, or _killed_.
 
 The _empty_ datum type is used to signify a null/void type and has no body. 
 
@@ -58,15 +58,15 @@ Finally, the _httpreq_  and _httpresp__ types encapsulate an HTTP request or res
 
 ## Encapsulation due to `fn` contract
 
-When receiving a response from a function invocation, the HTTP response cannot have additional headers because of the `fn` contract. Therefore, HTTP responses from Fn Threads runtimes implementing this contract shall serialize the entire HTTP frame of their response, _including_ the initial `HTTP/1.1 ...` line, as the body of a wrapper HTTP frame which is handled by `fn`.
+When receiving a response from a function invocation, the HTTP response cannot have additional headers because of the `fn` contract. Therefore, HTTP responses from Fn Flow runtimes implementing this contract shall serialize the entire HTTP frame of their response, _including_ the initial `HTTP/1.1 ...` line, as the body of a wrapper HTTP frame which is handled by `fn`.
 
-## Cloud Threads Application Lifecycle
+## Fn Flow Application Lifecycle
 
-The following sections define the request/response protocol for the lifetime of a Cloud Threads application.
+The following sections define the request/response protocol for the lifetime of a Fn Flow application.
 
-### Runtime Creates a Cloud Thread (Function->Completer)
+### Runtime Creates a Flow (Function->Completer)
 
-The function creates a new thread by POST am empty request to the `/graph` endpoint with a function ID  of the current function.  
+The function creates a new flow by POST am empty request to the `/graph` endpoint with a function ID  of the current function.
 
 
 ```
@@ -76,11 +76,11 @@ Content-length: 0
 
 ```
 
-The completer returns with an empty response containing the new thread ID in the FnProject-ThreadID header: 
+The completer returns with an empty response containing the new flow ID in the FnProject-FlowID header:
 
 ```
 HTTP/1.1 200 OK 
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: flow-abcd-12344
 ``` 
 
 ### Runtime creates a stage in the graph
@@ -90,7 +90,7 @@ HTTP POST requests to the Completer Client API should include a `Content-Type` h
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
 ```
-POST /graph/thread-abcd-12344/supply HTTP/1.1
+POST /graph/flow-abcd-12344/supply HTTP/1.1
 FnProject-DatumType: blob
 Content-type: application/java-serialized-object
 Content-length: 100 
@@ -109,7 +109,7 @@ FnProject-StageID: 1
 Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
-POST /graph/thread-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
+POST /graph/flow-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
 FnProject-DatumType: httpreq
 FnProject-Method: POST
 FnProject-Header-CUSTOM-HEADER: user-12334
@@ -133,7 +133,7 @@ For example:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: flow-abcd-12344
 FnProject-StageID: 2
 Content-Length: 707419
 
@@ -376,16 +376,16 @@ We'll swagger this up at some point
 
 | Route														| HTTP Method  | Description |
 | ---      													| ---         	 | ---       |
-| /graph?functionId=${fn_id} 								| POST 			| Creates a new execution graph cloud for the given cloud thread function. |
-| /graph/${graph_id}										| GET  			| Returns a JSON representation of the  thread completion graph. |
-| /graph/${graph_id}/commit								    | POST 			| Signals that that  thread entrypoint function has finished executing and the graph is now committed. |
-| /graph/${graph_id}/supply								    | POST 			| Adds a root stage to this thread's graph that asynchronously executes a Supplier closure. Analogous to CompletableFuture's `supplyAsync`. http datum |
-| /graph/${graph_id}/invokeFunction?functionId=/app/somefn/path| POST 			| Adds a root stage to this thread's graph that asynchronously invokes an external FaaS (fn) function.  The content of the body should correspond to an httpreq datum. When the stage is completed it will yield a httpresp datum |
-| /graph/${graph_id}/completedValue							| POST 			 | Adds a root stage to this thread's graph that is completed with the value provided in the HTTP request body. Analogous to CompletableFuture's `completedFuture`. |
-| /graph/${graph_id}/delay?delayMs=uint									| POST 		| Adds a root stage to this thread's graph that completes asynchronously with an empty value after the specified delay. |
-| /graph/${graph_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this thread's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
-| /graph/${graph_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this thread's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
-| /graph/${graph_id}/externalCompletion						| POST 			| Adds a root stage to this thread's graph that can be completed or failed externally via an HTTP post to `/graph/${graph_id}/stage/${stage_id}/complete` or `/graph/${graph_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
+| /graph?functionId=${fn_id} 								| POST 			| Creates a new execution graph cloud for the given Fn Flow function. |
+| /graph/${graph_id}										| GET  			| Returns a JSON representation of the flow completion graph. |
+| /graph/${graph_id}/commit								    | POST 			| Signals that the flow entrypoint function has finished executing and the graph is now committed. |
+| /graph/${graph_id}/supply								    | POST 			| Adds a root stage to this flow's graph that asynchronously executes a Supplier closure. Analogous to CompletableFuture's `supplyAsync`. http datum |
+| /graph/${graph_id}/invokeFunction?functionId=/app/somefn/path| POST 			| Adds a root stage to this flow's graph that asynchronously invokes an external FaaS (fn) function.  The content of the body should correspond to an httpreq datum. When the stage is completed it will yield a httpresp datum |
+| /graph/${graph_id}/completedValue							| POST 			 | Adds a root stage to this flow's graph that is completed with the value provided in the HTTP request body. Analogous to CompletableFuture's `completedFuture`. |
+| /graph/${graph_id}/delay?delayMs=uint									| POST 		| Adds a root stage to this flow's graph that completes asynchronously with an empty value after the specified delay. |
+| /graph/${graph_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this flow's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
+| /graph/${graph_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this flow's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
+| /graph/${graph_id}/externalCompletion						| POST 			| Adds a root stage to this flow's graph that can be completed or failed externally via an HTTP post to `/graph/${graph_id}/stage/${stage_id}/complete` or `/graph/${graph_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
 | /graph/${graph_id}/stage/${stage_id}						| GET 			| | datum | Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
 | /graph/${graph_id}/stage/${stage_id}/complete				| POST 			| Completes an `externalCompletion` stage successfully with the value provided in the HTTP request body. Analogous to CompletableFuture's `complete`.|
 | /graph/${graph_id}/stage/${stage_id}/fail					| POST 			| Completes an `externalCompletion` stage exceptionally with the error provided in the HTTP request body. Analogous to CompletableFuture's `completeExceptionally`.|
@@ -418,7 +418,7 @@ Example request:
 ```
 POST /r/app/path HTTP/1.1
 Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-ThreadID: thread-abcd-12344
+FnProject-FlowID: flow-abcd-12344
 FnProject-StageID: 2
 Content-Length: 707419
 

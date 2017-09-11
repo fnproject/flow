@@ -90,7 +90,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
-	req.Header.Set(protocol.HeaderThreadId, msg.GraphId)
+	req.Header.Set(protocol.HeaderFlowId, msg.GraphId)
 	req.Header.Set(protocol.HeaderStageRef, msg.StageId)
 	resp, err := exec.client.Do(req)
 

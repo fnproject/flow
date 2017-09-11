@@ -1651,7 +1651,7 @@ func (m *GraphCompletedEvent) GetTs() *google_protobuf.Timestamp {
 	return nil
 }
 
-// The graph is committed - this typically indicates that the function that created the thread has completed
+// The graph is committed - this typically indicates that the function that created the flow has completed
 // once this event has been posted the graph will finish when all active or pending nodes have completed.
 type GraphCommittedEvent struct {
 	GraphId string                     `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`

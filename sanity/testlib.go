@@ -99,9 +99,9 @@ func (c *apiCmd) ExpectStatus(status int) *apiCmd {
 func (c *apiCmd) ExpectGraphCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		thread := resp.Header.Get("Fnproject-FlowId")
-		require.NotEmpty(ctx, thread, "FlowId header must be present in headers %v ",resp.Header)
-		ctx.graphId = thread
+		flowIdHeader := resp.Header.Get("Fnproject-FlowId")
+		require.NotEmpty(ctx, flowIdHeader, "FlowId header must be present in headers %v ",resp.Header)
+		ctx.graphId = flowIdHeader
 	}, "Graph was created")
 }
 

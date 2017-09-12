@@ -10,8 +10,8 @@ const (
 	HeaderHeaderPrefix = "Fnproject-Header-"
 	HeaderErrorType    = "Fnproject-Errortype"
 	HeaderStateType    = "Fnproject-Statetype"
-	HeaderThreadId     = "Fnproject-Threadid"
 	HeaderCodeLocation = "Fnproject-Codeloc"
+	HeaderFlowId       = "Fnproject-FlowId"
 
 	HeaderContentType = "Content-Type"
 

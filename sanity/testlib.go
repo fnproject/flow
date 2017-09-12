@@ -1,19 +1,19 @@
 package sanity
 
 import (
-	"strings"
-	"net/url"
-	"github.com/stretchr/testify/require"
-	"io/ioutil"
 	"bytes"
-	"net/http/httptest"
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"net/http"
 	"fmt"
-	"github.com/fnproject/completer/server"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/server"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
 )
 
 type testCtx struct {
@@ -88,7 +88,7 @@ func (c *apiCmd) WithHeaders(h map[string]string) *apiCmd {
 	return c
 }
 
-func (c *apiCmd) Expect(fn resultFunc, msg string, args ... interface{}) *apiCmd {
+func (c *apiCmd) Expect(fn resultFunc, msg string, args ...interface{}) *apiCmd {
 	c.expect = append(c.expect, &resultAction{fmt.Sprintf(msg, args...), fn})
 	return c
 }
@@ -102,19 +102,19 @@ func (c *apiCmd) ExpectStatus(status int) *apiCmd {
 func (c *apiCmd) ExpectGraphCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		thread := resp.Header.Get("Fnproject-Threadid")
-		require.NotEmpty(ctx, thread, "ThreadID header must be present in headers %v ", resp.Header)
-		ctx.graphId = thread
-	}, "Graph was created")
+			flowIdHeader := resp.Header.Get("Fnproject-FlowId")
+			require.NotEmpty(ctx, flowIdHeader, "FlowId header must be present in headers %v ", resp.Header)
+			ctx.graphId = flowIdHeader
+		}, "Graph was created")
 }
 
 func (c *apiCmd) ExpectStageCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		stage := resp.Header.Get("Fnproject-StageId")
-		require.NotEmpty(ctx, stage, "StageID not in header")
-		ctx.stageId = stage
-	}, "Stage was created")
+			stage := resp.Header.Get("Fnproject-StageId")
+			require.NotEmpty(ctx, stage, "StageID not in header")
+			ctx.stageId = stage
+		}, "Stage was created")
 }
 
 func (c *apiCmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent)) *apiCmd {
@@ -123,16 +123,16 @@ func (c *apiCmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent
 
 		ctx.server.GraphManager.QueryGraphEvents(ctx.graphId, 0,
 			func(event *persistence.StreamEvent) bool {
-				_, ok := event.Event.(*model.StageAddedEvent);
+				_, ok := event.Event.(*model.StageAddedEvent)
 				return ok
 			},
 			func(event *persistence.StreamEvent) {
 				lastStageAddedEvent = event.Event.(*model.StageAddedEvent)
 			})
 
-			require.NotNil(ctx,lastStageAddedEvent, "Expecting at least one stage addede event, got none")
+		require.NotNil(ctx, lastStageAddedEvent, "Expecting at least one stage addede event, got none")
 
-			test(ctx,lastStageAddedEvent)
+		test(ctx, lastStageAddedEvent)
 	}, "Expecting Stage added event ")
 }
 
@@ -158,13 +158,13 @@ func (c *apiCmd) ExpectServerErr(serverErr *server.ServerErr) *apiCmd {
 	}, "Server Error : %d %s", serverErr.HttpStatus, serverErr.Message)
 }
 
-func (c *apiCmd) WithBodyString(data string) (*apiCmd) {
+func (c *apiCmd) WithBodyString(data string) *apiCmd {
 	c.body = []byte(data)
 	return c
 
 }
 
-func (c *apiCmd) WithBlobDatum(contentType string, data string) (*apiCmd) {
+func (c *apiCmd) WithBlobDatum(contentType string, data string) *apiCmd {
 	return c.WithBodyString(data).WithHeaders(map[string]string{
 		"content-type":        contentType,
 		"fnproject-datumtype": "blob",
@@ -172,7 +172,7 @@ func (c *apiCmd) WithBlobDatum(contentType string, data string) (*apiCmd) {
 
 }
 
-func (c *apiCmd) WithErrorDatum(errorType string, message string) (*apiCmd) {
+func (c *apiCmd) WithErrorDatum(errorType string, message string) *apiCmd {
 	return c.WithBodyString(message).WithHeaders(map[string]string{
 		"content-type":        "text/plain",
 		"fnproject-errortype": errorType,

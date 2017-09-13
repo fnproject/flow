@@ -270,6 +270,7 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
+		CodeLocation: "fn-2187",
 	}
 	assert.NotNil(t, g.ValidateCommand(cmd))
 }
@@ -284,6 +285,7 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{"s1", "s2"},
+		CodeLocation: "fn-2187",
 	}
 	assert.NotNil(t, g.ValidateCommand(cmd))
 }
@@ -297,6 +299,7 @@ func TestShouldRejectStageWithUnknownDependency(t *testing.T) {
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{"unknown"},
+		CodeLocation: "fn-2187",
 	}
 	assert.NotNil(t, g.ValidateCommand(cmd))
 }
@@ -335,6 +338,7 @@ func TestShouldPreventAddingStageToTerminatingGraph(t *testing.T) {
 		Operation: model.CompletionOperation_supply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
+		CodeLocation: "fn-2187",
 	}
 	assert.NotNil(t, g.ValidateCommand(cmd))
 	m.AssertExpectations(t)
@@ -536,6 +540,7 @@ func withAppendedStage(g *CompletionGraph, s *CompletionStage, trigger bool) *Co
 		Op:           model.CompletionOperation_thenApply,
 		Closure:      &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Dependencies: []string{string(s.ID)},
+		CodeLocation: "fn-2187",
 	}
 
 	g.UpdateWithEvent(event, trigger)

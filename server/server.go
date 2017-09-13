@@ -133,13 +133,16 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			return
 		}
 
+		codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
+
 		// TODO: enforce valid content type
 		// TODO: generic error handling
 		request := &model.AddChainedStageRequest{
-			GraphId:   graphID,
-			Deps:      cids,
-			Operation: model.CompletionOperation(completionOperation),
-			Closure:   blob,
+			GraphId:      graphID,
+			Deps:         cids,
+			Operation:    model.CompletionOperation(completionOperation),
+			Closure:      blob,
+			CodeLocation: codeLoc,
 		}
 		response, err := s.addStage(request)
 
@@ -175,7 +178,7 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
 	functionID := c.Query("functionId")
 
-	if !validFunctionId(functionID,false) {
+	if !validFunctionId(functionID, false) {
 		log.WithField("function_id", functionID).Info("Invalid function iD ")
 		renderError(ErrInvalidFunctionId, c)
 		return
@@ -279,7 +282,6 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 
 	switch v := val.(type) {
 
-	
 	// TODO: refactor this by adding a writer to a context in proto/write.go
 	case *model.Datum_Error:
 		c.Header(protocol.HeaderDatumType, protocol.DatumTypeError)
@@ -392,11 +394,15 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 			return
 		}
 	}
+
+	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
+
 	request := &model.AddChainedStageRequest{
-		GraphId:   graphID,
-		Operation: op,
-		Closure:   nil,
-		Deps:      cids,
+		GraphId:      graphID,
+		Operation:    op,
+		Closure:      nil,
+		Deps:         cids,
+		CodeLocation: codeLoc,
 	}
 
 	response, err := s.addStage(request)
@@ -553,8 +559,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 	}
 	functionID := c.Query("functionId")
 
-
-	if !validFunctionId(functionID,true) {
+	if !validFunctionId(functionID, true) {
 		renderError(ErrInvalidFunctionId, c)
 		return
 	}
@@ -563,8 +568,6 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		renderError(protocol.ErrInvalidDatumType, c)
 		return
 	}
-
-
 
 	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
 
@@ -606,11 +609,14 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 		return
 	}
 
+	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
+
 	request := &model.AddChainedStageRequest{
-		GraphId:   graphID,
-		Closure:   blob,
-		Operation: model.CompletionOperation_terminationHook,
-		Deps:      []string{},
+		GraphId:      graphID,
+		Closure:      blob,
+		Operation:    model.CompletionOperation_terminationHook,
+		Deps:         []string{},
+		CodeLocation: codeLoc,
 	}
 
 	_, err = s.GraphManager.AddStage(request, s.requestTimeout)

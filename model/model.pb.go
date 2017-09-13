@@ -806,7 +806,7 @@ func (m *AddChainedStageRequest) GetDeps() []string {
 	return nil
 }
 
-func (m *AddChainedStageRequest) GetCodeLocation() string {
+func (m *AddChainedStageRequest) GetCodeLoc() string {
 	if m != nil {
 		return m.CodeLocation
 	}

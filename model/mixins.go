@@ -70,7 +70,6 @@ type StageMessage interface {
 	proto.Message
 	GetGraphId() string
 	GetStageId() string
-	GetCodeLocation() string
 }
 
 // Event is the base interface for all things that may be persisted to the Journal
@@ -117,6 +116,10 @@ func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 
 func (m *AddChainedStageRequest) GetDependencyCount() int {
 	return len(m.Deps)
+}
+
+func (m *AddChainedStageRequest) GetCodeLocation() string {
+	return m.CodeLocation
 }
 
 func (m *AddDelayStageRequest) GetDependencyCount() int {

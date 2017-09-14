@@ -100,7 +100,7 @@ func TestExternalCompletion(t *testing.T) {
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			fmt.Sprint("checkgin %v", event)
-			assert.Equal(ctx, "", event.CodeLocation)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 
 	tc.Run(t, testServer)

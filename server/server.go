@@ -367,7 +367,8 @@ func (s *Server) handleExternalCompletion(c *gin.Context) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
-	request := &model.AddExternalCompletionStageRequest{GraphId: graphID}
+	request := &model.AddExternalCompletionStageRequest{GraphId: graphID,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
 
 	response, err := s.addStage(request)
 
@@ -486,9 +487,9 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 	}
 
 	request := &model.AddCompletedValueStageRequest{
-		GraphId: 		graphID,
-		Result:  		&result,
-		CodeLocation: 	c.GetHeader(protocol.HeaderCodeLocation),
+		GraphId:      graphID,
+		Result:       &result,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 	}
 
 	response, err := s.addStage(request)
@@ -537,7 +538,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 	}
 
 	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,
-	CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
 
 	response, err := s.addStage(request)
 

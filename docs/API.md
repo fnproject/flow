@@ -93,10 +93,12 @@ For example, the runtime POSTs a *closure*  to one of the stage operations (see 
 POST /graph/flow-abcd-12344/supply HTTP/1.1
 FnProject-DatumType: blob
 Content-type: application/java-serialized-object
-Content-length: 100 
+Content-length: 100
+FnProject-CodeLocation: com.example.fn.HelloFunction.handleRequest(HelloFunction.java:11)
 
 ...serialized lambda...
 ```
+The FnProject-CodeLocation is an opaque string.
 
 The completer returns a new `StageID` in the `FnProject-StageID` header. 
 ```

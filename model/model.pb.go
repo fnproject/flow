@@ -766,10 +766,11 @@ func _Datum_OneofSizer(msg proto.Message) (n int) {
 
 // Commands
 type AddChainedStageRequest struct {
-	GraphId   string              `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	Operation CompletionOperation `protobuf:"varint,2,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
-	Closure   *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
-	Deps      []string            `protobuf:"bytes,4,rep,name=deps" json:"deps,omitempty"`
+	GraphId      string              `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	Operation    CompletionOperation `protobuf:"varint,2,opt,name=operation,enum=model.CompletionOperation" json:"operation,omitempty"`
+	Closure      *BlobDatum          `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
+	Deps         []string            `protobuf:"bytes,4,rep,name=deps" json:"deps,omitempty"`
+	CodeLocation string              `protobuf: "bytes,5,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddChainedStageRequest) Reset()                    { *m = AddChainedStageRequest{} }
@@ -806,8 +807,9 @@ func (m *AddChainedStageRequest) GetDeps() []string {
 }
 
 type AddCompletedValueStageRequest struct {
-	GraphId string            `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	Result  *CompletionResult `protobuf:"bytes,2,opt,name=result" json:"result,omitempty"`
+	GraphId      string            `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	Result       *CompletionResult `protobuf:"bytes,2,opt,name=result" json:"result,omitempty"`
+	CodeLocation string            `protobuf: "bytes,3,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddCompletedValueStageRequest) Reset()                    { *m = AddCompletedValueStageRequest{} }
@@ -829,9 +831,17 @@ func (m *AddCompletedValueStageRequest) GetResult() *CompletionResult {
 	return nil
 }
 
+func (m *AddCompletedValueStageRequest) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
+}
+
 type AddDelayStageRequest struct {
-	GraphId string `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	DelayMs int64  `protobuf:"varint,2,opt,name=delay_ms,json=delayMs" json:"delay_ms,omitempty"`
+	GraphId      string `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	DelayMs      int64  `protobuf:"varint,2,opt,name=delay_ms,json=delayMs" json:"delay_ms,omitempty"`
+	CodeLocation string `protobuf: "bytes,3,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddDelayStageRequest) Reset()                    { *m = AddDelayStageRequest{} }
@@ -853,8 +863,16 @@ func (m *AddDelayStageRequest) GetDelayMs() int64 {
 	return 0
 }
 
+func (m *AddDelayStageRequest) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
+}
+
 type AddExternalCompletionStageRequest struct {
-	GraphId string `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	GraphId      string `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	CodeLocation string `protobuf:"bytes,2,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddExternalCompletionStageRequest) Reset()         { *m = AddExternalCompletionStageRequest{} }
@@ -871,10 +889,18 @@ func (m *AddExternalCompletionStageRequest) GetGraphId() string {
 	return ""
 }
 
+func (m *AddExternalCompletionStageRequest) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
+}
+
 type AddInvokeFunctionStageRequest struct {
-	GraphId    string        `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
-	FunctionId string        `protobuf:"bytes,2,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
-	Arg        *HttpReqDatum `protobuf:"bytes,3,opt,name=arg" json:"arg,omitempty"`
+	GraphId      string        `protobuf:"bytes,1,opt,name=graph_id,json=graphId" json:"graph_id,omitempty"`
+	FunctionId   string        `protobuf:"bytes,2,opt,name=function_id,json=functionId" json:"function_id,omitempty"`
+	Arg          *HttpReqDatum `protobuf:"bytes,3,opt,name=arg" json:"arg,omitempty"`
+	CodeLocation string        `protobuf:"bytes,4,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *AddInvokeFunctionStageRequest) Reset()                    { *m = AddInvokeFunctionStageRequest{} }
@@ -901,6 +927,13 @@ func (m *AddInvokeFunctionStageRequest) GetArg() *HttpReqDatum {
 		return m.Arg
 	}
 	return nil
+}
+
+func (m *AddInvokeFunctionStageRequest) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
 }
 
 type AddStageResponse struct {
@@ -1684,6 +1717,7 @@ type StageAddedEvent struct {
 	Closure      *BlobDatum                 `protobuf:"bytes,3,opt,name=closure" json:"closure,omitempty"`
 	Dependencies []string                   `protobuf:"bytes,4,rep,name=dependencies" json:"dependencies,omitempty"`
 	Ts           *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=ts" json:"ts,omitempty"`
+	CodeLocation string                     `protobuf:"bytes,6,rep,name=code_location" json:"code_location,omitempty"`
 }
 
 func (m *StageAddedEvent) Reset()                    { *m = StageAddedEvent{} }
@@ -1724,6 +1758,13 @@ func (m *StageAddedEvent) GetTs() *google_protobuf.Timestamp {
 		return m.Ts
 	}
 	return nil
+}
+
+func (m *StageAddedEvent) GetCodeLocation() string {
+	if m != nil {
+		return m.CodeLocation
+	}
+	return ""
 }
 
 // A stage completed  - downstream stages may be triggered

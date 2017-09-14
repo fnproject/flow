@@ -1,26 +1,29 @@
 package sanity
 
 import (
-	"strings"
-	"net/url"
+	"bytes"
+	"fmt"
+	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/server"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"bytes"
-	"net/http/httptest"
-	"github.com/stretchr/testify/assert"
-	"testing"
 	"net/http"
-	"fmt"
-	"github.com/fnproject/completer/server"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
 )
 
 type testCtx struct {
-	failed    bool
-	narrative []string
-	t         *testing.T
-	graphId   string
-	stageId   string
+	failed       bool
+	narrative    []string
+	t            *testing.T
+	graphId      string
+	stageId      string
 	lastResponse *http.Response
+	server       *server.Server
 }
 
 func (tc *testCtx) String() string {
@@ -64,7 +67,7 @@ func (tc *testCtx) Errorf(msg string, args ...interface{}) {
 	tc.failed = true
 	tc.t.Errorf("Expectation failed: \n\t\t%s ", strings.Join(tc.narrative, "\n\t\t ->  "))
 	tc.t.Errorf(msg, args...)
-	tc.t.Error("Last Response was: %v",tc.lastResponse)
+	tc.t.Error("Last Response was: %v", tc.lastResponse)
 }
 
 const testFailed = "TestFailed"
@@ -85,7 +88,7 @@ func (c *apiCmd) WithHeaders(h map[string]string) *apiCmd {
 	return c
 }
 
-func (c *apiCmd) Expect(fn resultFunc, msg string, args ... interface{}) *apiCmd {
+func (c *apiCmd) Expect(fn resultFunc, msg string, args ...interface{}) *apiCmd {
 	c.expect = append(c.expect, &resultAction{fmt.Sprintf(msg, args...), fn})
 	return c
 }
@@ -99,19 +102,38 @@ func (c *apiCmd) ExpectStatus(status int) *apiCmd {
 func (c *apiCmd) ExpectGraphCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		flowIdHeader := resp.Header.Get("Fnproject-FlowId")
-		require.NotEmpty(ctx, flowIdHeader, "FlowId header must be present in headers %v ",resp.Header)
-		ctx.graphId = flowIdHeader
-	}, "Graph was created")
+			flowIdHeader := resp.Header.Get("Fnproject-FlowId")
+			require.NotEmpty(ctx, flowIdHeader, "FlowId header must be present in headers %v ", resp.Header)
+			ctx.graphId = flowIdHeader
+		}, "Graph was created")
 }
 
 func (c *apiCmd) ExpectStageCreated() *apiCmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		stage := resp.Header.Get("Fnproject-StageId")
-		require.NotEmpty(ctx, stage, "StageID not in header")
-		ctx.stageId = stage
-	}, "Stage was created")
+			stage := resp.Header.Get("Fnproject-StageId")
+			require.NotEmpty(ctx, stage, "StageID not in header")
+			ctx.stageId = stage
+		}, "Stage was created")
+}
+
+func (c *apiCmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent)) *apiCmd {
+	return c.Expect(func(ctx *testCtx, resp *http.Response) {
+		var lastStageAddedEvent *model.StageAddedEvent
+
+		ctx.server.GraphManager.QueryGraphEvents(ctx.graphId, 0,
+			func(event *persistence.StreamEvent) bool {
+				_, ok := event.Event.(*model.StageAddedEvent)
+				return ok
+			},
+			func(event *persistence.StreamEvent) {
+				lastStageAddedEvent = event.Event.(*model.StageAddedEvent)
+			})
+
+		require.NotNil(ctx, lastStageAddedEvent, "Expecting at least one stage addede event, got none")
+
+		test(ctx, lastStageAddedEvent)
+	}, "Expecting Stage added event ")
 }
 
 func (c *apiCmd) ExpectRequestErr(serverErr error) *apiCmd {
@@ -136,14 +158,13 @@ func (c *apiCmd) ExpectServerErr(serverErr *server.ServerErr) *apiCmd {
 	}, "Server Error : %d %s", serverErr.HttpStatus, serverErr.Message)
 }
 
-
-func (c *apiCmd) WithBodyString(data string) (*apiCmd) {
+func (c *apiCmd) WithBodyString(data string) *apiCmd {
 	c.body = []byte(data)
 	return c
 
 }
 
-func (c *apiCmd) WithBlobDatum(contentType string, data string) (*apiCmd) {
+func (c *apiCmd) WithBlobDatum(contentType string, data string) *apiCmd {
 	return c.WithBodyString(data).WithHeaders(map[string]string{
 		"content-type":        contentType,
 		"fnproject-datumtype": "blob",
@@ -151,10 +172,10 @@ func (c *apiCmd) WithBlobDatum(contentType string, data string) (*apiCmd) {
 
 }
 
-func (c *apiCmd) WithErrorDatum(errorType string, message string) (*apiCmd) {
+func (c *apiCmd) WithErrorDatum(errorType string, message string) *apiCmd {
 	return c.WithBodyString(message).WithHeaders(map[string]string{
 		"content-type":        "text/plain",
-		"fnproject-errortype" : errorType,
+		"fnproject-errortype": errorType,
 		"fnproject-datumtype": "error",
 	})
 }
@@ -164,7 +185,6 @@ func (c *apiCmd) ThenCall(method string, path string) *apiCmd {
 	c.cmd = append(c.cmd, newCmd)
 	return newCmd
 }
-
 
 func (c *apiCmd) ToReq(ctx *testCtx) *http.Request {
 	placeholders := func(key string) string {
@@ -196,6 +216,7 @@ func (c *apiCmd) ToReq(ctx *testCtx) *http.Request {
 }
 
 func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
+	ctx.server = s
 	nuctx := (&ctx).PushNarrative(c.narrative)
 
 	req := c.ToReq(nuctx)
@@ -206,7 +227,6 @@ func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
 
 	s.Engine.ServeHTTP(resp, req)
 	nuctx.lastResponse = resp.Result()
-
 
 	for _, check := range c.expect {
 		nuctx = nuctx.PushNarrative(check.narrative)
@@ -219,9 +239,8 @@ func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
 
 }
 
-
 func (c *testCase) Call(description string, method string, path string) *apiCmd {
-	cmd := &apiCmd{narrative: c.narrative + ":" +description, method: method, path: path, headers: map[string]string{}}
+	cmd := &apiCmd{narrative: c.narrative + ":" + description, method: method, path: path, headers: map[string]string{}}
 	c.tests = append(c.tests, cmd)
 	return cmd
 }

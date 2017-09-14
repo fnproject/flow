@@ -121,6 +121,7 @@ message AddChainedStageRequest {
     CompletionOperation operation = 2;
     BlobDatum closure = 3;
     repeated string deps = 4;
+    string code_location = 5;
 }
 
 message AddCompletedValueStageRequest {
@@ -330,6 +331,7 @@ message StageAddedEvent {
     BlobDatum closure = 3;
     repeated string dependencies = 4;
     google.protobuf.Timestamp ts = 5;
+
 }
 
 

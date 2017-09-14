@@ -1,15 +1,16 @@
 package sanity
 
 import (
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/server"
 	"net/http"
 	"testing"
-	"github.com/fnproject/completer/server"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/actor"
 
-	"github.com/fnproject/completer/protocol"
-	"github.com/fnproject/completer/model"
 	"fmt"
+	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/protocol"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -21,6 +22,7 @@ func TestGraphCreation(t *testing.T) {
 }
 
 var testServer = NewTestServer()
+
 func TestSupply(t *testing.T) {
 	tc := NewCase("Supply")
 	tc.StartWithGraph("Creates node").
@@ -34,6 +36,14 @@ func TestSupply(t *testing.T) {
 	tc.StartWithGraph("Supply requires non-empty body ").
 		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithHeader("content-type", "foo/bar").
 		ExpectServerErr(server.ErrMissingBody)
+
+	tc.StartWithGraph("Accepts code location and persists it to event").
+		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-CodeLoc", "fn-2187").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checkgin %v", event)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
 
 	tc.Run(t, testServer)
 }
@@ -51,6 +61,18 @@ func TestCompletedValue(t *testing.T) {
 	StageAcceptsEmptyType(f)
 	StageAcceptsHttpReqType(f)
 	StageAcceptsHttpRespType(f)
+
+	tc.StartWithGraph("Simple codelocation test").
+		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		WithHeaders(map[string]string{
+			"fnproject-datumtype": "empty",
+			"content-type":        "text/plain"}).WithHeader(protocol.HeaderCodeLocation, "fn-2187").
+		WithBodyString("body").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checkgin %v", event)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
 
 	tc.Run(t, testServer)
 }
@@ -73,6 +95,14 @@ func TestExternalCompletion(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").
 		ExpectStatus(200)
 
+	tc.StartWithGraph("Creates External Completion").
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCodeLocation, "fn-2187").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checkgin %v", event)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+
 	tc.Run(t, testServer)
 }
 
@@ -81,16 +111,13 @@ func TestInvokeFunction(t *testing.T) {
 
 	tc.StartWithGraph("Works Without Body").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
-		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET","fnproject-header-foo":"bar"}).
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
 		ExpectStageCreated()
 
 	tc.StartWithGraph("Works With Body").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
-		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "POST","fnproject-header-foo":"bar","content-type":"text/plain"}).WithBodyString("input").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "POST", "fnproject-header-foo": "bar", "content-type": "text/plain"}).WithBodyString("input").
 		ExpectStageCreated()
-
-
-
 
 	tc.Run(t, testServer)
 
@@ -102,6 +129,16 @@ func TestInvokeFunction(t *testing.T) {
 	tc.StartWithGraph("Rejects missing functionId").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction").
 		ExpectRequestErr(server.ErrInvalidFunctionId)
+
+	tc.StartWithGraph("Works Without Body").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
+		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checkgin %v", event)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
 
 	tc.Run(t, testServer)
 }
@@ -125,7 +162,16 @@ func TestDelay(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
-	tc.Run(t,testServer)
+	tc.StartWithGraph("Works").
+		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checkgin %v", event)
+			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+
+	tc.Run(t, testServer)
 }
 
 func NewTestServer() *server.Server {
@@ -134,12 +180,12 @@ func NewTestServer() *server.Server {
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
 	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:")
 
-	if err !=nil {
+	if err != nil {
 		panic(err)
 	}
 	s, err := server.New(graphManager, blobStorage, ":8081")
 
-	if err !=nil {
+	if err != nil {
 		panic(err)
 	}
 
@@ -162,23 +208,23 @@ func StageAcceptsErrorType(s func(string) *apiCmd) {
 	s("Rejects missing error type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"content-type":        "text/plain"}).
+			"fnproject-datumtype": "error",
+			"content-type":        "text/plain"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingErrorType)
 
 	s("Rejects missing content type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"fnproject-errortype": "error"}).
+			"fnproject-datumtype": "error",
+			"fnproject-errortype": "error"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingContentType)
 
 	s("Rejects non-text content type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"fnproject-errortype": "error",
-		"content-type":        "application/octet-stream"}).
+			"fnproject-datumtype": "error",
+			"fnproject-errortype": "error",
+			"content-type":        "application/octet-stream"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrInvalidContentType)
 
 	s("Accepts valid error datum").WithBodyString("str").WithErrorDatum(model.ErrorDatumType_name[int32(model.ErrorDatumType_invalid_stage_response)], "msg").ExpectStageCreated()
@@ -193,8 +239,8 @@ func StageAcceptsEmptyType(s func(string) *apiCmd) {
 	s("Accepts empty datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "empty",
-		"content-type":        "text/plain"}).
+			"fnproject-datumtype": "empty",
+			"content-type":        "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }
@@ -206,10 +252,10 @@ func StageAcceptsHttpReqType(s func(string) *apiCmd) {
 	s("Accepts httpreq datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "httpreq",
-		"fnproject-method":    "get",
+			"fnproject-datumtype": "httpreq",
+			"fnproject-method":    "get",
 
-		"content-type": "text/plain"}).
+			"content-type": "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }
@@ -221,9 +267,9 @@ func StageAcceptsHttpRespType(s func(string) *apiCmd) {
 	s("Accepts httpresp datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype":  "httpresp",
-		"fnproject-resultcode": "100",
-		"content-type":         "text/plain"}).
+			"fnproject-datumtype":  "httpresp",
+			"fnproject-resultcode": "100",
+			"content-type":         "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }

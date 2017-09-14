@@ -61,7 +61,6 @@ func (m *InvalidGraphOperation) Error() string {
 	return m.Err
 }
 
-
 type GraphMessage interface {
 	proto.Message
 	GetGraphId() string
@@ -89,6 +88,7 @@ type AddStageCommand interface {
 	GetGraphId() string
 	GetOperation() CompletionOperation
 	GetDependencyCount() int
+	GetCodeLocation() string
 }
 
 func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
@@ -118,6 +118,11 @@ func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 func (m *AddChainedStageRequest) GetDependencyCount() int {
 	return len(m.Deps)
 }
+
+func (m *AddChainedStageRequest) GetCodeLocation() string {
+	return m.CodeLocation
+}
+
 
 func (m *AddDelayStageRequest) GetDependencyCount() int {
 	return 0

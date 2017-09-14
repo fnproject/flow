@@ -147,9 +147,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageID,
-			Op:      msg.GetOperation(),
-			Ts:      currentTimestamp(),
+			StageId:      stageID,
+			Op:           msg.GetOperation(),
+			Ts:           currentTimestamp(),
+			CodeLocation: msg.CodeLocation,
 		})
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
@@ -164,9 +165,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageID,
-			Op:      msg.GetOperation(),
-			Ts:      currentTimestamp(),
+			StageId:      stageID,
+			Op:           msg.GetOperation(),
+			Ts:           currentTimestamp(),
+			CodeLocation: msg.CodeLocation,
 		})
 		delayEvent := &model.DelayScheduledEvent{
 			StageId: stageID,
@@ -182,9 +184,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageID,
-			Op:      msg.GetOperation(),
-			Ts:      currentTimestamp(),
+			StageId:      stageID,
+			Op:           msg.GetOperation(),
+			Ts:           currentTimestamp(),
+			CodeLocation: msg.CodeLocation,
 		})
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
@@ -198,9 +201,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId: stageID,
-			Op:      msg.GetOperation(),
-			Ts:      currentTimestamp(),
+			StageId:      stageID,
+			Op:           msg.GetOperation(),
+			Ts:           currentTimestamp(),
+			CodeLocation: msg.CodeLocation,
 		})
 
 		g.PersistReceive(&model.FaasInvocationStartedEvent{

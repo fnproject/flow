@@ -88,6 +88,7 @@ type AddStageCommand interface {
 	GetGraphId() string
 	GetOperation() CompletionOperation
 	GetDependencyCount() int
+	GetCodeLocation() string
 }
 
 func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
@@ -121,6 +122,7 @@ func (m *AddChainedStageRequest) GetDependencyCount() int {
 func (m *AddChainedStageRequest) GetCodeLocation() string {
 	return m.CodeLocation
 }
+
 
 func (m *AddDelayStageRequest) GetDependencyCount() int {
 	return 0

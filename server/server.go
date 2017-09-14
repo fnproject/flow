@@ -395,14 +395,12 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		}
 	}
 
-	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
-
 	request := &model.AddChainedStageRequest{
 		GraphId:      graphID,
 		Operation:    op,
 		Closure:      nil,
 		Deps:         cids,
-		CodeLocation: codeLoc,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 	}
 
 	response, err := s.addStage(request)
@@ -436,8 +434,6 @@ func (s *Server) handleSupply(c *gin.Context) {
 		return
 	}
 
-	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
-
 	body, err := c.GetRawData()
 	if err != nil {
 		renderError(err, c)
@@ -459,7 +455,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 		Operation:    model.CompletionOperation_supply,
 		Closure:      blob,
 		Deps:         []string{},
-		CodeLocation: codeLoc,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 	}
 
 	response, err := s.addStage(request)
@@ -490,8 +486,9 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 	}
 
 	request := &model.AddCompletedValueStageRequest{
-		GraphId: graphID,
-		Result:  &result,
+		GraphId: 		graphID,
+		Result:  		&result,
+		CodeLocation: 	c.GetHeader(protocol.HeaderCodeLocation),
 	}
 
 	response, err := s.addStage(request)
@@ -539,7 +536,8 @@ func (s *Server) handleDelay(c *gin.Context) {
 		return
 	}
 
-	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay}
+	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,
+	CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
 
 	response, err := s.addStage(request)
 
@@ -576,9 +574,10 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		return
 	}
 	request := &model.AddInvokeFunctionStageRequest{
-		GraphId:    graphID,
-		FunctionId: functionID,
-		Arg:        datum.GetHttpReq(),
+		GraphId:      graphID,
+		FunctionId:   functionID,
+		Arg:          datum.GetHttpReq(),
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 	}
 
 	response, err := s.addStage(request)

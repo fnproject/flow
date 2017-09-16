@@ -126,6 +126,26 @@ HTTP/1.1 200 OK
 FnProject-StageID: 3
 ```
 
+### Runtime creates a completed future on the completer 
+
+The function pushes a Result value to /graph/<graph-id>/completedValue containing a Datum request and and including an optional  `FnProject-ResultStatus` to indicate whether the value should trigger successfully or with an error. If `FnProject-ResultStatus` is ommitted then the value is assumed to be successful. 
+
+```
+POST /graph/flow-abcd-12344/completedValue
+FnProject-DatumType: blob
+FnProject-ResultStatus: success 
+Content-Type: application/json
+
+...request body...
+```
+
+The completer returns a new `StageID` in the `FnProject-StageID` header. 
+```
+HTTP/1.1 200 OK
+FnProject-StageID: 3
+```
+
+
 ### Completer Invokes a Continuation
 
 A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null. HTTP multipart is used to frame the different elements of the request.
@@ -349,7 +369,7 @@ will result in the following being transmitted to the runtime:
 ```
 FnProject-DatumType: http
 FnProject-Method: POST
-FnProject-ResultStatus: failure        # waitForCompletion only
+FnProject-ResultStatus: failure
 FnProject-Header-CUSTOM-HEADER: user-12334
 Content-Type: application/json
 

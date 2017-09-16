@@ -24,6 +24,41 @@ func DatumFromPart(store persistence.BlobStore, part *multipart.Part) (*model.Da
 func DatumFromRequest(store persistence.BlobStore, req *http.Request) (*model.Datum, error) {
 	return readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
 }
+
+
+// CompletionResultFromRequest reads a Datum and completion result from an incoming reuqest
+func CompletionResultFromRequest(store persistence.BlobStore, req *http.Request) (*model.CompletionResult, error) {
+	datum,err :=  readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
+	if err != nil {
+		return nil,err
+	}
+
+	resultStatusHeader:= req.Header.Get(HeaderResultStatus)
+	var success bool
+	if resultStatusHeader == ""{
+		success = true
+	}else{
+		success,err = statusFromHeader(resultStatusHeader)
+		if err !=nil {
+			return nil,err
+		}
+	}
+	return &model.CompletionResult{
+		Successful:success,
+		Datum: datum,
+	},nil
+}
+
+func statusFromHeader( statusString string) (bool,error){
+	switch statusString {
+	case ResultStatusSuccess:
+		return true,nil
+	case ResultStatusFailure:
+		return false,nil
+	default:
+		return false, fmt.Errorf("Invalid result status header %s: \"%s\" ", HeaderResultStatus, statusString)
+	}
+}
 /**
  * Reads
  */
@@ -39,17 +74,10 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	}
 	statusString := actualResponse.Header.Get(HeaderResultStatus)
 
-	var resultStatus bool
-
-	switch statusString {
-	case ResultStatusSuccess:
-		resultStatus = true
-	case ResultStatusFailure:
-		resultStatus = false
-	default:
-		return nil, fmt.Errorf("Invalid result status header %s: \"%s\" ", HeaderResultStatus, statusString)
+	resultStatus,err := statusFromHeader(statusString)
+	if err !=nil {
+		return nil,err
 	}
-
 	return &model.CompletionResult{Successful: resultStatus, Datum: datum}, nil
 }
 

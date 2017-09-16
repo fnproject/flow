@@ -70,7 +70,6 @@ func TestCompletedValue(t *testing.T) {
 		WithBodyString("body").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checkgin %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 
@@ -99,7 +98,6 @@ func TestExternalCompletion(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checkgin %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 
@@ -136,7 +134,6 @@ func TestInvokeFunction(t *testing.T) {
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checkgin %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 
@@ -167,7 +164,6 @@ func TestDelay(t *testing.T) {
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checkgin %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 

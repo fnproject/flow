@@ -112,6 +112,7 @@ enum CompletionOperation {
     externalCompletion = 17;
     exceptionally = 18;
     terminationHook = 19;
+    exceptionallyCompose = 20;
 
 }
 
@@ -130,7 +131,6 @@ message AddCompletedValueStageRequest {
     string code_location = 3;
 
 }
-
 
 message AddDelayStageRequest {
     string graph_id = 1;

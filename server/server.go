@@ -475,20 +475,15 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 		return
 	}
 
-	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
+	result, err := protocol.CompletionResultFromRequest(s.BlobStore, c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
 	}
 
-	result := model.CompletionResult{
-		Successful: true,
-		Datum:      datum,
-	}
-
 	request := &model.AddCompletedValueStageRequest{
 		GraphId:      graphID,
-		Result:       &result,
+		Result:       result,
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 	}
 

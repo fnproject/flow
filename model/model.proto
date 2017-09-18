@@ -112,6 +112,7 @@ enum CompletionOperation {
     externalCompletion = 17;
     exceptionally = 18;
     terminationHook = 19;
+    exceptionallyCompose = 20;
 
 }
 
@@ -127,16 +128,21 @@ message AddChainedStageRequest {
 message AddCompletedValueStageRequest {
     string graph_id = 1;
     CompletionResult result = 2;
-}
+    string code_location = 3;
 
+}
 
 message AddDelayStageRequest {
     string graph_id = 1;
     int64 delay_ms = 2;
+    string code_location = 3;
+
 }
 
 message AddExternalCompletionStageRequest {
     string graph_id = 1;
+    string code_location = 2;
+
 }
 
 
@@ -144,6 +150,8 @@ message AddInvokeFunctionStageRequest {
     string graph_id = 1;
     string function_id = 2;
     HttpReqDatum arg = 3;
+    string code_location = 4;
+
 }
 
 
@@ -331,6 +339,7 @@ message StageAddedEvent {
     BlobDatum closure = 3;
     repeated string dependencies = 4;
     google.protobuf.Timestamp ts = 5;
+    string code_location = 6;
 
 }
 

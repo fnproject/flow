@@ -164,7 +164,7 @@ func parentStageResult(stage *CompletionStage, graph *CompletionGraph, _ *model.
 func noResultStrategy(_ *CompletionStage, _ *CompletionGraph, _ *model.CompletionResult) {}
 
 type strategy struct {
-	CanAddChildren         bool
+	CanAddChildren bool
 	// -1 for unlimited
 	MaxDependencies        int
 	MinDependencies        int
@@ -178,62 +178,64 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 	switch operation {
 
 	case model.CompletionOperation_acceptEither:
-		return strategy{true,2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_applyToEither:
-		return strategy{true,2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenAcceptBoth:
-		return strategy{true,2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenApply:
-		return strategy{true,1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenRun:
-		return strategy{true,1, 1, triggerAny, invokeWithoutArgs, propagateResult, invocationResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithoutArgs, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenAccept:
-		return strategy{true,1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenCompose:
-		return strategy{true,1, 1, triggerAny, invokeWithResult, propagateResult, referencedStageResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithResult, propagateResult, referencedStageResult}, nil
 
 	case model.CompletionOperation_thenCombine:
-		return strategy{true,2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_whenComplete:
-		return strategy{true,1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, parentStageResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, parentStageResult}, nil
 
 	case model.CompletionOperation_handle:
-		return strategy{true,1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, invocationResult}, nil
+		return strategy{true, 1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, invocationResult}, nil
 
 	case model.CompletionOperation_supply:
-		return strategy{true,0, 0, triggerAll, invokeWithoutArgs, propagateResult, invocationResult}, nil
+		return strategy{true, 0, 0, triggerAll, invokeWithoutArgs, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_invokeFunction:
-		return strategy{true,0, 0, triggerAll, completeExternally, completeExternally, invocationResult}, nil
+		return strategy{true, 0, 0, triggerAll, completeExternally, completeExternally, invocationResult}, nil
 
 	case model.CompletionOperation_completedValue:
-		return strategy{true,0, 0, triggerNever, completeExternally, propagateResult, noResultStrategy}, nil
+		return strategy{true, 0, 0, triggerNever, completeExternally, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_delay:
-		return strategy{true,0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
+		return strategy{true, 0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_allOf:
-		return strategy{true,-1, 0, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
+		return strategy{true, -1, 0, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_anyOf:
-		return strategy{true,-1, 1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil
+		return strategy{true, -1, 1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_externalCompletion:
-		return strategy{true,0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
+		return strategy{true, 0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_exceptionally:
-		return strategy{true,1, 1, triggerAny, propagateResult, invokeWithResult, invocationResult}, nil
+		return strategy{true, 1, 1, triggerAny, propagateResult, invokeWithResult, invocationResult}, nil
 
 	case model.CompletionOperation_terminationHook:
-		return strategy{false,0, 0, triggerAll, invokeWithResult, invokeWithResult, parentStageResult}, nil
+		return strategy{false, 0, 0, triggerAll, invokeWithResult, invokeWithResult, parentStageResult}, nil
 
+	case model.CompletionOperation_exceptionallyCompose:
+		return strategy{true, 1, 1, triggerAny, propagateResult, invokeWithResult, referencedStageResult}, nil
 
 	default:
 		return strategy{}, fmt.Errorf("Unrecognised operation %s", operation)

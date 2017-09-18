@@ -17,6 +17,52 @@ In languages such as Java where closures (labmdas) can be serialized this allows
 
 
 ## Running the completer 
+
+Make sure the functions server is running 
+```bash 
+fn start                                                                                                                                                 master ✭ ◼
+mount: permission denied (are you root?)
+Could not mount /sys/kernel/security.
+AppArmor detection and --privileged mode might break.
+mount: permission denied (are you root?)
+time="2017-09-16T22:04:49Z" level=info msg="datastore dialed" datastore=sqlite3 max_idle_connections=256
+time="2017-09-16T22:04:49Z" level=info msg="no docker auths from config files found (this is fine)" error="open /root/.dockercfg: no such file or directory"
+time="2017-09-16T22:04:49Z" level=info msg="available memory" ram=1590210560
+
+      ______
+     / ____/___
+    / /_  / __ \
+   / __/ / / / /
+  /_/   /_/ /_/
+
+time="2017-09-16T22:04:49Z" level=info msg="Serving Functions API on address `:8080`"
+```
+
+set $DOCKER_LOCALHOST to the loopback interface for your docker. 
+
+On Mac: 
+```bash
+export DOCKER_LOCALHOST=docker.for.mac.localhost
+```
+
+Otherwise run
+
+```bash
+$ export DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
+```
+
+Then run the completer : 
+```
+docker run --rm  -d -p 8081:8081 \
+           -e API_URL="http://$DOCKER_LOCALHOST:8080/r" \
+           -e no_proxy=$DOCKER_LOCALHOST \
+           --name completer \
+           fnproject/completer:latest
+```
+
+
+Note if you have an HTTP proxy configured in docker you should add the docker loopback interface (and docker.for.mac.localhost) to your `no_proxy` settings.  
+
 Configure via the environment 
 
 | Env | Default | Usage |
@@ -24,7 +70,6 @@ Configure via the environment
 | API_URL | http://localhost:8080 | sets the FN API endpoint for outbound invocations | 
 | DB_URL | sqlite3://./data/completer.db | DB url, also use "inmem:/" for in memory storage |
 | LISTEN |  :8081 | listen host/port (overrides PORT)  |
-
 
 
 ## Contributing 

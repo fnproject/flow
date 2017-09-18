@@ -119,11 +119,6 @@ func (m *AddChainedStageRequest) GetDependencyCount() int {
 	return len(m.Deps)
 }
 
-func (m *AddChainedStageRequest) GetCodeLocation() string {
-	return m.CodeLocation
-}
-
-
 func (m *AddDelayStageRequest) GetDependencyCount() int {
 	return 0
 }

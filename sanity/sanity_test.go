@@ -130,11 +130,17 @@ func TestExternalCompletion(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").
 		ExpectStatus(200)
 
-	tc.StartWithGraph("Creates External Completion").
+	tc.StartWithGraph("Creates External Completion to test CodeLocation").
 		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+	tc.StartWithGraph("Creates External Completion to test CallerId").
+		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCallerRef, "allTheWorld").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			assert.Equal(ctx, "allTheWorld", event.CallerId)
 		})
 
 	tc.Run(t, testServer)
@@ -164,13 +170,21 @@ func TestInvokeFunction(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction").
 		ExpectRequestErr(server.ErrInvalidFunctionId)
 
-	tc.StartWithGraph("Works Without Body").
+	tc.StartWithGraph("Works With CodeLocation").
 		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+	tc.StartWithGraph("Works With Callerid").
+		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
+		WithHeader(protocol.HeaderCallerRef, "thrust").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			assert.Equal(ctx, "thrust", event.CallerId)
 		})
 
 	tc.Run(t, testServer)
@@ -195,12 +209,19 @@ func TestDelay(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
-	tc.StartWithGraph("Works").
+	tc.StartWithGraph("CodeLocation works").
 		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+	tc.StartWithGraph("CallerId works").
+		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		WithHeader(protocol.HeaderCallerRef, "Bristol").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			assert.Equal(ctx, "Bristol", event.CallerId)
 		})
 
 	tc.Run(t, testServer)

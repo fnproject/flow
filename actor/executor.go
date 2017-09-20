@@ -55,11 +55,10 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go sender.Tell(exec.HandleInvokeStage(msg))
+		go func() {sender.Tell(exec.HandleInvokeStage(msg))}()
 	case *model.InvokeFunctionRequest:
-		go sender.Tell(exec.HandleInvokeFunction(msg))
+		go func() {sender.Tell(exec.HandleInvokeFunction(msg))}()
 	}
-
 }
 
 func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {

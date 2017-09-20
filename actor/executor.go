@@ -99,6 +99,13 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	}
 	defer resp.Body.Close()
 
+	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
+	if len(lbDelayHeader) > 0 {
+		stageLog.WithField("fn_lb_delay", lbDelayHeader).Info("Fn load balancer delay")
+	} else {
+		stageLog.Info("No Fn load balancer delay header received")
+	}
+
 	callId := resp.Header.Get(FnCallIDHeader)
 
 	if !successfulResponse(resp) {
@@ -163,6 +170,13 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 
 	}
 	defer resp.Body.Close()
+
+	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
+	if len(lbDelayHeader) > 0 {
+		stageLog.WithField("fn_lb_delay", lbDelayHeader).Info("Fn load balancer delay")
+	} else {
+		stageLog.Info("No Fn load balancer delay header received")
+	}
 
 	callId := resp.Header.Get(FnCallIDHeader)
 	buf := &bytes.Buffer{}

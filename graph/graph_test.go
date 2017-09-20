@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"testing"
 
+	"fmt"
 	"github.com/fnproject/completer/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"fmt"
 )
 
 type MockedListener struct {
@@ -305,7 +305,7 @@ func TestShouldCompleteEmptyGraph(t *testing.T) {
 
 	g := New("graph", "function", m)
 	m.On("OnGraphExecutionFinished").Run(func(args mock.Arguments) {
-		g.UpdateWithEvent(&model.GraphTerminatingEvent{GraphId: g.ID, State: model.StateDatumType_succeeded,}, true)
+		g.UpdateWithEvent(&model.GraphTerminatingEvent{GraphId: g.ID, State: model.StateDatumType_succeeded}, true)
 	})
 
 	m.On("OnGraphComplete").Return()
@@ -399,21 +399,21 @@ func TestErrorInHookDoesNotInterruptOtherHooks(t *testing.T) {
 		g.stages["2"],
 		[]*model.CompletionResult{{Successful: true, Datum: datum}}).
 		Run(func(args mock.Arguments) {
-		g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
-			StageId: "2",
-			Result:  model.NewInternalErrorResult(model.ErrorDatumType_stage_failed, "Stage failed"),
-		}, true)
-	})
+			g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
+				StageId: "2",
+				Result:  model.NewInternalErrorResult(model.ErrorDatumType_stage_failed, "Stage failed"),
+			}, true)
+		})
 
 	m.On("OnExecuteStage",
 		g.stages["1"],
 		[]*model.CompletionResult{{Successful: true, Datum: datum}}).
 		Run(func(args mock.Arguments) {
-		g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
-			StageId: "1",
-			Result:  model.NewInternalErrorResult(model.ErrorDatumType_stage_failed, "Stage failed"),
-		}, true)
-	})
+			g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
+				StageId: "1",
+				Result:  model.NewInternalErrorResult(model.ErrorDatumType_stage_failed, "Stage failed"),
+			}, true)
+		})
 
 	m.On("OnCompleteStage", g.stages["2"], model.NewSuccessfulResult(datum)).Run(func(args mock.Arguments) {
 		g.UpdateWithEvent(&model.StageCompletedEvent{
@@ -483,11 +483,11 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 			stage,
 			[]*model.CompletionResult{{Successful: true, Datum: datum}}).
 			Run(func(args mock.Arguments) {
-			g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
-				StageId: stage.ID,
-				Result:  model.NewEmptyResult(),
-			}, true)
-		})
+				g.UpdateWithEvent(&model.FaasInvocationCompletedEvent{
+					StageId: stage.ID,
+					Result:  model.NewEmptyResult(),
+				}, true)
+			})
 		m.On("OnCompleteStage", stage, model.NewSuccessfulResult(datum)).Run(func(args mock.Arguments) {
 			g.UpdateWithEvent(&model.StageCompletedEvent{
 				StageId: stage.ID,

@@ -123,26 +123,27 @@ message AddChainedStageRequest {
     BlobDatum closure = 3;
     repeated string deps = 4;
     string code_location = 5;
+    string caller_id = 6;
 }
 
 message AddCompletedValueStageRequest {
     string graph_id = 1;
     CompletionResult result = 2;
     string code_location = 3;
-
+    string caller_id = 4;
 }
 
 message AddDelayStageRequest {
     string graph_id = 1;
     int64 delay_ms = 2;
     string code_location = 3;
-
+    string caller_id = 4;
 }
 
 message AddExternalCompletionStageRequest {
     string graph_id = 1;
     string code_location = 2;
-
+    string caller_id = 3;
 }
 
 
@@ -151,7 +152,7 @@ message AddInvokeFunctionStageRequest {
     string function_id = 2;
     HttpReqDatum arg = 3;
     string code_location = 4;
-
+    string caller_id = 5;
 }
 
 
@@ -340,7 +341,7 @@ message StageAddedEvent {
     repeated string dependencies = 4;
     google.protobuf.Timestamp ts = 5;
     string code_location = 6;
-
+    string caller_id = 7;
 }
 
 

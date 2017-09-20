@@ -142,6 +142,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			Operation:    model.CompletionOperation(completionOperation),
 			Closure:      blob,
 			CodeLocation: codeLoc,
+			CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 		}
 		response, err := s.addStage(request)
 
@@ -366,8 +367,11 @@ func (s *Server) handleExternalCompletion(c *gin.Context) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
-	request := &model.AddExternalCompletionStageRequest{GraphId: graphID,
-		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
+	request := &model.AddExternalCompletionStageRequest{
+		GraphId:      graphID,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
+	}
 
 	response, err := s.addStage(request)
 
@@ -401,6 +405,7 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 		Closure:      nil,
 		Deps:         cids,
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)
@@ -456,6 +461,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 		Closure:      blob,
 		Deps:         []string{},
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)
@@ -484,6 +490,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 		GraphId:      graphID,
 		Result:       result,
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)
@@ -532,8 +539,9 @@ func (s *Server) handleDelay(c *gin.Context) {
 	}
 
 	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,
-		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation)}
-
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
+	}
 	response, err := s.addStage(request)
 
 	if err != nil {
@@ -573,6 +581,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		FunctionId:   functionID,
 		Arg:          datum.GetHttpReq(),
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)
@@ -611,6 +620,7 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 		Operation:    model.CompletionOperation_terminationHook,
 		Deps:         []string{},
 		CodeLocation: codeLoc,
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	_, err = s.GraphManager.AddStage(request, s.requestTimeout)

@@ -89,6 +89,7 @@ type AddStageCommand interface {
 	GetOperation() CompletionOperation
 	GetDependencyCount() int
 	GetCodeLocation() string
+	GetCallerId() string
 }
 
 func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {

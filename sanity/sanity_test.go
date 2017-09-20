@@ -41,8 +41,15 @@ func TestSupply(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-CodeLoc", "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checkgin %v", event)
+			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+	tc.StartWithGraph("Accepts code location and persists it to event").
+		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-Callerid", "1").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checking %v", event)
+			assert.Equal(ctx, "1", event.CallerId)
 		})
 
 	tc.Run(t, testServer)

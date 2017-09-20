@@ -5,6 +5,7 @@ const (
 	HeaderResultStatus = "Fnproject-Resultstatus"
 	HeaderResultCode   = "Fnproject-Resultcode"
 	HeaderStageRef     = "Fnproject-Stageid"
+	HeaderCallerRef    = "Fnproject-Callerid"
 	HeaderHookRef      = "Fnproject-Hookid"
 	HeaderMethod       = "Fnproject-Method"
 	HeaderHeaderPrefix = "Fnproject-Header-"

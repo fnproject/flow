@@ -130,7 +130,7 @@ func (c *apiCmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent
 				lastStageAddedEvent = event.Event.(*model.StageAddedEvent)
 			})
 
-		require.NotNil(ctx, lastStageAddedEvent, "Expecting at least one stage addede event, got none")
+		require.NotNil(ctx, lastStageAddedEvent, "Expecting at least one stage added event, got none")
 
 		test(ctx, lastStageAddedEvent)
 	}, "Expecting Stage added event ")

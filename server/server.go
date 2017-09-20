@@ -457,6 +457,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 		Closure:      blob,
 		Deps:         []string{},
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
+		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)

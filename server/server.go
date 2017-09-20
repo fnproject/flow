@@ -22,7 +22,6 @@ import (
 
 const (
 	MaxDelay                      = 3600 * 1000 * 24
-	actorRequestTimeout           = 1 * time.Second
 	defaultGetStageRequestTimeout = 1 * time.Hour
 )
 
@@ -242,9 +241,9 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		tInt := int64(t)
 		if tInt == 0 {
 			timeout = defaultGetStageRequestTimeout
-		} else if tInt < int64(actorRequestTimeout) {
+		} else if tInt < int64(s.requestTimeout) {
 			// don't go under the default timeout for communicating with the actor system
-			timeout = actorRequestTimeout
+			timeout = s.requestTimeout
 		} else if tInt < int64(defaultGetStageRequestTimeout) {
 			timeout = t
 		}
@@ -632,14 +631,14 @@ type Server struct {
 	requestTimeout time.Duration
 }
 
-func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string) (*Server, error) {
+func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
 
 	s := &Server{
 		GraphManager:   manager,
 		Engine:         gin.Default(),
 		listen:         listenAddress,
 		BlobStore:      blobStore,
-		requestTimeout: actorRequestTimeout,
+		requestTimeout: maxRequestTimeout,
 	}
 
 	s.Engine.GET("/ping", func(c *gin.Context) {
@@ -675,7 +674,7 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 }
 
 func (s *Server) Run() {
-	log.WithField("listen_url", s.listen).Info("Starting Completer server")
+	log.WithField("listen_url", s.listen).Infof("Starting Completer server (timeout %s) ", s.requestTimeout)
 
 	s.Engine.Run(s.listen)
 }

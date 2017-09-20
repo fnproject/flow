@@ -55,11 +55,10 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go sender.Tell(exec.HandleInvokeStage(msg))
+		go func() {sender.Tell(exec.HandleInvokeStage(msg))}()
 	case *model.InvokeFunctionRequest:
-		go sender.Tell(exec.HandleInvokeFunction(msg))
+		go func() {sender.Tell(exec.HandleInvokeFunction(msg))}()
 	}
-
 }
 
 func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
@@ -98,6 +97,13 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, "HTTP error on stage invocation: Can the completer talk to the functions server?", "")
 	}
 	defer resp.Body.Close()
+
+	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
+	if len(lbDelayHeader) > 0 {
+		stageLog.WithField("fn_lb_delay", lbDelayHeader).Info("Fn load balancer delay")
+	} else {
+		stageLog.Info("No Fn load balancer delay header received")
+	}
 
 	callId := resp.Header.Get(FnCallIDHeader)
 
@@ -163,6 +169,13 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 
 	}
 	defer resp.Body.Close()
+
+	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
+	if len(lbDelayHeader) > 0 {
+		stageLog.WithField("fn_lb_delay", lbDelayHeader).Info("Fn load balancer delay")
+	} else {
+		stageLog.Info("No Fn load balancer delay header received")
+	}
 
 	callId := resp.Header.Get(FnCallIDHeader)
 	buf := &bytes.Buffer{}

@@ -13,7 +13,7 @@ dep-up:
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
 test: protos $(shell find . -name *.go)
-	@go test -v $(GOPACKAGES)
+	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --go_out=$(@D) $<

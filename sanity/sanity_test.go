@@ -11,6 +11,7 @@ import (
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/protocol"
 	"github.com/stretchr/testify/assert"
+	"time"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -179,7 +180,7 @@ func NewTestServer() *server.Server {
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(graphManager, blobStorage, ":8081")
+	s, err := server.New(graphManager, blobStorage, ":8081", 1*time.Second)
 
 	if err != nil {
 		panic(err)

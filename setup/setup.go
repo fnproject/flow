@@ -1,16 +1,17 @@
 package setup
 
 import (
-	"os"
-	"github.com/sirupsen/logrus"
-	"strings"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"net/url"
-	"strconv"
-	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/server"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 	EnvLogLevel         = "log_level"
 	EnvListen           = "listen"
 	EnvSnapshotInterval = "snapshot_interval"
+	EnvRequestTimeout   = "request_timeout"
 )
 
 var defaults = make(map[string]string)
@@ -37,6 +39,17 @@ func GetString(key string) string {
 	return defaults[key]
 }
 
+func GetDurationMs(key string) time.Duration {
+	key = canonKey(key)
+
+	strVal := defaults[key]
+	val, err := strconv.ParseUint(strVal, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("Invalid value '%s' for config key '%s' - couldn't parse as int", strVal, key))
+	}
+	return time.Millisecond * time.Duration(val)
+}
+
 func InitFromEnv() (*server.Server, error) {
 
 	cwd, err := os.Getwd()
@@ -50,6 +63,7 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvListen, fmt.Sprintf(":8081"))
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
+	SetDefault(EnvRequestTimeout, "60000")
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
 		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
@@ -78,7 +92,7 @@ func InitFromEnv() (*server.Server, error) {
 
 	}
 
-	srv, err := server.New(graphManager, blobStore, GetString(EnvListen))
+	srv, err := server.New(graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
 	if err != nil {
 		return nil, err
 	}

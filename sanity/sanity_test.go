@@ -45,12 +45,20 @@ func TestSupply(t *testing.T) {
 			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
-	tc.StartWithGraph("Accepts code location and persists it to event").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-Callerid", "1").
+	tc.StartWithGraph("Accepts CallerId and persists it to event").
+		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
+		WithHeader(protocol.HeaderCallerRef, "1").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "1", event.CallerId)
+		})
+	tc.StartWithGraph("Does not fail with no CallerId").
+		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			fmt.Sprint("checking %v", event)
+			assert.Equal(ctx, "", event.CallerId)
 		})
 
 	tc.Run(t, testServer)
@@ -79,6 +87,26 @@ func TestCompletedValue(t *testing.T) {
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
+		})
+	tc.StartWithGraph("Simple CallerId test").
+		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		WithHeaders(map[string]string{
+			"fnproject-datumtype": "empty",
+			"content-type":        "text/plain"}).WithHeader(protocol.HeaderCallerRef, "7").
+		WithBodyString("body").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			assert.Equal(ctx, "7", event.CallerId)
+		})
+	tc.StartWithGraph("Empty CallerId noFail test").
+		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		WithHeaders(map[string]string{
+			"fnproject-datumtype": "empty",
+			"content-type":        "text/plain"}).
+		WithBodyString("body").
+		ExpectStageCreated().
+		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
+			assert.Equal(ctx, "", event.CallerId)
 		})
 
 	tc.Run(t, testServer)

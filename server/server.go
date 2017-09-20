@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	MaxDelay                      = 3600 * 1000 * 24
-	defaultGetStageRequestTimeout = 1 * time.Hour
+	MaxDelay          = 3600 * 1000 * 24
+	maxRequestTimeout = 1 * time.Hour
+	minRequestTimeout = 1 * time.Second
 )
 
 var log = logrus.WithField("logger", "server")
@@ -231,22 +232,23 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param("graphId")
 	stageID := c.Param("stageId")
 
-	timeout := defaultGetStageRequestTimeout
+	timeout := maxRequestTimeout
 
 	if timeoutMs := c.Query("timeoutMs"); timeoutMs != "" {
-		t, err := time.ParseDuration(timeoutMs + "ms")
+		userTimeout, err := time.ParseDuration(timeoutMs + "ms")
 		if err != nil {
 			renderError(ErrInvalidGetTimeout, c)
 			return
 		}
-		tInt := int64(t)
-		if tInt == 0 {
-			timeout = defaultGetStageRequestTimeout
-		} else if tInt < int64(s.requestTimeout) {
-			// don't go under the default timeout for communicating with the actor system
-			timeout = s.requestTimeout
-		} else if tInt < int64(defaultGetStageRequestTimeout) {
-			timeout = t
+		userTimeoutInt := int64(userTimeout)
+		if userTimeoutInt == 0 {
+			// block "indefinitely"
+			timeout = maxRequestTimeout
+		} else if userTimeoutInt < int64(minRequestTimeout) {
+			// wait at least the minimum request timeout
+			timeout = minRequestTimeout
+		} else if userTimeoutInt < int64(maxRequestTimeout) {
+			timeout = userTimeout
 		}
 	}
 

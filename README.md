@@ -71,13 +71,12 @@ Configure via the environment
 | DB_URL | sqlite3://./data/completer.db | DB url, also use "inmem:/" for in memory storage |
 | LISTEN |  :8081 | listen host/port (overrides PORT)  |
 
+# Get help
+
+   * Come over and chat to us on the [fnproject Slack](https://join.slack.com/t/fnproject/shared_invite/enQtMjIwNzc5MTE4ODg3LTdlYjE2YzU1MjAxODNhNGUzOGNhMmU2OTNhZmEwOTcxZDQxNGJiZmFiMzNiMTk0NjU2NTIxZGEyNjI0YmY4NTA).
+   * Raise an issue in [our github](https://github.com/fnproject/completer/).
+
 
 ## Contributing 
 
-*TBD* 
-
-## License 
-*TBD* 
-
-
-
+Please see [CONTRIBUTING.md](CONTRIBUTING.md).

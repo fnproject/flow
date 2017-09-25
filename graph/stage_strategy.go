@@ -29,6 +29,21 @@ func triggerAll(dependencies []StageDependency) (bool, bool, []*model.Completion
 
 }
 
+//waitForAll marks node as succeeded if all are completed regardless of success or failure
+func waitForAll(dependencies []StageDependency) (bool, bool, []*model.CompletionResult) {
+	var results = make([]*model.CompletionResult, 0)
+	for _, s := range dependencies {
+		if s.IsFailed() || s.IsSuccessful() {
+			results = append(results, s.GetResult())
+		}
+	}
+
+	if len(results) == len(dependencies) {
+		return true, true, results
+	}
+	return false, false, nil
+}
+
 // triggerAny marks a node as succeed if any one is resolved successfully,  or fails with the first error if all are failed
 func triggerAny(dependencies []StageDependency) (bool, bool, []*model.CompletionResult) {
 	var haveUnresolved bool
@@ -220,7 +235,7 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{true, 0, 0, triggerNever, completeExternally, completeExternally, noResultStrategy}, nil
 
 	case model.CompletionOperation_allOf:
-		return strategy{true, -1, 0, triggerAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
+		return strategy{true, -1, 0, waitForAll, succeedWithEmpty, propagateResult, noResultStrategy}, nil
 
 	case model.CompletionOperation_anyOf:
 		return strategy{true, -1, 1, triggerAny, propagateResult, propagateResult, noResultStrategy}, nil

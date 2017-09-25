@@ -59,6 +59,45 @@ func TestTriggerAllPartialOneFailed(t *testing.T) {
 	assert.Equal(t, []*model.CompletionResult{failed.result}, inputs)
 }
 
+func TestWaitForAllEmpty(t *testing.T) {
+	trigger, status, inputs := waitForAll([]StageDependency{})
+	assert.True(t, trigger)
+	assert.Equal(t, true, status)
+	assert.Empty(t, inputs)
+
+}
+
+func TestWaitForAllCompleted(t *testing.T) {
+	s1 := completedStage()
+	s2 := completedStage()
+	trigger, status, inputs := waitForAll([]StageDependency{s1, s2})
+	assert.True(t, trigger)
+	assert.Equal(t, true, status)
+	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
+
+}
+
+func TestWaitForAllCompletedWithOneFailed(t *testing.T) {
+	s1 := completedStage()
+	s2 := failedStage()
+	trigger, status, inputs := waitForAll([]StageDependency{s1, s2})
+	assert.True(t, trigger)
+	assert.Equal(t, true, status)
+	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
+
+}
+
+func TestWaitForAllPartial(t *testing.T) {
+	trigger, _, _ := waitForAll([]StageDependency{completedStage(), pendingStage()})
+	assert.False(t, trigger)
+}
+
+func TestWaitForAllPartialOneFailed(t *testing.T) {
+	failed := failedStage()
+	trigger, _, _ := waitForAll([]StageDependency{completedStage(), pendingStage(), failed})
+	assert.False(t, trigger)
+}
+
 func TestTriggerAnyEmpty(t *testing.T) {
 	trigger, _, _ := triggerAny([]StageDependency{})
 	assert.False(t, trigger)

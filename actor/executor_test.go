@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"net/textproto"
 )
 
 type MockClient struct {
@@ -174,6 +175,9 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "PUT", outbound.Method)
 	assert.Equal(t, "body/type", outbound.Header.Get("Content-type"))
+	assert.Equal(t, outbound.Header.Get("header_1"), "h1val")
+	assert.Equal(t, outbound.Header[textproto.CanonicalMIMEHeaderKey("header_2")], []string{"h2val_1","h2val_2"})
+
 	br := &bytes.Buffer{}
 	br.ReadFrom(outbound.Body)
 	assert.Equal(t, []byte("body"), br.Bytes())
@@ -231,6 +235,7 @@ func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
 	result := givenValidFunctionRequest(store, m, nil)
+
 	hasValidHTTPRespResult(t, result, 401)
 	assert.False(t, result.Result.Successful)
 
@@ -320,6 +325,7 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
+
 	result := exec.HandleInvokeFunction(&model.InvokeFunctionRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
@@ -337,7 +343,6 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 	return result
 }
 
-
 func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	assert.Equal(t, "/function/id/", result.FunctionId)
 	assert.Equal(t, "stage-id", result.StageId)
@@ -345,7 +350,6 @@ func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	require.NotNil(t, result.Result)
 	require.NotNil(t, result.Result.GetDatum())
 }
-
 
 func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType model.ErrorDatumType) {
 	assert.False(t, result.Result.Successful)

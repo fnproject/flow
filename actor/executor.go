@@ -161,6 +161,10 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		req.Header.Set("Content-Type", datum.Body.ContentType)
 	}
 
+	for _,header := range msg.Arg.Headers {
+		req.Header.Add(header.Key,header.Value)
+	}
+
 	resp, err := exec.client.Do(req)
 
 	if err != nil {

@@ -199,7 +199,7 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{true, 2, 2, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenAcceptBoth:
-		return strategy{true, 2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, waitForAll, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_thenApply:
 		return strategy{true, 1, 1, triggerAny, invokeWithResult, propagateResult, invocationResult}, nil
@@ -214,7 +214,7 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{true, 1, 1, triggerAny, invokeWithResult, propagateResult, referencedStageResult}, nil
 
 	case model.CompletionOperation_thenCombine:
-		return strategy{true, 2, 2, triggerAll, invokeWithResult, propagateResult, invocationResult}, nil
+		return strategy{true, 2, 2, waitForAll, invokeWithResult, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_whenComplete:
 		return strategy{true, 1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, parentStageResult}, nil

@@ -11,24 +11,6 @@ import (
 // each type may or may not depend on the incoming dependencies of the node
 type TriggerStrategy func(deps []StageDependency) (shouldTrigger bool, successfulTrigger bool, inputs []*model.CompletionResult)
 
-//triggerAll marks node as succeeded if all are succeeded, or if one has failed
-func triggerAll(dependencies []StageDependency) (bool, bool, []*model.CompletionResult) {
-	var results = make([]*model.CompletionResult, 0)
-	for _, s := range dependencies {
-		if s.IsFailed() {
-			return true, false, []*model.CompletionResult{s.GetResult()}
-		} else if s.IsSuccessful() {
-			results = append(results, s.GetResult())
-		}
-	}
-
-	if len(results) == len(dependencies) {
-		return true, true, results
-	}
-	return false, false, nil
-
-}
-
 //waitForAll marks node as succeeded if all are completed regardless of success or failure
 func waitForAll(dependencies []StageDependency) (bool, bool, []*model.CompletionResult) {
 	var results = make([]*model.CompletionResult, 0)
@@ -223,10 +205,10 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{true, 1, 1, triggerAny, invokeWithResultOrError, invokeWithResultOrError, invocationResult}, nil
 
 	case model.CompletionOperation_supply:
-		return strategy{true, 0, 0, triggerAll, invokeWithoutArgs, propagateResult, invocationResult}, nil
+		return strategy{true, 0, 0, waitForAll, invokeWithoutArgs, propagateResult, invocationResult}, nil
 
 	case model.CompletionOperation_invokeFunction:
-		return strategy{true, 0, 0, triggerAll, completeExternally, completeExternally, invocationResult}, nil
+		return strategy{true, 0, 0, waitForAll, completeExternally, completeExternally, invocationResult}, nil
 
 	case model.CompletionOperation_completedValue:
 		return strategy{true, 0, 0, triggerNever, completeExternally, propagateResult, noResultStrategy}, nil
@@ -247,7 +229,7 @@ func getStrategyFromOperation(operation model.CompletionOperation) (strategy, er
 		return strategy{true, 1, 1, triggerAny, propagateResult, invokeWithResult, invocationResult}, nil
 
 	case model.CompletionOperation_terminationHook:
-		return strategy{false, 0, 0, triggerAll, invokeWithResult, invokeWithResult, parentStageResult}, nil
+		return strategy{false, 0, 0, waitForAll, invokeWithResult, invokeWithResult, parentStageResult}, nil
 
 	case model.CompletionOperation_exceptionallyCompose:
 		return strategy{true, 1, 1, triggerAny, propagateResult, invokeWithResult, referencedStageResult}, nil

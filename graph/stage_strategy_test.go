@@ -28,37 +28,6 @@ func TestUnknownOperationShouldRaiseError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestTriggerAllEmpty(t *testing.T) {
-	trigger, status, inputs := triggerAll([]StageDependency{})
-	assert.True(t, trigger)
-	assert.Equal(t, true, status)
-	assert.Empty(t, inputs)
-
-}
-
-func TestTriggerAllCompleted(t *testing.T) {
-	s1 := completedStage()
-	s2 := completedStage()
-	trigger, status, inputs := triggerAll([]StageDependency{s1, s2})
-	assert.True(t, trigger)
-	assert.Equal(t, true, status)
-	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
-
-}
-
-func TestTriggerAllPartial(t *testing.T) {
-	trigger, _, _ := triggerAll([]StageDependency{completedStage(), pendingStage()})
-	assert.False(t, trigger)
-}
-
-func TestTriggerAllPartialOneFailed(t *testing.T) {
-	failed := failedStage()
-	trigger, res, inputs := triggerAll([]StageDependency{completedStage(), pendingStage(), failed})
-	assert.True(t, trigger)
-	assert.Equal(t, false, res)
-	assert.Equal(t, []*model.CompletionResult{failed.result}, inputs)
-}
-
 func TestWaitForAllEmpty(t *testing.T) {
 	trigger, status, inputs := waitForAll([]StageDependency{})
 	assert.True(t, trigger)

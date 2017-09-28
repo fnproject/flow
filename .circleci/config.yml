@@ -29,15 +29,11 @@ jobs:
       - run: |
           docker version
           sudo service docker stop
-          curl -fsSL https://get.docker.com/ | grep -v 'sleep 20' | sudo sh
+          curl -fsSL https://get.docker.com/ | sudo sh
       - run: docker version
       - run: ./test.sh
       - store_test_results:
           path: /tmp/test-results
-      - run:
-          name: Run JDK9 integration suite
-          command: |
-            ./.circleci/run-integration-tests.sh
       - deploy:
           # Only deploy a release if we are on master
           command: |

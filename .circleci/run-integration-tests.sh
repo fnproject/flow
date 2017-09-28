@@ -22,6 +22,7 @@ make docker-build
   docker pull fnproject/fn-java-fdk:jdk9-latest
 
   ./.circleci/install-fn.sh
+  sudo apt install -y maven
 
   ./integration-tests/run-local.sh
 )

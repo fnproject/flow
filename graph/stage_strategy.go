@@ -13,31 +13,23 @@ type TriggerStrategy func(deps []StageDependency) (shouldTrigger bool, successfu
 
 //waitForAll marks node as succeeded if all are completed regardless of success or failure
 func waitForAll(dependencies []StageDependency) (bool, bool, []*model.CompletionResult) {
-	var results = make([]*model.CompletionResult, 0)
+	var results = make([]*model.CompletionResult, 0, len(dependencies))
 	for _, s := range dependencies {
-		if s.IsFailed() || s.IsSuccessful() {
+		if s.IsResolved() {
 			results = append(results, s.GetResult())
 		}
 	}
 
-	// if any dependency failed, this node should fail as well
-	succeeded := true
-	var firstFailure = make([]*model.CompletionResult, 0)
-	for _, s := range dependencies {
-		if s.IsFailed() {
-			succeeded = false
-			firstFailure = append(firstFailure, s.GetResult())
-			break
+	if len(results) == len(dependencies) {
+		// if any dependency failed, this node should fail as well, and with only one result which is the first error
+		for _, s := range dependencies {
+			if s.IsFailed() {
+				return true, false, []*model.CompletionResult{s.GetResult()}
+			}
 		}
+		return true, true, results
 	}
 
-	if len(results) == len(dependencies) {
-		if succeeded {
-			return true, succeeded, results
-		} else {
-			return true, succeeded, firstFailure
-		}
-	}
 	return false, false, nil
 }
 

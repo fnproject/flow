@@ -10,7 +10,7 @@ make docker-build
 (
   cd ~
   git clone git@github.com:fnproject/fdk-java.git
-  cd fdk-java.git
+  cd fdk-java
 
   export FDK_ARTIFACT_DIR=/tmp/artifacts/fdk
   export TEST_ARTIFACT_DIR=/tmp/artifacts/tests

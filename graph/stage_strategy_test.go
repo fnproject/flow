@@ -51,7 +51,7 @@ func TestWaitForAllCompletedWithOneFailed(t *testing.T) {
 	s2 := failedStage()
 	trigger, status, inputs := waitForAll([]StageDependency{s1, s2})
 	assert.True(t, trigger)
-	assert.Equal(t, true, status)
+	assert.Equal(t, false, status)
 	assert.Equal(t, []*model.CompletionResult{s1.result, s2.result}, inputs)
 
 }

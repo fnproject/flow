@@ -21,7 +21,7 @@ func waitForAll(dependencies []StageDependency) (bool, bool, []*model.Completion
 	}
 
 	// if any dependency failed, this node should fail as well
-	succeeded = true
+	succeeded := true
 	for _, s := range dependencies {
 		if s.IsFailed() {
 			succeeded = false

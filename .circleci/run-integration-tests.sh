@@ -19,6 +19,7 @@ make docker-build >/dev/null 2>&1
 
   release_version=$(git tag --sort=-version:refname | head -1)
   echo "Updating tests to use $release_version"
+  echo $release_version > release.version  # test-3 uses this :-(
 
   # (sed syntax for portability between MacOS and gnu)
   find . -name pom.xml |
@@ -31,7 +32,7 @@ make docker-build >/dev/null 2>&1
   docker pull fnproject/fn-java-fdk:jdk9-latest       >/dev/null 2>&1
 
   ./.circleci/install-fn.sh                           >/dev/null 2>&1
-  sudo apt install -y maven
+  sudo apt install -y maven                           >/dev/null 2>&1
 
   ./integration-tests/run-local.sh
 )

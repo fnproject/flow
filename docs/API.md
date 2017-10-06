@@ -66,7 +66,7 @@ The following sections define the request/response protocol for the lifetime of 
 
 ### Runtime Creates a Flow (Function->Completer)
 
-The function creates a new flow by POST am empty request to the `/graph` endpoint with a function ID  of the current function.
+The function creates a new flow by POST an empty request to the `/graph` endpoint with a function ID  of the current function.
 
 
 ```

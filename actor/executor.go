@@ -68,7 +68,6 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	buf := new(bytes.Buffer)
 
 	partWriter := multipart.NewWriter(buf)
-	defer partWriter.Close()
 
 	if msg.Closure != nil {
 		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
@@ -86,6 +85,8 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 
 		}
 	}
+
+	partWriter.Close()
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))

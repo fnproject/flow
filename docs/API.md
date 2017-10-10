@@ -367,7 +367,7 @@ CUSTOM-HEADER: user-12334
 will result in the following being transmitted to the runtime:
 
 ```
-FnProject-DatumType: http
+FnProject-DatumType: httpreq
 FnProject-Method: POST
 FnProject-ResultStatus: failure
 FnProject-Header-CUSTOM-HEADER: user-12334

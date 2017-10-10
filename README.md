@@ -1,8 +1,10 @@
-# Completer
+# Fn Flow Completer
 
 [![CircleCI](https://circleci.com/gh/fnproject/completer.svg?style=svg&circle-token=d575f7642bba6f19f10f7a219d7298bb9d33c303)](https://circleci.com/gh/fnproject/completer)
 
 ![logo: you complete me!](logo.jpg) 
+
+To find out how to ese Fn Flow in Java read the [user guide](https://github.com/fnproject/fdk-java/blob/master/docs/FnFlowsUserGuide.md). 
 
 The completer is a service that implements long-running computations  based on fn invocations allowing reliable promise-like continuations of function code. 
 

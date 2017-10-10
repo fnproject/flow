@@ -4,7 +4,7 @@
 
 ![logo: you complete me!](logo.jpg) 
 
-To find out how to ese Fn Flow in Java read the [user guide](https://github.com/fnproject/fdk-java/blob/master/docs/FnFlowsUserGuide.md). 
+To find out how to use Fn Flow in Java read the [user guide](https://github.com/fnproject/fdk-java/blob/master/docs/FnFlowsUserGuide.md). 
 
 The completer is a service that implements long-running computations  based on fn invocations allowing reliable promise-like continuations of function code. 
 

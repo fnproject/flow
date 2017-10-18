@@ -1,17 +1,20 @@
 package sanity
 
 import (
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
 	"net/http"
 	"testing"
 
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/proxy"
+	"github.com/fnproject/completer/server"
+
 	"fmt"
+	"time"
+
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/protocol"
 	"github.com/stretchr/testify/assert"
-	"time"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -232,11 +235,17 @@ func NewTestServer() *server.Server {
 	blobStorage := persistence.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
 	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:")
-
+	clusterSettings := &proxy.ClusterSettings{
+		NodeCount:  1,
+		ShardCount: 1,
+		NodeName:   "node-0",
+		NodePrefix: "node-",
+	}
+	proxy := proxy.NewProxy(clusterSettings)
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(graphManager, blobStorage, ":8081", 1*time.Second)
+	s, err := server.New(proxy, graphManager, blobStorage, ":8081", 1*time.Second)
 
 	if err != nil {
 		panic(err)

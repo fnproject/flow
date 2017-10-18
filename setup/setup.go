@@ -1,17 +1,20 @@
 package setup
 
 import (
+	"errors"
 	"fmt"
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/completer/proxy"
+	"github.com/fnproject/completer/server"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -21,6 +24,10 @@ const (
 	EnvListen           = "listen"
 	EnvSnapshotInterval = "snapshot_interval"
 	EnvRequestTimeout   = "request_timeout"
+
+	EnvClusterNodeCount  = "cluster_node_count"
+	EnvClusterShardCount = "cluster_shard_count"
+	EnvClusterNodePrefix = "cluster_node_prefix"
 )
 
 var defaults = make(map[string]string)
@@ -37,6 +44,17 @@ func SetDefault(key string, value string) {
 func GetString(key string) string {
 	key = canonKey(key)
 	return defaults[key]
+}
+
+func GetInteger(key string) (int, error) {
+	if valueStr := GetString(key); len(valueStr) > 0 {
+		if val, err := strconv.Atoi(valueStr); err != nil {
+			return 0, err
+		} else {
+			return val, nil
+		}
+	}
+	return 0, errors.New("Empty key")
 }
 
 func GetDurationMs(key string) time.Duration {
@@ -64,6 +82,12 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
 	SetDefault(EnvRequestTimeout, "60000")
+
+	// single node defaults
+	SetDefault(EnvClusterNodePrefix, "node_")
+	SetDefault(EnvClusterNodeCount, "1")
+	SetDefault(EnvClusterShardCount, "10")
+
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
 		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
@@ -92,7 +116,29 @@ func InitFromEnv() (*server.Server, error) {
 
 	}
 
-	srv, err := server.New(graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Warn("Couldn't resolve hostname, defaulting to localhost")
+		hostname = "localhost"
+	}
+
+	nodeCount, err := GetInteger(EnvClusterNodeCount)
+	if err != nil {
+		panic("Invalid cluster node count provided: " + err.Error())
+	}
+	shardCount, err := GetInteger(EnvClusterShardCount)
+	if err != nil {
+		panic("Invalid cluser shard count provided: " + err.Error())
+	}
+	clusterSettings := &proxy.ClusterSettings{
+		NodeCount:  nodeCount,
+		ShardCount: shardCount,
+		NodeName:   hostname,
+		NodePrefix: GetString(EnvClusterNodePrefix),
+	}
+	proxy := proxy.NewProxy(clusterSettings)
+
+	srv, err := server.New(proxy, graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
 	if err != nil {
 		return nil, err
 	}

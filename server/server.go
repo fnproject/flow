@@ -14,6 +14,7 @@ import (
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/protocol"
+	"github.com/fnproject/completer/proxy"
 	"github.com/fnproject/completer/query"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -643,11 +644,17 @@ type Server struct {
 	requestTimeout time.Duration
 }
 
-func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
+func newEngine(proxy *proxy.ClusterProxy) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Logger(), gin.Recovery(), proxy.ProxyHandler())
+	return engine
+}
+
+func New(proxy *proxy.ClusterProxy, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
 
 	s := &Server{
 		GraphManager:   manager,
-		Engine:         gin.Default(),
+		Engine:         newEngine(proxy),
 		listen:         listenAddress,
 		BlobStore:      blobStore,
 		requestTimeout: maxRequestTimeout,

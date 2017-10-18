@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/cluster"
 	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/proxy"
 	"github.com/fnproject/completer/server"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -109,13 +109,6 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL))
-
-	if err != nil {
-		return nil, err
-
-	}
-
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Warn("Couldn't resolve hostname, defaulting to localhost")
@@ -130,15 +123,20 @@ func InitFromEnv() (*server.Server, error) {
 	if err != nil {
 		panic("Invalid cluser shard count provided: " + err.Error())
 	}
-	clusterSettings := &proxy.ClusterSettings{
+	clusterSettings := &cluster.ClusterSettings{
 		NodeCount:  nodeCount,
 		ShardCount: shardCount,
 		NodeName:   hostname,
 		NodePrefix: GetString(EnvClusterNodePrefix),
 	}
-	proxy := proxy.NewProxy(clusterSettings)
+	clusterManager := cluster.NewManager(clusterSettings)
 
-	srv, err := server.New(proxy, graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
+	graphManager, err := actor.NewGraphManager(clusterManager, provider, blobStore, GetString(EnvFnApiURL))
+	if err != nil {
+		return nil, err
+	}
+
+	srv, err := server.New(clusterManager, graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
 	if err != nil {
 		return nil, err
 	}

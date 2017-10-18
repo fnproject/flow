@@ -17,6 +17,7 @@ type graphSupervisor struct {
 	persistenceProvider persistence.Provider
 	log                 *logrus.Entry
 	persistence.Mixin
+	// TODO turn this into a pid cache to avoid iterating on all children?
 	activeGraphs map[string]bool
 }
 

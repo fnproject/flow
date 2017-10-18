@@ -11,10 +11,10 @@ import (
 
 	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/cluster"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/protocol"
-	"github.com/fnproject/completer/proxy"
 	"github.com/fnproject/completer/query"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -644,17 +644,17 @@ type Server struct {
 	requestTimeout time.Duration
 }
 
-func newEngine(proxy *proxy.ClusterProxy) *gin.Engine {
+func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(), proxy.ProxyHandler())
+	engine.Use(gin.Logger(), gin.Recovery(), clusterManager.ProxyHandler())
 	return engine
 }
 
-func New(proxy *proxy.ClusterProxy, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
+func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
 
 	s := &Server{
 		GraphManager:   manager,
-		Engine:         newEngine(proxy),
+		Engine:         newEngine(clusterManager),
 		listen:         listenAddress,
 		BlobStore:      blobStore,
 		requestTimeout: maxRequestTimeout,

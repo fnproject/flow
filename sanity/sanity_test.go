@@ -1,19 +1,17 @@
 package sanity
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
-
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/proxy"
-	"github.com/fnproject/completer/server"
-
-	"fmt"
 	"time"
 
+	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/completer/cluster"
 	"github.com/fnproject/completer/model"
+	"github.com/fnproject/completer/persistence"
 	"github.com/fnproject/completer/protocol"
+	"github.com/fnproject/completer/server"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -234,25 +232,22 @@ func NewTestServer() *server.Server {
 
 	blobStorage := persistence.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
-	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:")
-	clusterSettings := &proxy.ClusterSettings{
+	clusterSettings := &cluster.ClusterSettings{
 		NodeCount:  1,
 		ShardCount: 1,
 		NodeName:   "node-0",
 		NodePrefix: "node-",
 	}
-	proxy := proxy.NewProxy(clusterSettings)
+	clusterManager := cluster.NewManager(clusterSettings)
+	graphManager, err := actor.NewGraphManager(clusterManager, persistenceProvider, blobStorage, "http:")
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(proxy, graphManager, blobStorage, ":8081", 1*time.Second)
-
+	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second)
 	if err != nil {
 		panic(err)
 	}
-
 	return s
-
 }
 
 func StageAcceptsBlobType(s func(string) *apiCmd) {

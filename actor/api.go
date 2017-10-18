@@ -7,6 +7,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
+	"github.com/fnproject/completer/cluster"
 	"github.com/fnproject/completer/model"
 	"github.com/fnproject/completer/persistence"
 	"github.com/sirupsen/logrus"
@@ -29,14 +30,15 @@ type GraphManager interface {
 }
 
 type actorManager struct {
-	log                 *logrus.Entry
+	log *logrus.Entry
+	// TODO make this a map indexed by shard
 	supervisor          *actor.PID
 	executor            *actor.PID
 	persistenceProvider *persistence.StreamingProvider
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string) (GraphManager, error) {
+func NewGraphManager(clusterMgr *cluster.ClusterManager, persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 	decider := func(reason interface{}) actor.Directive {
@@ -55,6 +57,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	}
 
 	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
+	// TODO executor is not sharded and would not support clustering once it's made persistent!
 	executor, _ := actor.SpawnNamed(executorProps, "executor")
 	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
 
@@ -129,7 +132,6 @@ func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Durati
 	}
 	return r.(*model.GraphRequestProcessedResponse), e
 }
-
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {
 

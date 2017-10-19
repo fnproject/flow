@@ -6,31 +6,28 @@ services:
      - "8080"
     volumes:
      - ./data:/data
-    hostname: node-0
     environment:
     - listen=0.0.0.0:8080
     - cluster_node_prefix=node-
     - cluster_shard_count=20
     - cluster_node_count=2
+    - cluster_node_id=0
     - db_url=sqlite3:///data/completer.db
     - http_proxy=
     - HTTP_PROXY=
 
-# can't use docker compose scale since it doesn't set the instance number in the hostname
-# see https://github.com/docker/compose/issues/677
   node-1:
     image: "fnproject/completer:latest"
     ports:
      - "8080"
     volumes:
      - ./data:/data
-    hostname: node-1
     environment:
     - listen=0.0.0.0:8080
     - cluster_node_prefix=node-
     - cluster_shard_count=20
     - cluster_node_count=2
+    - cluster_node_id=1
     - db_url=sqlite3:///data/completer.db
     - http_proxy=
     - HTTP_PROXY=
-

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fnproject/completer/sharding"
+
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/cluster"
 	"github.com/fnproject/completer/model"
@@ -234,12 +236,12 @@ func NewTestServer() *server.Server {
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
 	clusterSettings := &cluster.ClusterSettings{
 		NodeCount:  1,
-		ShardCount: 1,
-		NodeName:   "node-0",
+		NodeID:     0,
 		NodePrefix: "node-",
 	}
-	clusterManager := cluster.NewManager(clusterSettings)
-	graphManager, err := actor.NewGraphManager(clusterManager, persistenceProvider, blobStorage, "http:")
+	shardExtractor := sharding.NewFixedSizeExtractor(10 * clusterSettings.NodeCount)
+	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
+	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:", shardExtractor)
 	if err != nil {
 		panic(err)
 	}

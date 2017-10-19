@@ -3,6 +3,8 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/model"
@@ -10,7 +12,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	"strings"
 )
 
 type subscribeGraph struct {
@@ -28,7 +29,10 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 	}
 
 	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
-	sub := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
+	sub, err := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
+	if err != nil {
+		return err
+	}
 	l.subscriptions[sg.GraphID] = sub
 	return nil
 }
@@ -160,6 +164,6 @@ func (l *wsWorker) Close() {
 func NewWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
 	return &wsWorker{conn: conn,
 		subscriptions: make(map[string]*eventstream.Subscription),
-		marshaller:jsonpb.Marshaler{EmitDefaults:true,OrigName:true},
+		marshaller:    jsonpb.Marshaler{EmitDefaults: true, OrigName: true},
 		manager:       manager}
 }

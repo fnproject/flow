@@ -1,13 +1,14 @@
 package setup
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fnproject/completer/sharding"
 
 	"github.com/fnproject/completer/actor"
 	"github.com/fnproject/completer/cluster"
@@ -28,6 +29,7 @@ const (
 	EnvClusterNodeCount  = "cluster_node_count"
 	EnvClusterShardCount = "cluster_shard_count"
 	EnvClusterNodePrefix = "cluster_node_prefix"
+	EnvClusterNodeID     = "cluster_node_id"
 )
 
 var defaults = make(map[string]string)
@@ -46,15 +48,15 @@ func GetString(key string) string {
 	return defaults[key]
 }
 
-func GetInteger(key string) (int, error) {
+func GetInteger(key string) int {
 	if valueStr := GetString(key); len(valueStr) > 0 {
-		if val, err := strconv.Atoi(valueStr); err != nil {
-			return 0, err
-		} else {
-			return val, nil
+		val, err := strconv.Atoi(valueStr)
+		if err != nil {
+			panic(fmt.Sprintf("Value of key %s is not a number", key))
 		}
+		return val
 	}
-	return 0, errors.New("Empty key")
+	panic(fmt.Sprintf("Missing required key %s", key))
 }
 
 func GetDurationMs(key string) time.Duration {
@@ -84,7 +86,8 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvRequestTimeout, "60000")
 
 	// single node defaults
-	SetDefault(EnvClusterNodePrefix, "node_")
+	SetDefault(EnvClusterNodePrefix, "node-")
+	SetDefault(EnvClusterNodeID, "0")
 	SetDefault(EnvClusterNodeCount, "1")
 	SetDefault(EnvClusterShardCount, "10")
 
@@ -109,29 +112,18 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Warn("Couldn't resolve hostname, defaulting to localhost")
-		hostname = "localhost"
-	}
+	nodeCount := GetInteger(EnvClusterNodeCount)
+	shardCount := GetInteger(EnvClusterShardCount)
+	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
-	nodeCount, err := GetInteger(EnvClusterNodeCount)
-	if err != nil {
-		panic("Invalid cluster node count provided: " + err.Error())
-	}
-	shardCount, err := GetInteger(EnvClusterShardCount)
-	if err != nil {
-		panic("Invalid cluser shard count provided: " + err.Error())
-	}
 	clusterSettings := &cluster.ClusterSettings{
 		NodeCount:  nodeCount,
-		ShardCount: shardCount,
-		NodeName:   hostname,
+		NodeID:     GetInteger(EnvClusterNodeID),
 		NodePrefix: GetString(EnvClusterNodePrefix),
 	}
-	clusterManager := cluster.NewManager(clusterSettings)
+	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
-	graphManager, err := actor.NewGraphManager(clusterManager, provider, blobStore, GetString(EnvFnApiURL))
+	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL), shardExtractor)
 	if err != nil {
 		return nil, err
 	}

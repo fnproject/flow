@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -186,7 +187,13 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 		return
 	}
 
-	graphID, err := uuid.NewRandom()
+	var graphID uuid.UUID
+	var err error
+	if p := c.Param("graphId"); len(p) > 0 {
+		graphID, err = uuid.Parse(p)
+	} else {
+		graphID, err = uuid.NewRandom()
+	}
 	if err != nil {
 		renderError(err, c)
 		return
@@ -212,7 +219,6 @@ func (s *Server) handleGraphState(c *gin.Context) {
 	}
 
 	request := &model.GetGraphStateRequest{GraphId: graphID}
-
 	resp, err := s.GraphManager.GetGraphState(request, s.requestTimeout)
 
 	if err != nil {
@@ -646,7 +652,7 @@ type Server struct {
 
 func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(), clusterManager.ProxyHandler())
+	engine.Use(gin.Logger(), gin.Recovery(), GraphCreateInterceptor, clusterManager.ProxyHandler())
 	return engine
 }
 
@@ -696,4 +702,18 @@ func (s *Server) Run() {
 	log.WithField("listen_url", s.listen).Infof("Starting Completer server (timeout %s) ", s.requestTimeout)
 
 	s.Engine.Run(s.listen)
+}
+
+// context handler that intercepts graph create requests, injecting a UUID parameter prior
+// to forwarding to the appropriate node in the cluster
+func GraphCreateInterceptor(c *gin.Context) {
+	if c.Request.URL.Path == "/graph" && c.Request.Method == "POST" {
+		UUID, err := uuid.NewRandom()
+		if err != nil {
+			c.AbortWithError(500, errors.New("Failed to generate UUID"))
+			return
+		}
+		log.Info("Generated new UUID %v", UUID.String())
+		c.Params = append(c.Params, gin.Param{Key: "graphId", Value: UUID.String()})
+	}
 }

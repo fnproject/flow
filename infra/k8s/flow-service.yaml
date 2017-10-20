@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: flow
+  name: flow-service
+  labels:
+    app: flow
+    role: flow-service
+spec:
+  type: NodePort
+  ports:
+  - name: flow-service
+    port: 8081
+    targetPort: 8081
+    nodePort: 32181
+  selector:
+    app: flow
+    role: flow-service
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  namespace: flow
+  name: flow-service
+spec:
+  replicas: 3
+  podManagementPolicy: Parallel
+  serviceName: flow-service
+  template:
+    metadata:
+      labels:
+        app: flow
+        role: flow-service
+    spec:
+      containers:
+      - name: flow-service
+        image: fnproject/completer
+        imagePullPolicy: Always
+        command: [ 'sh', '-c' ]
+        args:
+        - cluster_node_id=$(hostname); export cluster_node_id=${cluster_node_id##*-}; exec /fnproject/completer
+        ports:
+        - containerPort: 8081
+        env:
+          - name: LOG_LEVEL
+            value: debug
+          - name: listen
+            value: 0.0.0.0:8081
+          - name: cluster_node_prefix
+            value: flow-service-
+          - name: cluster_shard_count
+            value: "20"
+          - name: cluster_node_count
+            value: "3"
+          - name: cluster_node_id
+            value: "3"
+          - name: db_url
+            value: sqlite3:///data/completer.db
+          - name: http_proxy
+            value: 
+          - name: HTTP_PROXY
+            value: 
+          - name: FN_HOST
+            value: fn-service.fn
+          - name: FN_PORT
+            value: "8080"

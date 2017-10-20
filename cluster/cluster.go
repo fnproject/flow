@@ -47,6 +47,16 @@ func NewManager(settings *ClusterSettings, extractor sharding.ShardExtractor) *C
 	return &ClusterManager{settings: settings, extractor: extractor, reverseProxies: proxies}
 }
 
+func (m *ClusterManager) LocalShards() (shards []int) {
+	for shard := 0; shard < m.extractor.ShardCount(); shard++ {
+		nodeIndex := shard % m.settings.NodeCount
+		if nodeIndex == m.settings.NodeID {
+			shards = append(shards, shard)
+		}
+	}
+	return
+}
+
 func newReverseProxy(node string) (*httputil.ReverseProxy, error) {
 	// TODO honor ports passed by configuration
 	url, err := url.Parse(fmt.Sprintf("http://%s:%d", node, 8080))

@@ -123,7 +123,8 @@ func InitFromEnv() (*server.Server, error) {
 	}
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
-	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL), shardExtractor)
+	shards := clusterManager.LocalShards()
+	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL), shardExtractor, shards)
 	if err != nil {
 		return nil, err
 	}

@@ -241,7 +241,8 @@ func NewTestServer() *server.Server {
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(10 * clusterSettings.NodeCount)
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
-	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:", shardExtractor)
+	shards := clusterManager.LocalShards()
+	graphManager, err := actor.NewGraphManager(persistenceProvider, blobStorage, "http:", shardExtractor, shards)
 	if err != nil {
 		panic(err)
 	}

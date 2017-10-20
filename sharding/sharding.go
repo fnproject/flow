@@ -8,17 +8,18 @@ import (
 
 type ShardExtractor interface {
 	ShardID(graphID string) (int, error)
+	ShardCount() int
 }
 
-type moduloShardExtractor struct {
+type fixedSizeShardExtractor struct {
 	shardCount int
 }
 
 func NewFixedSizeExtractor(shardCount int) ShardExtractor {
-	return &moduloShardExtractor{shardCount: shardCount}
+	return &fixedSizeShardExtractor{shardCount: shardCount}
 }
 
-func (m *moduloShardExtractor) ShardID(graphID string) (int, error) {
+func (m *fixedSizeShardExtractor) ShardID(graphID string) (int, error) {
 	if UUID, err := uuid.Parse(graphID); err != nil {
 		return 0, err
 	} else {
@@ -28,4 +29,8 @@ func (m *moduloShardExtractor) ShardID(graphID string) (int, error) {
 		shard := hilo % uint64(m.shardCount)
 		return int(shard), nil
 	}
+}
+
+func (m *fixedSizeShardExtractor) ShardCount() int {
+	return m.shardCount
 }

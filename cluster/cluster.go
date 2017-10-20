@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var log = logrus.WithField("logger", "proxy")
+var log = logrus.WithField("logger", "cluster")
 
 type ClusterSettings struct {
 	NodeCount  int
@@ -76,14 +76,14 @@ func (m *ClusterManager) forward(writer http.ResponseWriter, req *http.Request, 
 	return nil
 }
 
-func (m *ClusterManager) resolveNode(graphID string) (string, error) {
+func (m *ClusterManager) resolveNode(graphID string) (int, error) {
 	shard, err := m.extractor.ShardID(graphID)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 	nodeIndex := shard % m.settings.NodeCount
 	log.WithField("graph_id", graphID).WithField("cluster_shard", shard).Info("Resolved shard")
-	return m.settings.nodeName(nodeIndex), nil
+	return nodeIndex, nil
 }
 
 // returns node to forward to, if applicable
@@ -93,21 +93,25 @@ func (m *ClusterManager) shouldForward(c *gin.Context) (bool, string) {
 		return false, ""
 	}
 
-	node, err := m.resolveNode(graphID)
-	log.WithField("graph_id", graphID).WithField("cluster_node", node).Info("Resolved node")
+	nodeIndex, err := m.resolveNode(graphID)
+	nodeName := m.settings.nodeName(nodeIndex)
+	log.WithField("graph_id", graphID).WithField("cluster_node", nodeName).Info("Resolved node")
 	if err != nil {
 		log.Info(fmt.Sprintf("Failed to resolve node for graphId %s: %v", graphID, err))
 		return false, ""
 	}
-	localNode := fmt.Sprintf("%s%d", m.settings.NodePrefix, m.settings.NodeID)
-	if node == localNode {
-		return false, node
+	if nodeIndex == m.settings.NodeID {
+		return false, nodeName
 	}
-	return true, node
+	return true, nodeName
 }
 
 func extractGraphId(c *gin.Context) string {
-	return c.Param("graphId")
+	if c.Request.URL.Path == "/graph" {
+		return c.Query("graphId")
+	} else {
+		return c.Param("graphId")
+	}
 }
 
 func (m *ClusterManager) ProxyHandler() gin.HandlerFunc {
@@ -115,14 +119,20 @@ func (m *ClusterManager) ProxyHandler() gin.HandlerFunc {
 		forward, node := m.shouldForward(c)
 		if !forward {
 			log.Info("Processing request locally")
-			c.Next()
 			return
 		}
 		graphID := extractGraphId(c)
-		log.WithField("graph_id", graphID).WithField("proxy_node", node).Info("Proxying graph request")
+		log.WithField("graph_id", graphID).
+			WithField("proxy_node", node).
+			WithField("proxy_url", c.Request.URL.String()).
+			Info("Proxying graph request")
+
 		if err := m.forward(c.Writer, c.Request, node); err != nil {
 			// TODO should we retry if this fails? buffer requests while upstream is unavailable?
-			log.WithField("graph_id", graphID).WithField("proxy_node", node).Warn("Failed to proxy graph request")
+			log.WithField("graph_id", graphID).
+				WithField("proxy_node", node).
+				WithField("proxy_url", c.Request.URL.String()).
+				Warn("Failed to proxy graph request")
 			c.AbortWithError(502, errors.New("Failed to proxy graph request"))
 			return
 		}

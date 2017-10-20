@@ -26,6 +26,13 @@ const (
 	MaxDelay          = 3600 * 1000 * 24
 	maxRequestTimeout = 1 * time.Hour
 	minRequestTimeout = 1 * time.Second
+
+	ParamGraphID   = "graphId"
+	ParamStageID   = "stageId"
+	ParamOperation = "operation"
+
+	QueryParamGraphID    = "graphId"
+	QueryParamFunctionID = "functionId"
 )
 
 var log = logrus.WithField("logger", "server")
@@ -77,17 +84,17 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 }
 
 func (s *Server) handleStageOperation(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
 	}
-	stageID := c.Param("stageId")
+	stageID := c.Param(ParamStageID)
 	if !validStageId(graphID) {
 		renderError(ErrInvalidStageId, c)
 		return
 	}
-	operation := c.Param("operation")
+	operation := c.Param(ParamOperation)
 	body, err := c.GetRawData()
 	if err != nil {
 		renderError(ErrReadingInput, c)
@@ -161,7 +168,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 func renderError(err error, c *gin.Context) {
 	if gin.Mode() == gin.DebugMode {
-		log.WithError(err).Error("Error occured in request")
+		log.WithError(err).Error("Error occurred in request")
 	}
 	switch e := err.(type) {
 
@@ -179,28 +186,20 @@ func renderError(err error, c *gin.Context) {
 
 func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
-	functionID := c.Query("functionId")
+	functionID := c.Query(QueryParamFunctionID)
+	graphID := c.Query(QueryParamGraphID)
 
 	if !validFunctionId(functionID, false) {
 		log.WithField("function_id", functionID).Info("Invalid function iD ")
 		renderError(ErrInvalidFunctionId, c)
 		return
 	}
-
-	var graphID uuid.UUID
-	var err error
-	if p := c.Param("graphId"); len(p) > 0 {
-		graphID, err = uuid.Parse(p)
-	} else {
-		graphID, err = uuid.NewRandom()
-	}
-	if err != nil {
-		renderError(err, c)
+	if !validGraphId(graphID) {
+		renderError(ErrInvalidGraphId, c)
 		return
 	}
 
-	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID.String()}
-
+	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID}
 	result, err := s.GraphManager.CreateGraph(req, s.requestTimeout)
 	if err != nil {
 		renderError(err, c)
@@ -212,7 +211,7 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 
 func (s *Server) handleGraphState(c *gin.Context) {
 
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -236,8 +235,8 @@ func resultStatus(result *model.CompletionResult) string {
 }
 
 func (s *Server) handleGetGraphStage(c *gin.Context) {
-	graphID := c.Param("graphId")
-	stageID := c.Param("stageId")
+	graphID := c.Param(ParamGraphID)
+	stageID := c.Param(ParamStageID)
 
 	timeout := maxRequestTimeout
 
@@ -371,7 +370,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 }
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -394,7 +393,7 @@ func (s *Server) handleExternalCompletion(c *gin.Context) {
 
 func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	cidList := c.Query("cids")
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -437,7 +436,7 @@ func (s *Server) handleAnyOf(c *gin.Context) {
 }
 
 func (s *Server) handleSupply(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -483,7 +482,7 @@ func (s *Server) handleSupply(c *gin.Context) {
 }
 
 func (s *Server) handleCompletedValue(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -516,7 +515,7 @@ func (s *Server) addStage(request model.AddStageCommand) (*model.AddStageRespons
 }
 
 func (s *Server) handleCommit(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	request := model.CommitGraphRequest{GraphId: graphID}
 
 	response, err := s.GraphManager.Commit(&request, s.requestTimeout)
@@ -530,7 +529,7 @@ func (s *Server) handleCommit(c *gin.Context) {
 }
 
 func (s *Server) handleDelay(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -562,7 +561,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 }
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -603,7 +602,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 }
 
 func (s *Server) handleAddTerminationHook(c *gin.Context) {
-	graphID := c.Param("graphId")
+	graphID := c.Param(ParamGraphID)
 	if !validGraphId(graphID) {
 		renderError(ErrInvalidGraphId, c)
 		return
@@ -707,13 +706,18 @@ func (s *Server) Run() {
 // context handler that intercepts graph create requests, injecting a UUID parameter prior
 // to forwarding to the appropriate node in the cluster
 func GraphCreateInterceptor(c *gin.Context) {
-	if c.Request.URL.Path == "/graph" && c.Request.Method == "POST" {
+	if c.Request.URL.Path == "/graph" && len(c.Query(QueryParamGraphID)) == 0 {
 		UUID, err := uuid.NewRandom()
 		if err != nil {
-			c.AbortWithError(500, errors.New("Failed to generate UUID"))
+			c.AbortWithError(500, errors.New("Failed to generate UUID for new graph"))
 			return
 		}
-		log.Info("Generated new UUID %v", UUID.String())
-		c.Params = append(c.Params, gin.Param{Key: "graphId", Value: UUID.String()})
+		graphID := UUID.String()
+		log.Infof("Generated new graph ID %s", graphID)
+
+		// set the graphId query param in the original request prior to proxying
+		values := c.Request.URL.Query()
+		values.Add(QueryParamGraphID, graphID)
+		c.Request.URL.RawQuery = values.Encode()
 	}
 }

@@ -22,11 +22,11 @@ type graphSupervisor struct {
 }
 
 // NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+func NewSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
 	return &graphSupervisor{
 		executor:            executor,
 		persistenceProvider: persistenceProvider,
-		log:                 logrus.New().WithField("logger", "graph_supervisor"),
+		log:                 logrus.New().WithField("logger", name),
 		activeGraphs:        make(map[string]bool),
 	}
 }

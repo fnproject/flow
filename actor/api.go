@@ -72,17 +72,17 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 
 	streamingProvider := persistence.NewStreamingProvider(persistenceProvider)
 
-	supervisorProps := actor.
-		FromInstance(NewSupervisor(executor, streamingProvider)).
-		WithSupervisor(strategy).
-		WithMiddleware(persistence.Using(streamingProvider))
-
 	supervisors := make(map[int]*actor.PID)
-	for shard, _ := range shards {
-		actorName := supervisorName(shard)
-		shardSupervisor, err := actor.SpawnNamed(supervisorProps, actorName)
+	for _, shard := range shards {
+		name := supervisorName(shard)
+		supervisorProps := actor.
+			FromInstance(NewSupervisor(name, executor, streamingProvider)).
+			WithSupervisor(strategy).
+			WithMiddleware(persistence.Using(streamingProvider))
+
+		shardSupervisor, err := actor.SpawnNamed(supervisorProps, name)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to spawn actor %s: %v", actorName, err))
+			panic(fmt.Sprintf("Failed to spawn actor %s: %v", name, err))
 		}
 		supervisors[shard] = shardSupervisor
 	}

@@ -28,7 +28,7 @@ var (
 func TestShardMapping(t *testing.T) {
 	node, e := defaultManager.resolveNode(validGraphID)
 	assert.Nil(t, e)
-	assert.Contains(t, node, defaultSettings.NodePrefix)
+	assert.True(t, node >= 0 && node < defaultSettings.NodeCount)
 }
 func TestInvalidShardMapping(t *testing.T) {
 	_, e := defaultManager.resolveNode(invalidGraphID)

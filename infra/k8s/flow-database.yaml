@@ -8,7 +8,7 @@ data:
   # flow
   MYSQL_USER: Zmxvdw==
   # randomly generated
-  MYSQL_PASSWORD: b1AyWWUzRzBrclpIRlNOMGpiV2dzeGlsYTZSUXd6cDRuQ29HMVliamMK
+  MYSQL_PASSWORD: SlBmM2NHQnZiSlNYRVZ0azJKaHlHTUo5UG00RTRGNjJqdGxEN3NqdmZROA==
 ---
 #apiVersion: v1
 #kind: ConfigMap

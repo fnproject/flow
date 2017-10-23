@@ -63,4 +63,5 @@ import:
   - context
 - package: github.com/gorilla/websocket
   version: v1.2.0
-
+- package: github.com/go-sql-driver/mysql
+  version: ~1.3.0

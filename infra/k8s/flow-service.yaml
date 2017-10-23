@@ -1,9 +1,4 @@
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: flow
----
-apiVersion: v1
 kind: Service
 metadata:
   namespace: flow
@@ -65,8 +60,20 @@ spec:
             value: "3"
           - name: cluster_node_id
             value: "3"
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                name: flow-mysql-secret
+                key: MYSQL_USER
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: flow-mysql-secret
+                key: MYSQL_PASSWORD
+          - name: MYSQL_DATABASE
+            value: flow
           - name: db_url
-            value: sqlite3:///data/completer.db
+            value: mysql://$(MYSQL_USER):$(MYSQL_PASSWORD)@tcp(mysql.flow:3306)/flow
           - name: http_proxy
             value: 
           - name: HTTP_PROXY

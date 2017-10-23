@@ -9,6 +9,8 @@ with the name "fn-service.fn" on port 8080.
 Then deploy the StatefulSet for the Fn Flow completer. The kubectl
 configuration here should work on k8s 1.7.
 
+    kubectl create -f flow-namespace.yaml
+    kubectl create -f flow-database.yaml
     kubectl create -f flow-service.yaml
 
 It should be arranged that COMPLETER_API is configured on all applications

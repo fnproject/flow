@@ -9,6 +9,7 @@ import (
 	"strings"
 	"github.com/sirupsen/logrus"
 	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (

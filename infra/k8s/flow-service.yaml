@@ -46,6 +46,12 @@ spec:
         - cluster_node_id=$(hostname); export cluster_node_id=${cluster_node_id##*-}; exec /fnproject/completer
         ports:
         - containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8081
+          initialDelaySeconds: 3
+          periodSeconds: 3
         env:
           - name: LOG_LEVEL
             value: debug

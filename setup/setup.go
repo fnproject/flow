@@ -89,7 +89,6 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvClusterNodePrefix, "node-")
 	SetDefault(EnvClusterNodeID, "0")
 	SetDefault(EnvClusterNodeCount, "1")
-	SetDefault(EnvClusterShardCount, "10")
 
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
@@ -113,7 +112,12 @@ func InitFromEnv() (*server.Server, error) {
 	}
 
 	nodeCount := GetInteger(EnvClusterNodeCount)
-	shardCount := GetInteger(EnvClusterShardCount)
+	var shardCount int
+	if len(GetString(EnvClusterShardCount)) == 0 {
+		shardCount = 10 * nodeCount
+	} else {
+		shardCount = GetInteger(EnvClusterShardCount)
+	}
 	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
 	clusterSettings := &cluster.ClusterSettings{

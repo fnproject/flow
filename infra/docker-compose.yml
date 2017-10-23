@@ -9,7 +9,6 @@ services:
     environment:
     - listen=0.0.0.0:8080
     - cluster_node_prefix=node-
-    - cluster_shard_count=20
     - cluster_node_count=2
     - cluster_node_id=0
     - db_url=sqlite3:///data/completer.db
@@ -25,7 +24,6 @@ services:
     environment:
     - listen=0.0.0.0:8080
     - cluster_node_prefix=node-
-    - cluster_shard_count=20
     - cluster_node_count=2
     - cluster_node_id=1
     - db_url=sqlite3:///data/completer.db

@@ -5,7 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {

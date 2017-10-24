@@ -2,7 +2,7 @@
 set -ex
 
 user="fnproject"
-service="completer"
+service="flow"
 tag="latest"
 
 # ensure working dir is clean

@@ -2,9 +2,9 @@ package setup
 
 import (
 	"fmt"
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/server"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/url"
@@ -59,7 +59,7 @@ func InitFromEnv() (*server.Server, error) {
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
 	SetDefault(EnvLogLevel, "debug")
-	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/completer.db", cwd))
+	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
 	SetDefault(EnvListen, fmt.Sprintf(":8081"))
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")

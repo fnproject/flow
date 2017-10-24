@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

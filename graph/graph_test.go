@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

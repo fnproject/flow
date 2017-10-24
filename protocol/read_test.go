@@ -7,8 +7,8 @@ import (
 	"mime/multipart"
 	"net/textproto"
 	"testing"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/model"
 	"net/http"
 	"io/ioutil"
 )

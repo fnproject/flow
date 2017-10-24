@@ -7,8 +7,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
 )
 

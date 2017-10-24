@@ -3,9 +3,9 @@ package sanity
 import (
 	"bytes"
 	"fmt"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"

@@ -6,8 +6,8 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 )
 
 func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {

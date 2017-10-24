@@ -6,7 +6,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/sirupsen/logrus"
-	"github.com/fnproject/completer/setup"
+	"github.com/fnproject/flow/setup"
 )
 
 var log = logrus.WithField("logger", "main")

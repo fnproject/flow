@@ -1,15 +1,15 @@
 package sanity
 
 import (
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/server"
 	"net/http"
 	"testing"
 
 	"fmt"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/protocol"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/protocol"
 	"github.com/stretchr/testify/assert"
 	"time"
 )

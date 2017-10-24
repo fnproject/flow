@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 	"regexp"
 )
 

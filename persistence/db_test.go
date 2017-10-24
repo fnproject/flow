@@ -10,7 +10,7 @@ import (
 )
 
 var tmpDir = path.Clean(os.TempDir())
-var dbPath = fmt.Sprintf("%s/completer_test", tmpDir)
+var dbPath = fmt.Sprintf("%s/flow_test", tmpDir)
 var dbFile = fmt.Sprintf("%s/test.db", dbPath)
 
 

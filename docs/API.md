@@ -1,12 +1,12 @@
 # Fn Flow API
 
-This document defines how to interact with flows via the completer, and how the completer invokes flow stages via fn.
+This document defines how to interact with flows via the flow service, and how the flow service invokes flow stages via fn.
 
 There are two API call contracts: 
 
-The [Client API](#completer-client-api) between a client function and the completer: Functions make calls to the completer to create flows and append completion stages , the completer stores these and invokes the stages when they are triggered.
+The [Client API](#completer-client-api) between a client function and the flow service: Functions make calls to the flow service to create flows and append completion stages , the flow service stores these and invokes the stages when they are triggered.
 
-The [Invoke API](#completer-invoke-api) between the completer and a the fn service: The completer invokes back into fn via its public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the completer.
+The [Invoke API](#completer-invoke-api) between the flow service and a the fn service: The flow service invokes back into fn via its public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the flow service.
 
  
 
@@ -64,7 +64,7 @@ When receiving a response from a function invocation, the HTTP response cannot h
 
 The following sections define the request/response protocol for the lifetime of a Fn Flow application.
 
-### Runtime Creates a Flow (Function->Completer)
+### Runtime Creates a Flow (Function->Flow Service)
 
 The function creates a new flow by POST am empty request to the `/graph` endpoint with a function ID  of the current function.
 
@@ -76,7 +76,7 @@ Content-length: 0
 
 ```
 
-The completer returns with an empty response containing the new flow ID in the FnProject-FlowID header:
+The flow service returns with an empty response containing the new flow ID in the FnProject-FlowID header:
 
 ```
 HTTP/1.1 200 OK 
@@ -85,7 +85,7 @@ FnProject-FlowID: flow-abcd-12344
 
 ### Runtime creates a stage in the graph
 
-HTTP POST requests to the Completer Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
+HTTP POST requests to the Flow Service Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
 
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
@@ -100,15 +100,15 @@ FnProject-CodeLocation: com.example.fn.HelloFunction.handleRequest(HelloFunction
 ```
 The FnProject-CodeLocation is an opaque string.
 
-The completer returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new `StageID` in the `FnProject-StageID` header. 
 ```
 HTTP/1.1 200 OK
 FnProject-StageID: 1
 ```
 
-### Runtime requests a function invocation via the completer 
+### Runtime requests a function invocation via the flow service 
 
-Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The completer will then use this datum to create and send a request to fn upon successfully triggering this stage.
+Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
 POST /graph/flow-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
@@ -120,13 +120,13 @@ Content-Type: application/json
 ...request body...
 ```
 
-Again the completer returns a new `StageID` in the `FnProject-StageID` header. 
+Again the flow service returns a new `StageID` in the `FnProject-StageID` header. 
 ```
 HTTP/1.1 200 OK
 FnProject-StageID: 3
 ```
 
-### Runtime creates a completed future on the completer 
+### Runtime creates a completed future on the flow service 
 
 The function pushes a Result value to /graph/<graph-id>/completedValue containing a Datum request and and including an optional  `FnProject-ResultStatus` to indicate whether the value should trigger successfully or with an error. If `FnProject-ResultStatus` is ommitted then the value is assumed to be successful. 
 
@@ -139,14 +139,14 @@ Content-Type: application/json
 ...request body...
 ```
 
-The completer returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new `StageID` in the `FnProject-StageID` header. 
 ```
 HTTP/1.1 200 OK
 FnProject-StageID: 3
 ```
 
 
-### Completer Invokes a Continuation
+### Flow service Invokes a Continuation
 
 A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null. HTTP multipart is used to frame the different elements of the request.
 
@@ -180,7 +180,7 @@ FnProject-DatumType: empty
 
 #### Encapsulation of the result
 
-As explained above, because of the `fn` contract the actual HTTP response that the completer will see is serialized in the body of the 'wrapper' HTTP response returned by the functions platform.
+As explained above, because of the `fn` contract the actual HTTP response that the flow service will see is serialized in the body of the 'wrapper' HTTP response returned by the functions platform.
 
 #### Successful Result
 
@@ -227,7 +227,7 @@ FnProject-ResultStatus: failure
 #### Platform Error
 
 Completion stages can also fail due to errors thrown outside of the user's
-code. For example, the completer may time out while waiting for a response to
+code. For example, the flow service may time out while waiting for a response to
 a continuation request. In such cases, the completion stage will fail, but
 there will be no exception or stacktrace associated with the failure.
 Retrieving the value of a failed stage due to a platform error will return the
@@ -260,12 +260,12 @@ In the Java runtime, a platform error will be internally converted to a `CloudCo
 | stage-invoke-failed | a completion stage invocation failed  within Fn  - the stage may or may not have been invoked  and that invocation may or may not have completed |
 | function-timeout | A function call timed out | 
 | function-invoke-failed | A function call failed within Fn platform  - the function may or may not have been invoked  and that invocation may or may not have completed | 
-| stage-lost | A stage failed after an internal error in the completer the stage may or may not have been invoked  and that invocation may or may not have completed| 
+| stage-lost | A stage failed after an internal error in the flow service the stage may or may not have been invoked  and that invocation may or may not have completed| 
 
 
 Recipients should accept unknown values for this header.
 
-### Completer Invokes a Function
+### Flow service Invokes a Function
 
 Completion stages that invoke an external function via a call to _invokeFunction_ may also complete successfully or with an error. They may also fail to complete due to a platform error.
 
@@ -275,7 +275,7 @@ In this case, the invoked function is external and thus does not need to conform
 
 #### Successful Response
 
-When a function call completes successfully, the completer will persist the HTTP status code and headers along with the body of the response. This HTTP response data will be included in the appropriate argument part of a multipart continuation request for any dependent completion stages, as well as when retrieving the value of this stage. For example:
+When a function call completes successfully, the flow service will persist the HTTP status code and headers along with the body of the response. This HTTP response data will be included in the appropriate argument part of a multipart continuation request for any dependent completion stages, as well as when retrieving the value of this stage. For example:
 
 ```
 FnProject-DatumType: httpresp
@@ -296,7 +296,7 @@ Runtimes may also optionally provide coercions of function results to the approp
 
 #### Failed Response
 
-As with successful invocations, the completer will store body, status and headers for function invocations where the function indicates that it has terminated unsuccessfully. In this case the stage's status will be set to _failure_ and the body will echo the output from the function:
+As with successful invocations, the flow service will store body, status and headers for function invocations where the function indicates that it has terminated unsuccessfully. In this case the stage's status will be set to _failure_ and the body will echo the output from the function:
 
 ```
 FnProject-DatumType: httpresp
@@ -355,7 +355,7 @@ In the Java runtime, this stage's value will be transparently coerced to the `Ht
 
 #### Failed Value
 
-POSTing to the _failUrl_ will also result in the completer saving HTTP status, headers and body of the original request. For example, the following POST request
+POSTing to the _failUrl_ will also result in the flow service saving HTTP status, headers and body of the original request. For example, the following POST request
 
 ```
 Content-Type: application/json
@@ -383,7 +383,7 @@ In the Java runtime, this stage's value will be transparently wrapped in the `Ex
 ## Graph Completion & Committing the graph 
 A graph is completed  (and can no longer be modified) once all stages in the graph that can be executed are completed (note that  some stages may not be run). 
 
-The completer observes the state of the graph to determine when pending work is complete,  to detect this condition, however as the graph is is created by a process that is outside of the completer's control (e.g. a function not run by the completer itself) that process must  indicate to the completer that it has finished modifying the graph by calling the `commit` API call on a graph. 
+The flow service observes the state of the graph to determine when pending work is complete,  to detect this condition, however as the graph is is created by a process that is outside of the flow service's control (e.g. a function not run by the flow service itself) that process must  indicate to the flow service that it has finished modifying the graph by calling the `commit` API call on a graph. 
 
 e.g.: 
 ```
@@ -392,7 +392,7 @@ POST /graph/graph-121/commit HTTP/1.1
 
 
 
-### Completer Client API
+### Flow Client API
 We'll swagger this up at some point 
 
 
@@ -425,15 +425,15 @@ We'll swagger this up at some point
 
 Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage result by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
 
-Data is exchanged between the client and the completer and the completer and the function using HTTP multipart messages 
+Data is exchanged between the client and the flow service and the flow service and the function using HTTP multipart messages 
  
-### Completer Invoke API
+### Flow Invoke API
 
-The following sections describe the completer contract for outgoing requests into fn's public API.
+The following sections describe the flow  contract for outgoing requests into fn's public API.
 
 #### Closure Invocation
 
-The completer makes a closure invocation request into fn when triggering a stage of computation. The request consists of a closure optionally followed by a variable number of arguments. In order to frame the different elements of the request, HTTP multipart should be used. The closure and arguments constitute the individual parts and must be named _closure_ and _arg_X_ where X is the index of the argument starting at 0. Note also that the arguments should appear in increasing order in the request, with the lowest index appearing immediately after the closure part. 
+The flow service makes a closure invocation request into fn when triggering a stage of computation. The request consists of a closure optionally followed by a variable number of arguments. In order to frame the different elements of the request, HTTP multipart should be used. The closure and arguments constitute the individual parts and must be named _closure_ and _arg_X_ where X is the index of the argument starting at 0. Note also that the arguments should appear in increasing order in the request, with the lowest index appearing immediately after the closure part. 
 
 Example request:
 
@@ -497,7 +497,7 @@ FnProject-ResultStatus: failure
 
 #### Function Invocation
 
-The completer makes a function request into fn when triggering execution of a stage associated with a function (i.e. a stage created via _invokeFunction_). The outgoing request will incorporate the HTTP method, headers, and body supplied by the application when constructing the stage.
+The flow service makes a function request into fn when triggering execution of a stage associated with a function (i.e. a stage created via _invokeFunction_). The outgoing request will incorporate the HTTP method, headers, and body supplied by the application when constructing the stage.
 
 Example request:
 

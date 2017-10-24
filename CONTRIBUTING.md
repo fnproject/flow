@@ -1,4 +1,4 @@
-# Contributing to the Fn Flow Completer
+# Contributing to the Fn Flow Service
 
 We welcome all contributions!
 

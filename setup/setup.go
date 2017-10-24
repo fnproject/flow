@@ -59,7 +59,7 @@ func InitFromEnv() (*server.Server, error) {
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
 	SetDefault(EnvLogLevel, "debug")
-	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/completer.db", cwd))
+	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
 	SetDefault(EnvListen, fmt.Sprintf(":8081"))
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")

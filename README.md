@@ -1,4 +1,4 @@
-# Fn Flow Completer
+# Fn Flow Service
 
 [![CircleCI](https://circleci.com/gh/fnproject/completer.svg?style=svg&circle-token=d575f7642bba6f19f10f7a219d7298bb9d33c303)](https://circleci.com/gh/fnproject/completer)
 
@@ -18,7 +18,7 @@ In languages such as Java where closures (labmdas) can be serialized this allows
 
 
 
-## Running the completer 
+## Running the Flow Service
 
 Make sure the functions server is running 
 ```bash 
@@ -58,7 +58,7 @@ Then run the flow service  :
 docker run --rm  -d -p 8081:8081 \
            -e API_URL="http://$DOCKER_LOCALHOST:8080/r" \
            -e no_proxy=$DOCKER_LOCALHOST \
-           --name completer \
+           --name flow-service \
            fnproject/flow:latest
 ```
 

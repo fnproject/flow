@@ -1,6 +1,6 @@
 # Fn Flow Service
 
-[![CircleCI](https://circleci.com/gh/fnproject/completer.svg?style=svg&circle-token=d575f7642bba6f19f10f7a219d7298bb9d33c303)](https://circleci.com/gh/fnproject/completer)
+[![CircleCI](https://circleci.com/gh/fnproject/flow.svg?style=svg)](https://circleci.com/gh/fnproject/flow)
 
 ![logo: you complete me!](logo.jpg) 
 

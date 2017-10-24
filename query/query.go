@@ -3,7 +3,7 @@ package query
 import (
 	"net/http"
 
-	"github.com/fnproject/completer/actor"
+	"github.com/fnproject/flow/actor"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"

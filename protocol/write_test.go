@@ -6,8 +6,8 @@ import (
 	"net/textproto"
 	"testing"
 
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

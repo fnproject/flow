@@ -26,10 +26,10 @@ run: build
 
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
-CONTAINER_COMPLETER_DIR := /go/src/github.com/fnproject/completer
+CONTAINER_COMPLETER_DIR := /go/src/github.com/fnproject/flow
 
 IMAGE_REPO_USER ?= fnproject
-IMAGE_NAME ?= completer
+IMAGE_NAME ?= flow
 IMAGE_VERSION ?= latest
 IMAGE_FULL = $(IMAGE_REPO_USER)/$(IMAGE_NAME):$(IMAGE_VERSION)
 IMAGE_LATEST = $(IMAGE_REPO_USER)/$(IMAGE_NAME):latest

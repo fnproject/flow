@@ -2,9 +2,9 @@ package setup
 
 import (
 	"fmt"
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/server"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/server"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/url"

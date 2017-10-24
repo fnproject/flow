@@ -53,13 +53,13 @@ Otherwise run
 $ export DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
 ```
 
-Then run the completer : 
+Then run the flow service  : 
 ```
 docker run --rm  -d -p 8081:8081 \
            -e API_URL="http://$DOCKER_LOCALHOST:8080/r" \
            -e no_proxy=$DOCKER_LOCALHOST \
            --name completer \
-           fnproject/completer:latest
+           fnproject/flow:latest
 ```
 
 
@@ -70,13 +70,13 @@ Configure via the environment
 | Env | Default | Usage |
 | --- | --- | --- |
 | API_URL | http://localhost:8080 | sets the FN API endpoint for outbound invocations | 
-| DB_URL | sqlite3://./data/completer.db | DB url, also use "inmem:/" for in memory storage |
+| DB_URL | sqlite3://./data/flow.db | DB url, also use "inmem:/" for in memory storage |
 | LISTEN |  :8081 | listen host/port (overrides PORT)  |
 
 # Get help
 
    * Come over and chat to us on the [fnproject Slack](https://join.slack.com/t/fnproject/shared_invite/enQtMjIwNzc5MTE4ODg3LTdlYjE2YzU1MjAxODNhNGUzOGNhMmU2OTNhZmEwOTcxZDQxNGJiZmFiMzNiMTk0NjU2NTIxZGEyNjI0YmY4NTA).
-   * Raise an issue in [our github](https://github.com/fnproject/completer/).
+   * Raise an issue in [our github](https://github.com/fnproject/flow/).
 
 
 ## Contributing 

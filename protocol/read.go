@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"bufio"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 )
 
 

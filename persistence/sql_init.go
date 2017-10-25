@@ -28,8 +28,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	 blob_data BLOB);`,
 }
 
-// CreateDBConnecection sets up a DB connection and ensures required tables exist
-func CreateDBConnecection(url *url.URL) (*sqlx.DB, error) {
+// CreateDBConnection sets up a DB connection and ensures required tables exist
+func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 	driver := url.Scheme
 	switch driver {
 	case "mysql", "sqlite3":

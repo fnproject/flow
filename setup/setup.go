@@ -117,7 +117,7 @@ func InitStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 		return persistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
 	}
 
-	dbConn, err := persistence.CreateDBConnecection(dbUrl)
+	dbConn, err := persistence.CreateDBConnection(dbUrl)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/protocol"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/protocol"
 	"github.com/sirupsen/logrus"
 )
 
@@ -95,7 +95,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	resp, err := exec.client.Do(req)
 
 	if err != nil {
-		return stageFailed(msg, model.ErrorDatumType_stage_failed, "HTTP error on stage invocation: Can the completer talk to the functions server?", "")
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, "HTTP error on stage invocation: Can the flow service talk to the functions server?", "")
 	}
 	defer resp.Body.Close()
 

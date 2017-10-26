@@ -1,9 +1,8 @@
 package server
 
 import (
+	"github.com/fnproject/flow/model"
 	"regexp"
-
-	"github.com/fnproject/completer/model"
 )
 
 var graphIdRegx = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")

@@ -2,7 +2,7 @@ package persistence
 
 import (
 	"github.com/jmoiron/sqlx"
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
 )
 

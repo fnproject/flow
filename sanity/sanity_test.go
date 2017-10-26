@@ -2,18 +2,15 @@ package sanity
 
 import (
 	"fmt"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/cluster"
+	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/server"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/protocol"
 	"net/http"
 	"testing"
 	"time"
-
-	"github.com/fnproject/completer/sharding"
-
-	"github.com/fnproject/completer/actor"
-	"github.com/fnproject/completer/cluster"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
-	"github.com/fnproject/completer/protocol"
-	"github.com/fnproject/completer/server"
 	"github.com/stretchr/testify/assert"
 )
 

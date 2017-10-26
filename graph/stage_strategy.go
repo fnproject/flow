@@ -3,7 +3,7 @@ package graph
 import (
 	"fmt"
 
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 	"github.com/sirupsen/logrus"
 )
 

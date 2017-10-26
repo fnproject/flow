@@ -11,8 +11,8 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
-	"github.com/fnproject/completer/model"
-	"github.com/fnproject/completer/persistence"
+	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"strconv"
-	"github.com/fnproject/completer/model"
+	"github.com/fnproject/flow/model"
 )
 
 type BlobStore interface {

@@ -7,7 +7,27 @@ import (
 	"database/sql"
 	"github.com/jmoiron/sqlx"
 	"reflect"
+	"time"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	getEventsDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "sql_get_events_duration",
+		Help:    "SQL GetEvents duration.",
+		Buckets: prometheus.DefBuckets,
+	})
+	persistEventDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "sql_persist_event_duration",
+		Help:    "SQL PersistEvent duration.",
+		Buckets: prometheus.DefBuckets,
+	})
+)
+
+func init() {
+	prometheus.MustRegister(getEventsDurations)
+	prometheus.MustRegister(persistEventDurations)
+}
 
 type SqlProvider struct {
 	snapshotInterval int
@@ -98,6 +118,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
 	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
+	start := time.Now()
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
 		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
@@ -106,6 +127,7 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		panic(err)
 	}
 	defer rows.Close()
+	getEventsDurations.Observe(time.Since(start).Seconds())
 
 	for rows.Next() {
 		var eventType string
@@ -133,10 +155,11 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 		panic(err)
 	}
 
+	start := time.Now()
 	_, err = provider.db.Exec("INSERT OR REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
-
 	if err != nil {
 		panic(err)
 	}
+	persistEventDurations.Observe(time.Since(start).Seconds())
 }

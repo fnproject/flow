@@ -9,15 +9,15 @@ import (
 )
 
 var (
-	createBlobsDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+	createBlobsDurations = prometheus.NewSummary(prometheus.SummaryOpts{
 		Name:    "sql_create_blob_duration",
 		Help:    "SQL CreateBlob duration.",
-		Buckets: prometheus.DefBuckets,
+		Objectives: map[float64]float64{ 0.5: 0.01, 0.95: 0.01 },
 	})
-	readBlobDataDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+	readBlobDataDurations = prometheus.NewSummary(prometheus.SummaryOpts{
 		Name:    "sql_read_blob_data_duration",
 		Help:    "SQL ReadBlobData duration.",
-		Buckets: prometheus.DefBuckets,
+		Objectives: map[float64]float64{ 0.5: 0.01, 0.95: 0.01 },
 	})
 )
 

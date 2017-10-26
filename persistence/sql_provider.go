@@ -12,15 +12,15 @@ import (
 )
 
 var (
-	getEventsDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+	getEventsDurations = prometheus.NewSummary(prometheus.SummaryOpts{
 		Name:    "sql_get_events_duration",
 		Help:    "SQL GetEvents duration.",
-		Buckets: prometheus.DefBuckets,
+		Objectives: map[float64]float64{ 0.5: 0.01, 0.95: 0.01 },
 	})
-	persistEventDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
+	persistEventDurations = prometheus.NewSummary(prometheus.SummaryOpts{
 		Name:    "sql_persist_event_duration",
 		Help:    "SQL PersistEvent duration.",
-		Buckets: prometheus.DefBuckets,
+		Objectives: map[float64]float64{ 0.5: 0.01, 0.95: 0.01 },
 	})
 )
 

@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -634,6 +635,10 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+func (s *Server) handlePrometheusMetrics(c *gin.Context) {
+	s.promHandler.ServeHTTP(c.Writer, c.Request)
+}
+
 type Server struct {
 	Engine         *gin.Engine
 	GraphManager   actor.GraphManager
@@ -641,6 +646,7 @@ type Server struct {
 	BlobStore      persistence.BlobStore
 	listen         string
 	requestTimeout time.Duration
+	promHandler    http.Handler
 }
 
 func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
@@ -651,6 +657,7 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 		listen:         listenAddress,
 		BlobStore:      blobStore,
 		requestTimeout: maxRequestTimeout,
+		promHandler:    promhttp.Handler(),
 	}
 
 	s.Engine.GET("/ping", func(c *gin.Context) {
@@ -660,6 +667,8 @@ func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddr
 	s.Engine.GET("/wss", func(c *gin.Context) {
 		query.WSSHandler(manager, c.Writer, c.Request)
 	})
+
+	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
 
 	graph := s.Engine.Group("/graph")
 	{

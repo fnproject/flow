@@ -63,4 +63,6 @@ import:
   - context
 - package: github.com/gorilla/websocket
   version: v1.2.0
+- package: github.com/prometheus/client_golang/prometheus/promhttp
+  version: v0.8.0
 

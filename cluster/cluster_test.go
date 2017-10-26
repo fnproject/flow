@@ -3,7 +3,7 @@ package cluster
 import (
 	"testing"
 
-	"github.com/fnproject/completer/sharding"
+	"github.com/fnproject/flow/sharding"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -8,6 +8,7 @@ import (
 	"github.com/fnproject/flow/server"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/protocol"
+	"github.com/fnproject/flow/sharding"
 	"net/http"
 	"testing"
 	"time"

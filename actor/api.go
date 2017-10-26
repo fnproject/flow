@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/fnproject/completer/sharding"
+	"github.com/fnproject/flow/sharding"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"

@@ -7,7 +7,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/fnproject/completer/sharding"
+	"github.com/fnproject/flow/sharding"
 
 	"github.com/sirupsen/logrus"
 

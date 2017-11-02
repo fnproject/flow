@@ -19,12 +19,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/opentracing/opentracing-go"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/spf13/viper"
 )
 
 const (
 	MaxDelay          = 3600 * 1000 * 24
 	maxRequestTimeout = 1 * time.Hour
 	minRequestTimeout = 1 * time.Second
+	EnvZipkinURL = "zipkin_url"
 )
 
 var log = logrus.WithField("logger", "server")
@@ -639,6 +643,53 @@ func (s *Server) handlePrometheusMetrics(c *gin.Context) {
 	s.promHandler.ServeHTTP(c.Writer, c.Request)
 }
 
+func setTracer(ownURL string, zipkinURL string) {
+	var (
+		debugMode          = false
+		serviceName        = "flow-service"
+		serviceHostPort    = ownURL
+		zipkinHTTPEndpoint = zipkinURL
+		// ex: "http://zipkin:9411/api/v1/spans"
+	)
+
+	var collector zipkintracer.Collector
+
+	// custom Zipkin collector to send tracing spans to Prometheus
+	promCollector, promErr := NewPrometheusCollector()
+	if promErr != nil {
+		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
+	}
+
+	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
+
+	if zipkinHTTPEndpoint != "" {
+		// Custom PrometheusCollector and Zipkin HTTPCollector
+		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+		if zipErr != nil {
+			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
+		}
+		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
+	} else {
+		// Custom PrometheusCollector only
+		collector = promCollector
+	}
+
+	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+		zipkintracer.ClientServerSameSpan(true),
+		zipkintracer.TraceID128Bit(true),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start tracer")
+	}
+
+	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
+	fntracer := NewFnTracer(ziptracer)
+
+	opentracing.SetGlobalTracer(fntracer)
+	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
+}
+
+
 type Server struct {
 	Engine         *gin.Engine
 	GraphManager   actor.GraphManager
@@ -650,6 +701,8 @@ type Server struct {
 }
 
 func New(manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
+
+	setTracer(listenAddress, viper.GetString(EnvZipkinURL))
 
 	s := &Server{
 		GraphManager:   manager,

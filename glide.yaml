@@ -65,4 +65,18 @@ import:
   version: v1.2.0
 - package: github.com/prometheus/client_golang/prometheus/promhttp
   version: v0.8.0
-
+- package: github.com/opentracing/opentracing-go
+  version: 8ebe5d4e236eed9fd88e593c288bfb804d630b8c
+  subpackages:
+  - ext
+  - log
+- package: github.com/openzipkin/zipkin-go-opentracing
+  version: 9c88fa03bfdfaa5fec7cd1b40f3d10ec15c15fc6
+  subpackages:
+  - flag
+  - thrift/gen-go/scribe
+  - thrift/gen-go/zipkincore
+  - types
+  - wire
+- package: github.com/spf13/viper
+  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7

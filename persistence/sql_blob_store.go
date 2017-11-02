@@ -31,7 +31,7 @@ func (s *sqlBlobStore) CreateBlob(contentType string, data []byte) (*model.BlobD
 
 	idString := id.String()
 
-	span := opentracing.StartSpan("sql_create_blob_duration")
+	span := opentracing.StartSpan("sql_create_blob")
 	defer span.Finish()
 	_, err = s.db.Exec("INSERT INTO blobs(blob_id,blob_data) VALUES(?,?)", idString, data)
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *sqlBlobStore) CreateBlob(contentType string, data []byte) (*model.BlobD
 }
 
 func (s *sqlBlobStore) ReadBlobData(blob *model.BlobDatum) ([]byte, error) {
-	span := opentracing.StartSpan("sql_read_blob_data_duration")
+	span := opentracing.StartSpan("sql_read_blob_data")
 	defer span.Finish()
 	row := s.db.QueryRowx("SELECT blob_data FROM blobs where blob_id = ?", blob.BlobId)
 	if row.Err() != nil {

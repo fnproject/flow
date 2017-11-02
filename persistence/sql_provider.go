@@ -99,7 +99,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
 	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
-	span := opentracing.StartSpan("sql_get_events_duration")
+	span := opentracing.StartSpan("sql_get_events")
 	defer span.Finish()
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
@@ -136,7 +136,7 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 		panic(err)
 	}
 
-	span := opentracing.StartSpan("sql_persist_event_duration")
+	span := opentracing.StartSpan("sql_persist_event")
 	defer span.Finish()
 	_, err = provider.db.Exec("INSERT OR REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)

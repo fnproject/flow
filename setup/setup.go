@@ -1,25 +1,21 @@
 package setup
 
 import (
-	"github.com/sirupsen/logrus"
-	"strings"
-	"fmt"
-)
-
-import (
 	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/server"
 	"github.com/fnproject/flow/sharding"
 	"github.com/fnproject/flow/cluster"
 
+	"github.com/sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
-	"time"
 	"strings"
-	"github.com/spf13/viper"
 )
 
 const (

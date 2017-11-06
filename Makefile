@@ -2,7 +2,7 @@ GOFILES = $(shell find . -name '*.go' -not -path './vendor/*')
 GOPACKAGES = $(shell go list ./...  | grep -v /vendor/)
 
 # Just builds
-all: test build
+all: myday build
 
 dep: glide.yaml
 	glide install --strip-vendor
@@ -16,7 +16,7 @@ vet: $(GOFILES)
 	go vet $(GOPACKAGES)
 
 lint: $(GOFILES)
-	for pkg in $(GOPACKAGES) ; do golint $$pkg ; done
+	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  golint $$pkg  || OK=1 ;  done ; exit $$OK
 
 test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)

@@ -11,3 +11,5 @@ make test | tee ${TEST_RESULTS}/go-test.out
 $GOPATH/bin/go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
 
 make vet
+
+make lint

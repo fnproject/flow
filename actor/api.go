@@ -189,7 +189,7 @@ func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (i
 	future := supervisor.RequestFuture(req, timeout)
 	m.log.Debugf("Waiting for supervisor response (future pid=%s)", future.PID().Id)
 	r, err := future.Result()
-	m.log.Debugf("Obtained response from supervisor (future pid=%s, error=%v)", pid, err)
+	m.log.Debugf("Obtained response from supervisor (future pid=%s, error=%v)", future.PID().Id, err)
 	if err != nil {
 		return nil, err
 	}

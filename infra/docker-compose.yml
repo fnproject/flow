@@ -1,13 +1,13 @@
 version: '3'
 services:
   node-0:
-    image: "fnproject/completer:latest"
+    image: "fnproject/flow:latest"
     ports:
-     - "8080"
+     - "8081"
     volumes:
      - ./data:/data
     environment:
-    - listen=0.0.0.0:8080
+    - listen=0.0.0.0:8081
     - cluster_node_prefix=node-
     - cluster_node_count=2
     - cluster_node_id=0
@@ -16,13 +16,13 @@ services:
     - HTTP_PROXY=
 
   node-1:
-    image: "fnproject/completer:latest"
+    image: "fnproject/flow:latest"
     ports:
-     - "8080"
+     - "8081"
     volumes:
      - ./data:/data
     environment:
-    - listen=0.0.0.0:8080
+    - listen=0.0.0.0:8081
     - cluster_node_prefix=node-
     - cluster_node_count=2
     - cluster_node_id=1

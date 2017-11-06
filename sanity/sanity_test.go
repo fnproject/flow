@@ -236,6 +236,7 @@ func NewTestServer() *server.Server {
 		NodeCount:  1,
 		NodeID:     0,
 		NodePrefix: "node-",
+		NodePort: 8081,
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(10 * clusterSettings.NodeCount)
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)

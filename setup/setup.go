@@ -29,6 +29,7 @@ const (
 	EnvClusterShardCount = "cluster_shard_count"
 	EnvClusterNodePrefix = "cluster_node_prefix"
 	EnvClusterNodeID     = "cluster_node_id"
+	EnvClusterNodePort   = "cluster_node_port"
 )
 
 var defaults = make(map[string]string)
@@ -88,6 +89,7 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvClusterNodePrefix, "node-")
 	SetDefault(EnvClusterNodeID, "0")
 	SetDefault(EnvClusterNodeCount, "1")
+	SetDefault(EnvClusterNodePort, "8081")
 
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
@@ -123,6 +125,7 @@ func InitFromEnv() (*server.Server, error) {
 		NodeCount:  nodeCount,
 		NodeID:     GetInteger(EnvClusterNodeID),
 		NodePrefix: GetString(EnvClusterNodePrefix),
+		NodePort:   GetInteger(EnvClusterNodePort),
 	}
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
@@ -144,7 +147,7 @@ func InitStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 	dbUrlString := GetString(EnvDBURL)
 	dbUrl, err := url.Parse(dbUrlString)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
+		return nil, nil, fmt.Errorf("invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
 	}
 
 	snapshotIntervalStr := GetString(EnvSnapshotInterval)

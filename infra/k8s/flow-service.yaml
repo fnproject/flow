@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: flow-service
-        image: fnproject/completer
+        image: fnproject/flow
         imagePullPolicy: Always
         command: [ 'sh', '-c' ]
         args:

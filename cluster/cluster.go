@@ -20,6 +20,16 @@ type ClusterSettings struct {
 	NodeCount  int
 	NodeID     int
 	NodePrefix string
+	NodePort   int
+}
+
+
+func (s *ClusterSettings) nodeAddress(i int) (*url.URL, error) {
+	nodeUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort))
+	if err != nil {
+		return nil, err
+	}
+	return nodeUrl, nil
 }
 
 func (s *ClusterSettings) nodeName(index int) string {
@@ -36,12 +46,14 @@ type ClusterManager struct {
 func NewManager(settings *ClusterSettings, extractor sharding.ShardExtractor) *ClusterManager {
 	proxies := make(map[string]*httputil.ReverseProxy, settings.NodeCount)
 	for i := 0; i < settings.NodeCount; i++ {
-		node := settings.nodeName(i)
-		p, err := newReverseProxy(node)
+		nodeName := settings.nodeName(i)
+		nodeUrl,err := settings.nodeAddress(i)
+
 		if err != nil {
 			panic("Failed to generate proxy URL " + err.Error())
 		}
-		proxies[node] = p
+		p := httputil.NewSingleHostReverseProxy(nodeUrl)
+		proxies[nodeName] = p
 	}
 	log.Info(fmt.Sprintf("Created shard proxy with settings: %+v", settings))
 	return &ClusterManager{settings: settings, extractor: extractor, reverseProxies: proxies}
@@ -55,16 +67,6 @@ func (m *ClusterManager) LocalShards() (shards []int) {
 		}
 	}
 	return
-}
-
-func newReverseProxy(node string) (*httputil.ReverseProxy, error) {
-	// TODO honor ports passed by configuration
-	url, err := url.Parse(fmt.Sprintf("http://%s:%d", node, 8080))
-	log.Infof("Registering proxy to %v", url)
-	if err != nil {
-		return nil, err
-	}
-	return httputil.NewSingleHostReverseProxy(url), nil
 }
 
 func (m *ClusterManager) forward(writer http.ResponseWriter, req *http.Request, node string) error {

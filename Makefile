@@ -12,13 +12,16 @@ dep-up:
 
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
+vet: $(GOFILES)
+	go vet $(GOPACKAGES)
+
 test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --go_out=$(@D) $<
 
-build:  $(GOFILES)
+build: $(GOFILES)
 	go build -o flow-service
 
 run: build

@@ -37,7 +37,7 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	row := provider.db.QueryRowx("SELECT snapshot_type,event_index,snapshot FROM snapshots WHERE actor_name = ?", actorName)
 
 	if row.Err() != nil {
-		log.WithField("actor_name", actorName).Errorf("Error getting snapshot value from DB ", row.Err())
+		log.WithField("actor_name", actorName).Error("Error getting snapshot value from DB ", row.Err())
 		return nil, -1, false
 	}
 
@@ -50,7 +50,7 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	}
 
 	if err != nil {
-		log.WithField("actor_name", actorName).Errorf("Error snapshot value from DB ", err)
+		log.WithField("actor_name", actorName).Error("Error snapshot value from DB ", err)
 		return nil, -1, false
 	}
 	message, err := extractData(actorName, snapshotType, snapshotBytes)

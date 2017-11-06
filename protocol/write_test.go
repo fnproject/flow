@@ -15,7 +15,7 @@ import (
 func TestShouldWriteSimpleBlob(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 	blob, _ := store.CreateBlob("text/plain", []byte("foo"))
-	datum := &model.Datum{Val: &model.Datum_Blob{blob}}
+	datum := &model.Datum{Val: &model.Datum_Blob{Blob: blob}}
 
 	headers, body := writeDatum(store, datum)
 
@@ -29,14 +29,14 @@ func TestShouldWriteEmptyBlob(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 	blob, _ := store.CreateBlob("text/plain", []byte(""))
 
-	datum := &model.Datum{Val: &model.Datum_Blob{blob}}
+	datum := &model.Datum{Val: &model.Datum_Blob{Blob: blob}}
 
 	_, body := writeDatum(store, datum)
 	assert.Equal(t, "", body)
 }
 
 func TestShouldWriteEmptyDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_Empty{&model.EmptyDatum{}}}
+	datum := &model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -46,7 +46,7 @@ func TestShouldWriteEmptyDatum(t *testing.T) {
 }
 
 func TestShouldWriteErrorDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_Error{&model.ErrorDatum{Message: "error", Type: model.ErrorDatumType_function_timeout}}}
+	datum := &model.Datum{Val: &model.Datum_Error{Error: &model.ErrorDatum{Message: "error", Type: model.ErrorDatumType_function_timeout}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -56,7 +56,7 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 }
 
 func TestShouldWriteStageRefDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_StageRef{&model.StageRefDatum{StageRef: "3141"}}}
+	datum := &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: "3141"}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -176,16 +176,16 @@ func TestShouldAddResultStatusToResult(t *testing.T) {
 
 }
 
-func TestShouldWriteStateDatum(t *testing.T){
+func TestShouldWriteStateDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	stateDatum := model.NewStateDatum(model.StateDatumType_succeeded)
 
-	headers,body := writeDatum(store,stateDatum)
+	headers, body := writeDatum(store, stateDatum)
 
-	assert.Equal(t,DatumTypeState,headers.Get(HeaderDatumType))
-	assert.Equal(t,"succeeded",headers.Get(HeaderStateType))
-	assert.Equal(t,"succeeded", body)
+	assert.Equal(t, DatumTypeState, headers.Get(HeaderDatumType))
+	assert.Equal(t, "succeeded", headers.Get(HeaderStateType))
+	assert.Equal(t, "succeeded", body)
 
 }
 

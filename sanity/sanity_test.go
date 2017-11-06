@@ -43,7 +43,6 @@ func TestSupply(t *testing.T) {
 		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-CodeLoc", "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("Accepts CallerId and persists it to event").
@@ -51,14 +50,12 @@ func TestSupply(t *testing.T) {
 		WithHeader(protocol.HeaderCallerRef, "1").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "1", event.CallerId)
 		})
 	tc.StartWithGraph("Does not fail with no CallerId").
 		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			fmt.Sprint("checking %v", event)
 			assert.Equal(ctx, "", event.CallerId)
 		})
 

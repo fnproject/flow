@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const FnCallIDHeader = "Fn_call_id"
+const fnCallIDHeader = "Fn_call_id"
 
 type graphExecutor struct {
 	faasAddr  string
@@ -106,30 +106,30 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		stageLog.Info("No Fn load balancer delay header received")
 	}
 
-	callId := resp.Header.Get(FnCallIDHeader)
+	callID := resp.Header.Get(fnCallIDHeader)
 
 	if !successfulResponse(resp) {
 		stageLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
-			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callId}
+			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callID}
 		}
-		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callId)
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callID)
 	}
 
 	result, err := protocol.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
 	if err != nil {
 		stageLog.Error("Failed to read result from functions service", err)
-		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callId)
+		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
 
 	}
 	stageLog.WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callId}
+	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }
 
-func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, errorMessage string, callId string) *model.FaasInvocationResponse {
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callId}
+func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, errorMessage string, callID string) *model.FaasInvocationResponse {
+	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callID}
 }
 
 
@@ -182,12 +182,12 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		stageLog.Info("No Fn load balancer delay header received")
 	}
 
-	callId := resp.Header.Get(FnCallIDHeader)
+	callID := resp.Header.Get(fnCallIDHeader)
 	buf := &bytes.Buffer{}
 	_, err = buf.ReadFrom(resp.Body)
 	if err != nil {
 		exec.log.Error("Error reading data from function:", err)
-		return invokeFailed(msg, "Failed to call function could not read response", callId)
+		return invokeFailed(msg, "Failed to call function could not read response", callID)
 
 	}
 
@@ -209,7 +209,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	bytes := buf.Bytes()
 	blob, err := exec.blobStore.CreateBlob(contentType, bytes)
 	if err != nil {
-		return invokeFailed(msg, "Failed to persist HTTP response data", callId)
+		return invokeFailed(msg, "Failed to persist HTTP response data", callID)
 	}
 
 	resultDatum := &model.Datum{
@@ -220,7 +220,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 				StatusCode: uint32(resp.StatusCode)}}}
 
 	result := &model.CompletionResult{Successful: successfulResponse(resp), Datum: resultDatum}
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callId}
+	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }
 
 func successfulResponse(resp *http.Response) bool {
@@ -229,6 +229,6 @@ func successfulResponse(resp *http.Response) bool {
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
-func invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callId string) *model.FaasInvocationResponse {
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_function_invoke_failed, errorMessage), CallId: callId}
+func invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callID string) *model.FaasInvocationResponse {
+	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_function_invoke_failed, errorMessage), CallId: callID}
 }

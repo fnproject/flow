@@ -1,7 +1,6 @@
 package actor
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -43,18 +42,18 @@ type actorManager struct {
 	strategy            actor.SupervisorStrategy
 }
 
-// NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
+// NewGraphManager creates a new implementation of the GraphManager interface
+func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnURL string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 
-	parsedUrl, err := url.Parse(fnUrl)
+	parsedURL, err := url.Parse(fnURL)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid functions server URL: %s", err)
 	}
-	if parsedUrl.Path == "" {
-		parsedUrl.Path = "r"
-		fnUrl = parsedUrl.String()
+	if parsedURL.Path == "" {
+		parsedURL.Path = "r"
+		fnURL = parsedURL.String()
 	}
 
 	decider := func(reason interface{}) actor.Directive {
@@ -63,7 +62,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnURL, blobStore)).WithSupervisor(strategy)
 	// TODO executor is not sharded and would not support clustering once it's made persistent!
 	executor, err := actor.SpawnNamed(executorProps, "executor")
 	if err != nil {
@@ -162,7 +161,7 @@ func supervisorName(shardID int) (name string) {
 func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	msg, ok := req.(model.GraphMessage)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("Ignoring request of unknown type %v", reflect.TypeOf(req)))
+		return nil, fmt.Errorf("Ignoring request of unknown type %v", reflect.TypeOf(req))
 	}
 
 	shardID, err := m.shardExtractor.ShardID(msg.GetGraphId())
@@ -171,12 +170,13 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
 	}
 
-	if pid, ok := m.shardSupervisors[shardID]; !ok {
+	pid, ok := m.shardSupervisors[shardID]
+
+	if !ok {
 		m.log.Warnf("No local supervisor found for shard %d", shardID)
 		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
-	} else {
-		return pid, nil
 	}
+	return pid, nil
 }
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {

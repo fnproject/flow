@@ -67,7 +67,7 @@ func (tc *testCtx) Errorf(msg string, args ...interface{}) {
 	tc.failed = true
 	tc.t.Errorf("Expectation failed: \n\t\t%s ", strings.Join(tc.narrative, "\n\t\t ->  "))
 	tc.t.Errorf(msg, args...)
-	tc.t.Error("Last Response was: %v", tc.lastResponse)
+	tc.t.Errorf("Last Response was: %v", tc.lastResponse)
 }
 
 const testFailed = "TestFailed"
@@ -217,24 +217,24 @@ func (c *apiCmd) ToReq(ctx *testCtx) *http.Request {
 
 func (c *apiCmd) Run(ctx testCtx, s *server.Server) {
 	ctx.server = s
-	nuctx := (&ctx).PushNarrative(c.narrative)
+	nuCtx := (&ctx).PushNarrative(c.narrative)
 
-	req := c.ToReq(nuctx)
+	req := c.ToReq(nuCtx)
 	resp := httptest.NewRecorder()
 
-	nuctx = nuctx.PushNarrative(fmt.Sprintf("%s %s", req.Method, req.URL))
-	fmt.Printf("Test : %s\n", nuctx)
+	nuCtx = nuCtx.PushNarrative(fmt.Sprintf("%s %s", req.Method, req.URL))
+	fmt.Printf("Test : %s\n", nuCtx)
 
 	s.Engine.ServeHTTP(resp, req)
-	nuctx.lastResponse = resp.Result()
+	nuCtx.lastResponse = resp.Result()
 
 	for _, check := range c.expect {
-		nuctx = nuctx.PushNarrative(check.narrative)
-		check.action(nuctx, nuctx.lastResponse)
+		nuCtx = nuCtx.PushNarrative(check.narrative)
+		check.action(nuCtx, nuCtx.lastResponse)
 	}
 
 	for _, cmd := range c.cmd {
-		cmd.Run(*nuctx, s)
+		cmd.Run(*nuCtx, s)
 	}
 
 }
@@ -249,7 +249,7 @@ func (c *testCase) StartWithGraph(msg string) *apiCmd {
 	return c.Call(msg, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
 }
 
-func (tc *testCase) Run(t *testing.T, server *server.Server) {
+func (c *testCase) Run(t *testing.T, server *server.Server) {
 
 	defer func() {
 		// if a run fails keep on going
@@ -264,7 +264,7 @@ func (tc *testCase) Run(t *testing.T, server *server.Server) {
 		}
 	}()
 
-	for _, tc := range tc.tests {
+	for _, tc := range c.tests {
 		ctx := testCtx{t: t}
 
 		tc.Run(ctx, server)

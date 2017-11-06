@@ -199,7 +199,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		stageID := g.graph.NextStageID()
 
-		realFunctionID, err := resolveFunctionId(g.graph.FunctionID, msg.FunctionId)
+		realFunctionID, err := resolveFunctionID(g.graph.FunctionID, msg.FunctionId)
 		if err != nil {
 			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s", g.graph.FunctionID, msg.FunctionId, err))
 		}
@@ -299,9 +299,9 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 	}
 }
 
-var appIdRegex = regexp.MustCompile("^([^/]+)/(.*)$")
+var appIDRegex = regexp.MustCompile("^([^/]+)/(.*)$")
 
-func resolveFunctionId(original string, relative string) (string, error) {
+func resolveFunctionID(original string, relative string) (string, error) {
 	orig, err := model.ParseFunctionId(original)
 	if err != nil {
 		return "", err

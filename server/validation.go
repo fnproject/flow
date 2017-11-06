@@ -21,8 +21,8 @@ func validFunctionId(functionId string, allowRelative bool) bool {
 	return true
 }
 
-func validGraphId(graphIdId string) bool {
-	return graphIdRegx.MatchString(graphIdId)
+func validGraphId(graphId string) bool {
+	return graphIdRegx.MatchString(graphId)
 }
 
 func validStageId(stageId string) bool {

@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: flow
+  name: flow-mysql-secret
+type: Opaque
+data:
+  # flow
+  MYSQL_USER: Zmxvdw==
+  # randomly generated
+  MYSQL_PASSWORD: SlBmM2NHQnZiSlNYRVZ0azJKaHlHTUo5UG00RTRGNjJqdGxEN3NqdmZROA==
+---
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  namespace: flow
+#  name: flow-persistence-schema-file
+#data:
+#  schema-file.sql: |
+#     CREATE TABLE IF NOT EXISTS events (
+#        actor_name varchar(255) NOT NULL,
+#        event_type varchar(255) NOT NULL,
+#        event_index int NOT NULL,
+#        event BLOB NOT NULL);
+#
+#     CREATE TABLE IF NOT EXISTS snapshots (
+#        actor_name varchar(255) NOT NULL PRIMARY KEY ,
+#        snapshot_type varchar(255) NOT NULL,
+#        event_index int NOT NULL,
+#        snapshot BLOB NOT NULL);
+#
+#     CREATE TABLE IF NOT EXISTS blobs (
+#        blob_id varchar(255) NOT NULL PRIMARY KEY ,
+#        blob_data BLOB);
+#
+#---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: flow
+  name: mysql
+  labels:
+    app: mysql
+    role: flow-database
+spec:
+  type: NodePort
+  ports:
+  - name: mysql
+    port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
+    role: flow-database
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: flow
+  name: mysql
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+        role: flow-database
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+      - name: flow-mysql
+        image: mysql:5.7
+        imagePullPolicy: Always
+        args:
+          - "--max-connections=500"
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: flow-mysql-secret
+              key: MYSQL_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: flow-mysql-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DATABASE
+          value: flow
+        - name: MYSQL_RANDOM_ROOT_PASSWORD
+          value: "yes"
+#        volumeMounts:
+#        - mountPath: /docker-entrypoint-initdb.d
+#          name: schema-file
+#      volumes:
+#      - name: schema-file
+#        configMap:
+#          name: flow-persistence-schema-file

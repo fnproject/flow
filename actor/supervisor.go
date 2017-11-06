@@ -17,15 +17,16 @@ type graphSupervisor struct {
 	persistenceProvider persistence.Provider
 	log                 *logrus.Entry
 	persistence.Mixin
+	// TODO turn this into a pid cache to avoid iterating on all children?
 	activeGraphs map[string]bool
 }
 
 // NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+func NewSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
 	return &graphSupervisor{
 		executor:            executor,
 		persistenceProvider: persistenceProvider,
-		log:                 logrus.New().WithField("logger", "graph_supervisor"),
+		log:                 logrus.New().WithField("logger", name),
 		activeGraphs:        make(map[string]bool),
 	}
 }
@@ -81,7 +82,7 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 		child.Request(msg, context.Sender())
 
 	case *actor.Terminated:
-		if graphID, ok := getGraphID(msg.GetWho()); ok {
+		if graphID, ok := getGraphID(context.Self().Id, msg.GetWho()); ok {
 			s.log.WithFields(logrus.Fields{"graph_id": graphID}).Info("Graph actor terminated")
 			if s.activeGraphs[graphID] {
 				s.log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("Graph actor crashed")
@@ -97,7 +98,7 @@ func (s *graphSupervisor) receiveCommand(context actor.Context) {
 	}
 }
 
-func getGraphID(child *actor.PID) (string, bool) {
+func getGraphID(supervisorName string, child *actor.PID) (string, bool) {
 	split := strings.Split(child.Id, supervisorName+"/")
 	if len(split) == 2 && len(split[1]) > 0 {
 		return split[1], true

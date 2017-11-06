@@ -5,6 +5,9 @@ import (
 	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/server"
+	"github.com/fnproject/flow/sharding"
+	"github.com/fnproject/flow/cluster"
+
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/url"
@@ -21,6 +24,12 @@ const (
 	EnvListen           = "listen"
 	EnvSnapshotInterval = "snapshot_interval"
 	EnvRequestTimeout   = "request_timeout"
+
+	EnvClusterNodeCount  = "cluster_node_count"
+	EnvClusterShardCount = "cluster_shard_count"
+	EnvClusterNodePrefix = "cluster_node_prefix"
+	EnvClusterNodeID     = "cluster_node_id"
+	EnvClusterNodePort   = "cluster_node_port"
 )
 
 var defaults = make(map[string]string)
@@ -37,6 +46,17 @@ func SetDefault(key string, value string) {
 func GetString(key string) string {
 	key = canonKey(key)
 	return defaults[key]
+}
+
+func GetInteger(key string) int {
+	if valueStr := GetString(key); len(valueStr) > 0 {
+		val, err := strconv.Atoi(valueStr)
+		if err != nil {
+			panic(fmt.Sprintf("Value of key %s is not a number", key))
+		}
+		return val
+	}
+	panic(fmt.Sprintf("Missing required key %s", key))
 }
 
 func GetDurationMs(key string) time.Duration {
@@ -64,6 +84,13 @@ func InitFromEnv() (*server.Server, error) {
 	SetDefault(EnvSnapshotInterval, "1000")
 	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
 	SetDefault(EnvRequestTimeout, "60000")
+
+	// single node defaults
+	SetDefault(EnvClusterNodePrefix, "node-")
+	SetDefault(EnvClusterNodeID, "0")
+	SetDefault(EnvClusterNodeCount, "1")
+	SetDefault(EnvClusterNodePort, "8081")
+
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
 		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
@@ -85,14 +112,30 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL))
+	nodeCount := GetInteger(EnvClusterNodeCount)
+	var shardCount int
+	if len(GetString(EnvClusterShardCount)) == 0 {
+		shardCount = 10 * nodeCount
+	} else {
+		shardCount = GetInteger(EnvClusterShardCount)
+	}
+	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
+	clusterSettings := &cluster.ClusterSettings{
+		NodeCount:  nodeCount,
+		NodeID:     GetInteger(EnvClusterNodeID),
+		NodePrefix: GetString(EnvClusterNodePrefix),
+		NodePort:   GetInteger(EnvClusterNodePort),
+	}
+	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
+
+	shards := clusterManager.LocalShards()
+	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL), shardExtractor, shards)
 	if err != nil {
 		return nil, err
-
 	}
 
-	srv, err := server.New(graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
+	srv, err := server.New(clusterManager, graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +147,7 @@ func InitStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 	dbUrlString := GetString(EnvDBURL)
 	dbUrl, err := url.Parse(dbUrlString)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
+		return nil, nil, fmt.Errorf("invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
 	}
 
 	snapshotIntervalStr := GetString(EnvSnapshotInterval)

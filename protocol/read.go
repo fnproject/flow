@@ -19,7 +19,7 @@ func DatumFromPart(store persistence.BlobStore, part *multipart.Part) (*model.Da
 	return readDatum(store, part, part.Header)
 }
 
-// DatumFromPart reads a model Datum Object from a multipart part
+// DatumFromRequest reads a model Datum Object from an HTTP request
 func DatumFromRequest(store persistence.BlobStore, req *http.Request) (*model.Datum, error) {
 	return readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
 }
@@ -58,9 +58,7 @@ func statusFromHeader(statusString string) (bool, error) {
 	}
 }
 
-/**
- * Reads
- */
+// CompletionResultFromEncapsulatedResponse returns a result expressed as HTTP in HTTP (body of outer req is A whole HTTP result frame) this is here to overcome the lack of outbound headers for default functions
 func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *http.Response) (*model.CompletionResult, error) {
 
 	actualResponse, err := http.ReadResponse(bufio.NewReader(r.Body), nil)
@@ -138,26 +136,26 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 		}, nil
 
 	case DatumTypeStageRef:
-		stageId := header.Get(HeaderStageRef)
-		if stageId == "" {
+		stageID := header.Get(HeaderStageRef)
+		if stageID == "" {
 			return nil, ErrMissingStageRef
 		}
-		return &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: string(stageId)}}}, nil
+		return &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: string(stageID)}}}, nil
 
-	case DatumTypeHttpReq:
+	case DatumTypeHTTPReq:
 		methodString := header.Get(HeaderMethod)
 		if "" == methodString {
-			return nil, ErrMissingHttpMethod
+			return nil, ErrMissingHTTPMethod
 		}
-		method, methodRecognized := model.HttpMethod_value[strings.ToLower(methodString)]
+		method, methodRecognized := model.HTTPMethod_value[strings.ToLower(methodString)]
 		if !methodRecognized {
-			return nil, ErrInvalidHttpMethod
+			return nil, ErrInvalidHTTPMethod
 		}
-		var headers []*model.HttpHeader
+		var headers []*model.HTTPHeader
 		for hk, hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(HeaderHeaderPrefix)) {
 				for _, hv := range hvs {
-					headers = append(headers, &model.HttpHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
+					headers = append(headers, &model.HTTPHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -166,9 +164,9 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 		if err != nil {
 			return nil, err
 		}
-		return &model.Datum{Val: &model.Datum_HttpReq{HttpReq: &model.HttpReqDatum{Body: blob, Headers: headers, Method: model.HttpMethod(method)}}}, nil
+		return &model.Datum{Val: &model.Datum_HttpReq{HttpReq: &model.HTTPReqDatum{Body: blob, Headers: headers, Method: model.HTTPMethod(method)}}}, nil
 
-	case DatumTypeHttpResp:
+	case DatumTypeHTTPResp:
 		resultCodeString := header.Get(HeaderResultCode)
 		if "" == resultCodeString {
 			return nil, ErrMissingResultCode
@@ -177,11 +175,11 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 		if err != nil {
 			return nil, ErrInvalidResultCode
 		}
-		var headers []*model.HttpHeader
+		var headers []*model.HTTPHeader
 		for hk, hvs := range header {
 			if strings.HasPrefix(strings.ToLower(hk), strings.ToLower(HeaderHeaderPrefix)) {
 				for _, hv := range hvs {
-					headers = append(headers, &model.HttpHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
+					headers = append(headers, &model.HTTPHeader{Key: hk[len(HeaderHeaderPrefix):], Value: hv})
 				}
 			}
 		}
@@ -189,7 +187,7 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 		if err != nil {
 			return nil, err
 		}
-		return &model.Datum{Val: &model.Datum_HttpResp{HttpResp: &model.HttpRespDatum{Body: blob, Headers: headers, StatusCode: uint32(resultCode)}}}, nil
+		return &model.Datum{Val: &model.Datum_HttpResp{HttpResp: &model.HTTPRespDatum{Body: blob, Headers: headers, StatusCode: uint32(resultCode)}}}, nil
 	default:
 		return nil, ErrInvalidDatumType
 	}

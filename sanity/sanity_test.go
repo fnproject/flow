@@ -18,8 +18,8 @@ import (
 func TestGraphCreation(t *testing.T) {
 	tc := NewCase("Graph Creation")
 	tc.Call("Works ", http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
-	tc.Call("Rejects Missing function ID", http.MethodPost, "/graph").ExpectServerErr(server.ErrInvalidFunctionId)
-	tc.Call("Rejects Invalid function ID", http.MethodPost, "/graph?functionId=foo").ExpectServerErr(server.ErrInvalidFunctionId)
+	tc.Call("Rejects Missing function ID", http.MethodPost, "/graph").ExpectServerErr(server.ErrInvalidFunctionID)
+	tc.Call("Rejects Invalid function ID", http.MethodPost, "/graph?functionId=foo").ExpectServerErr(server.ErrInvalidFunctionID)
 	tc.Run(t, testServer)
 }
 
@@ -28,32 +28,32 @@ var testServer = NewTestServer()
 func TestSupply(t *testing.T) {
 	tc := NewCase("Supply")
 	tc.StartWithGraph("Creates node").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithHeader("content-type", "foo/bar").WithBodyString("foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithHeader("content-type", "foo/bar").WithBodyString("foo").
 		ExpectStageCreated()
 
 	tc.StartWithGraph("Supply requires content type").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithBodyString("foo").
 		ExpectRequestErr(protocol.ErrMissingContentType)
 
 	tc.StartWithGraph("Supply requires non-empty body ").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithHeader("content-type", "foo/bar").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithHeader("content-type", "foo/bar").
 		ExpectServerErr(server.ErrMissingBody)
 
 	tc.StartWithGraph("Accepts code location and persists it to event").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-CodeLoc", "fn-2187").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").WithHeader("FnProject-CodeLoc", "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("Accepts CallerId and persists it to event").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
 		WithHeader(protocol.HeaderCallerRef, "1").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "1", event.CallerId)
 		})
 	tc.StartWithGraph("Does not fail with no CallerId").
-		ThenCall(http.MethodPost, "/graph/:graphId/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
+		ThenCall(http.MethodPost, "/graph/:graphID/supply").WithBodyString("foo").WithHeader("content-type", "foo/bar").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "", event.CallerId)
@@ -65,19 +65,19 @@ func TestSupply(t *testing.T) {
 func TestCompletedValue(t *testing.T) {
 	tc := NewCase("Completed Value")
 
-	f := func(s string) *apiCmd {
+	f := func(s string) *APICmd {
 		return tc.StartWithGraph(s).
-			ThenCall(http.MethodPost, "/graph/:graphId/completedValue")
+			ThenCall(http.MethodPost, "/graph/:graphID/completedValue")
 	}
 
 	StageAcceptsBlobType(f)
 	StageAcceptsErrorType(f)
 	StageAcceptsEmptyType(f)
-	StageAcceptsHttpReqType(f)
-	StageAcceptsHttpRespType(f)
+	StageAcceptsHTTPReqType(f)
+	StageAcceptsHTTPRespType(f)
 
 	tc.StartWithGraph("Simple codelocation test").
-		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		ThenCall(http.MethodPost, "/graph/:graphID/completedValue").WithBodyString("str").
 		WithHeaders(map[string]string{
 			"fnproject-datumtype": "empty",
 			"content-type":        "text/plain"}).WithHeader(protocol.HeaderCodeLocation, "fn-2187").
@@ -87,7 +87,7 @@ func TestCompletedValue(t *testing.T) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("Simple CallerId test").
-		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		ThenCall(http.MethodPost, "/graph/:graphID/completedValue").WithBodyString("str").
 		WithHeaders(map[string]string{
 			"fnproject-datumtype": "empty",
 			"content-type":        "text/plain"}).WithHeader(protocol.HeaderCallerRef, "7").
@@ -97,7 +97,7 @@ func TestCompletedValue(t *testing.T) {
 			assert.Equal(ctx, "7", event.CallerId)
 		})
 	tc.StartWithGraph("Empty CallerId noFail test").
-		ThenCall(http.MethodPost, "/graph/:graphId/completedValue").WithBodyString("str").
+		ThenCall(http.MethodPost, "/graph/:graphID/completedValue").WithBodyString("str").
 		WithHeaders(map[string]string{
 			"fnproject-datumtype": "empty",
 			"content-type":        "text/plain"}).
@@ -114,28 +114,28 @@ func TestExternalCompletion(t *testing.T) {
 	tc := NewCase("Completed Value")
 
 	tc.StartWithGraph("Creates External Completion").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ThenCall(http.MethodPost, "/graph/:graphID/externalCompletion").
 		ExpectStageCreated()
 
 	tc.StartWithGraph("Completes External Completion Successfully").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ThenCall(http.MethodPost, "/graph/:graphID/externalCompletion").
 		ExpectStageCreated().
-		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/complete").ExpectStatus(200)
+		ThenCall(http.MethodPost, "/graph/:graphID/stage/:stageID/complete").ExpectStatus(200)
 
 	tc.StartWithGraph("Fails External Completion Successfully").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").
+		ThenCall(http.MethodPost, "/graph/:graphID/externalCompletion").
 		ExpectStageCreated().
-		ThenCall(http.MethodPost, "/graph/:graphId/stage/:stageId/fail").
+		ThenCall(http.MethodPost, "/graph/:graphID/stage/:stageID/fail").
 		ExpectStatus(200)
 
 	tc.StartWithGraph("Creates External Completion to test CodeLocation").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCodeLocation, "fn-2187").
+		ThenCall(http.MethodPost, "/graph/:graphID/externalCompletion").WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("Creates External Completion to test CallerId").
-		ThenCall(http.MethodPost, "/graph/:graphId/externalCompletion").WithHeader(protocol.HeaderCallerRef, "allTheWorld").
+		ThenCall(http.MethodPost, "/graph/:graphID/externalCompletion").WithHeader(protocol.HeaderCallerRef, "allTheWorld").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "allTheWorld", event.CallerId)
@@ -148,28 +148,28 @@ func TestInvokeFunction(t *testing.T) {
 	tc := NewCase("Invoke Function")
 
 	tc.StartWithGraph("Works Without Body").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
 		ExpectStageCreated()
 
 	tc.StartWithGraph("Works With Body").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "POST", "fnproject-header-foo": "bar", "content-type": "text/plain"}).WithBodyString("input").
 		ExpectStageCreated()
 
 	tc.Run(t, testServer)
 
 	tc.StartWithGraph("Rejects non-httpreq datum").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "blob", "fnproject-method": "GET"}).WithBodyString("input").
 		ExpectRequestErr(protocol.ErrInvalidDatumType)
 
 	tc.StartWithGraph("Rejects missing functionId").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction").
-		ExpectRequestErr(server.ErrInvalidFunctionId)
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction").
+		ExpectRequestErr(server.ErrInvalidFunctionID)
 
 	tc.StartWithGraph("Works With CodeLocation").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
@@ -177,7 +177,7 @@ func TestInvokeFunction(t *testing.T) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("Works With Callerid").
-		ThenCall(http.MethodPost, "/graph/:graphId/invokeFunction?functionId=fn/foo").
+		ThenCall(http.MethodPost, "/graph/:graphID/invokeFunction?functionId=fn/foo").
 		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
 		WithHeader(protocol.HeaderCallerRef, "thrust").
 		ExpectStageCreated().
@@ -192,30 +192,30 @@ func TestDelay(t *testing.T) {
 	tc := NewCase("Delay Call")
 
 	tc.StartWithGraph("Works").
-		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		ThenCall(http.MethodPost, "/graph/:graphID/delay?delayMs=5").
 		ExpectStageCreated()
 
 	tc.StartWithGraph("Rejects Negative Delay").
-		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=-5").
+		ThenCall(http.MethodPost, "/graph/:graphID/delay?delayMs=-5").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
 	tc.StartWithGraph("Rejects Large delay").
-		ThenCall(http.MethodPost, fmt.Sprintf("/graph/:graphId/delay?delayMs=%d", 3600*1000*24+1)).
+		ThenCall(http.MethodPost, fmt.Sprintf("/graph/:graphID/delay?delayMs=%d", 3600*1000*24+1)).
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
 	tc.StartWithGraph("Rejects missing delay").
-		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs").
+		ThenCall(http.MethodPost, "/graph/:graphID/delay?delayMs").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
 	tc.StartWithGraph("CodeLocation works").
-		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		ThenCall(http.MethodPost, "/graph/:graphID/delay?delayMs=5").
 		WithHeader(protocol.HeaderCodeLocation, "fn-2187").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
 			assert.Equal(ctx, "fn-2187", event.CodeLocation)
 		})
 	tc.StartWithGraph("CallerId works").
-		ThenCall(http.MethodPost, "/graph/:graphId/delay?delayMs=5").
+		ThenCall(http.MethodPost, "/graph/:graphID/delay?delayMs=5").
 		WithHeader(protocol.HeaderCallerRef, "Bristol").
 		ExpectStageCreated().
 		ExpectLastStageEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
@@ -229,7 +229,7 @@ func NewTestServer() *server.Server {
 
 	blobStorage := persistence.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
-	clusterSettings := &cluster.ClusterSettings{
+	clusterSettings := &cluster.Settings{
 		NodeCount:  1,
 		NodeID:     0,
 		NodePrefix: "node-",
@@ -249,7 +249,7 @@ func NewTestServer() *server.Server {
 	return s
 }
 
-func StageAcceptsBlobType(s func(string) *apiCmd) {
+func StageAcceptsBlobType(s func(string) *APICmd) {
 
 	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
 	s("Rejects missing content type").WithBodyString("str").WithHeader("fnproject-datumtype", "blob").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingContentType)
@@ -257,7 +257,7 @@ func StageAcceptsBlobType(s func(string) *apiCmd) {
 
 }
 
-func StageAcceptsErrorType(s func(string) *apiCmd) {
+func StageAcceptsErrorType(s func(string) *APICmd) {
 
 	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
 
@@ -288,7 +288,7 @@ func StageAcceptsErrorType(s func(string) *apiCmd) {
 
 }
 
-func StageAcceptsEmptyType(s func(string) *apiCmd) {
+func StageAcceptsEmptyType(s func(string) *APICmd) {
 
 	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
 
@@ -301,7 +301,7 @@ func StageAcceptsEmptyType(s func(string) *apiCmd) {
 
 }
 
-func StageAcceptsHttpReqType(s func(string) *apiCmd) {
+func StageAcceptsHTTPReqType(s func(string) *APICmd) {
 
 	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
 
@@ -316,7 +316,7 @@ func StageAcceptsHttpReqType(s func(string) *apiCmd) {
 
 }
 
-func StageAcceptsHttpRespType(s func(string) *apiCmd) {
+func StageAcceptsHTTPRespType(s func(string) *APICmd) {
 
 	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
 

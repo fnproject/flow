@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 )
 
+// Using adds the persistence provider to a given actor
 func Using(provider Provider) func(next actor.ActorFunc) actor.ActorFunc {
 	return func(next actor.ActorFunc) actor.ActorFunc {
 		fn := func(ctx actor.Context) {

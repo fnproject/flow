@@ -5,11 +5,16 @@ import (
 	"github.com/fnproject/flow/model"
 )
 
+// ExecutionPhase tags stages into when in the graph they occur - stages may depend on other stages within a phase but not across two phases.
 type ExecutionPhase string
 
+// MainExecPhase indicates the main execution phase of the graph (normal running)
 const MainExecPhase = ExecutionPhase("main")
+
+//TerminationExecPhase when termination hooks are running
 const TerminationExecPhase = ExecutionPhase("termination")
 
+// StageDependency is an abstract dependency of another stage - this may either be another stage (see CompletionStage) or a raw dependency (RawDependency)
 type StageDependency interface {
 	GetID() string
 	IsResolved() bool
@@ -18,16 +23,16 @@ type StageDependency interface {
 	GetResult() *model.CompletionResult
 }
 
-// This is an input that obeys StageDependency
+// RawDependency  - is a trivial StageDependency that implements  a StageDependency from a completion result
 type RawDependency struct {
 	ID     string
 	result *model.CompletionResult
 }
 
-// CompletionStage is a node in  Graph
+// CompletionStage is a node in  Graph, this implements StageDependency
 type CompletionStage struct {
-	result    *model.CompletionResult
 	ID        string
+	result    *model.CompletionResult
 	operation model.CompletionOperation
 	strategy  strategy
 	// optional closure
@@ -45,53 +50,62 @@ type CompletionStage struct {
 	execPhase ExecutionPhase
 }
 
-func (stage *RawDependency) GetID() string {
-	return stage.ID
+// GetID gets the ID of a raw dependency
+func (r *RawDependency) GetID() string {
+	return r.ID
 }
 
+// GetResult gets the result (or nil if no result) of teh graph
 func (r *RawDependency) GetResult() *model.CompletionResult {
 	return r.result
 }
 
+// IsResolved indicates if the stage is resolved
 func (r *RawDependency) IsResolved() bool {
 	return r.result != nil
 }
 
+// IsSuccessful indicates if the stage has completed successful
 func (r *RawDependency) IsSuccessful() bool {
 	return r.IsResolved() && r.result.Successful
 }
 
+// IsFailed indicates if the stage has completed with a failure
 func (r *RawDependency) IsFailed() bool {
 	return r.IsResolved() && !r.result.Successful
 }
+
+// SetResult sets the result of a Raw Result
 func (r *RawDependency) SetResult(result *model.CompletionResult) {
 	r.result = result
 }
 
+// GetID gets the ID of a raw dependency
 func (stage *CompletionStage) GetID() string {
 	return stage.ID
 }
 
-// GetResult returns this stage's result if available
+// GetResult gets the result (or nil if no result) of teh graph
 func (stage *CompletionStage) GetResult() *model.CompletionResult {
 	return stage.result
 }
 
-// IsResolved is this stage resolved or pending
+// IsResolved indicates if the stage is resolved
 func (stage *CompletionStage) IsResolved() bool {
 	return stage.result != nil
 }
 
-// IsSuccessful indicates if the stage was successful
+// IsSuccessful indicates if the stage has completed successful
 func (stage *CompletionStage) IsSuccessful() bool {
 	return stage.IsResolved() && stage.result.Successful
 }
 
-// IsFailed indicates if the stage failed
+// IsFailed indicates if the stage has completed with a failure
 func (stage *CompletionStage) IsFailed() bool {
 	return stage.IsResolved() && !stage.result.Successful
 }
 
+// GetDeps gets the dependencies of a stage (this is mutable)
 func (stage *CompletionStage) GetDeps() []StageDependency {
 	return stage.dependencies
 }
@@ -121,6 +135,7 @@ func (stage *CompletionStage) complete(result *model.CompletionResult) bool {
 	return false
 }
 
+// IsTriggered indicates if this node has been triggered  - nodes may only be triggered once
 func (stage *CompletionStage) IsTriggered() bool {
 	return stage.IsResolved() || stage.triggered
 }

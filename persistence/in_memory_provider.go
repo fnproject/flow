@@ -15,12 +15,14 @@ type entry struct {
 	events     []proto.Message
 }
 
+// InMemoryProvider is a proto.actor persistence provider
 type InMemoryProvider struct {
 	snapshotInterval int
 	mu               sync.RWMutex
 	store            map[string]*entry // actorName -> a persistence entry
 }
 
+// NewInMemoryProvider creates a new in mem provider
 func NewInMemoryProvider(snapshotInterval int) *InMemoryProvider {
 	return &InMemoryProvider{
 		snapshotInterval: snapshotInterval,
@@ -43,12 +45,15 @@ func (provider *InMemoryProvider) loadOrInit(actorName string) (e *entry, loaded
 	return e, ok
 }
 
+// Restart implements ProviderStage.Restart
 func (provider *InMemoryProvider) Restart() {}
 
+// GetSnapshotInterval implements ProviderState.GetSnapshotInterval
 func (provider *InMemoryProvider) GetSnapshotInterval() int {
 	return provider.snapshotInterval
 }
 
+// GetSnapshot implements ProviderState.GetSnapshot
 func (provider *InMemoryProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
 	entry, loaded := provider.loadOrInit(actorName)
 	if !loaded || entry.snapshot == nil {
@@ -57,12 +62,14 @@ func (provider *InMemoryProvider) GetSnapshot(actorName string) (snapshot interf
 	return entry.snapshot, entry.eventIndex, true
 }
 
+// PersistSnapshot implements ProviderState.PersistSnapshot
 func (provider *InMemoryProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
 	entry, _ := provider.loadOrInit(actorName)
 	entry.eventIndex = eventIndex
 	entry.snapshot = snapshot
 }
 
+// GetEvents implements ProviderState.GetEvents
 func (provider *InMemoryProvider) GetEvents(actorName string, eventIndexStart int, callback func(index int,e interface{})) {
 	entry, _ := provider.loadOrInit(actorName)
 	for idx, e := range entry.events[eventIndexStart:] {
@@ -70,6 +77,7 @@ func (provider *InMemoryProvider) GetEvents(actorName string, eventIndexStart in
 	}
 }
 
+// PersistEvent implements ProviderState.PersistEvent
 func (provider *InMemoryProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 	entry, _ := provider.loadOrInit(actorName)
 	entry.events = append(entry.events, event)

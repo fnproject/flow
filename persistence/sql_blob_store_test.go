@@ -58,7 +58,7 @@ func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
 func givenEmptyBlobStore() BlobStore {
 
 	db := setupDb()
-	store, err := NewSqlBlobStore(db)
+	store, err := NewSQLBlobStore(db)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func givenEmptyBlobStore() BlobStore {
 func setupDb() *sqlx.DB {
 	resetTestDb()
 
-	db, err := CreateDBConnecection(testDbUrl())
+	db, err := CreateDBConnecection(testDbURL())
 	if err != nil {
 		panic(err)
 	}

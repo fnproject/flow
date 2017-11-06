@@ -20,7 +20,7 @@ func TestGraphIdValidation(t *testing.T) {
 		{"87786152-8821-11e7-acc3-b7dd555ee2ee", true}}
 
 	for _, c := range cases {
-		assert.Equal(t, c.v, validGraphId(c.g), "Case %s", c.g)
+		assert.Equal(t, c.v, validGraphID(c.g), "Case %s", c.g)
 	}
 }
 
@@ -39,6 +39,6 @@ func TestStageIdValidation(t *testing.T) {
 		{"87786152-8821-11e7-acc3-b7dd555ee2ee", true}}
 
 	for _, c := range cases {
-		assert.Equal(t, c.v, validGraphId(c.g), "Case %s", c.g)
+		assert.Equal(t, c.v, validGraphID(c.g), "Case %s", c.g)
 	}
 }

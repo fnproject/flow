@@ -12,6 +12,7 @@ type Provider interface {
 	GetState() ProviderState
 }
 
+// ProviderState is the contract with a given persistence provider
 type ProviderState interface {
 	Restart()
 	GetSnapshotInterval() int

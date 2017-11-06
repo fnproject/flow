@@ -15,6 +15,9 @@ protos:  model/model.pb.go persistence/testprotos.pb.go
 vet: $(GOFILES)
 	go vet $(GOPACKAGES)
 
+lint: $(GOFILES)
+	for pkg in $(GOPACKAGES) ; do golint $$pkg ; done
+
 test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
@@ -27,6 +30,9 @@ build: $(GOFILES)
 run: build
 	GIN_MODE=debug ./flow-service
 
+
+
+myday: test lint vet
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 CONTAINER_COMPLETER_DIR := /go/src/github.com/fnproject/flow

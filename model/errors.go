@@ -12,47 +12,57 @@ type ValidationError interface {
 	proto.Message
 }
 
-func NewGraphCreationError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Graph creation failed"}
+// NewGraphCreationError : failed to create graph, no graph exists afterwards
+func NewGraphCreationError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Graph creation failed"}
 }
 
-func NewGraphNotFoundError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Graph not found"}
+// NewGraphNotFoundError : anywhere a graph is not fonud
+func NewGraphNotFoundError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Graph not found"}
 }
 
-func NewGraphCompletedError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Graph already completed"}
+// NewGraphCompletedError : indicates an invalid operation on an already completed (or terminating) graph
+func NewGraphCompletedError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Graph already completed"}
 }
 
-func NewInvalidDelayError(graphId string, delayMs int64) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: fmt.Sprintf("Invalid delay stage of %d milliseconds", delayMs)}
+// NewInvalidDelayError - something wasn't right with your delay
+func NewInvalidDelayError(graphID string, delayMs int64) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: fmt.Sprintf("Invalid delay stage of %d milliseconds", delayMs)}
 }
 
-func NewStageNotFoundError(graphId string, stageId string) ValidationError {
-	return &InvalidStageOperation{GraphId: graphId, StageId: stageId, Err: "Stage not found"}
+// NewStageNotFoundError : anywhere a stage on an existing graph was not found
+func NewStageNotFoundError(graphID string, stageID string) ValidationError {
+	return &InvalidStageOperation{GraphId: graphID, StageId: stageID, Err: "Stage not found"}
 }
 
-func NewStageCompletionError(graphId string, stageId string) ValidationError {
-	return &InvalidStageOperation{GraphId: graphId, StageId: stageId, Err: "Stage failed to complete"}
+// NewAwaitStageError : Error (including a timeout) awaiting a stage
+func NewAwaitStageError(graphID string, stageID string) ValidationError {
+	return &InvalidStageOperation{GraphId: graphID, StageId: stageID, Err: "Stage failed to complete"}
 }
 
-func NewStageNotCompletableError(graphId string, stageId string) ValidationError {
-	return &InvalidStageOperation{GraphId: graphId, StageId: stageId, Err: "Stage not completable externally"}
+// NewStageNotCompletableError : Stage is not externally completable
+func NewStageNotCompletableError(graphID string, stageID string) ValidationError {
+	return &InvalidStageOperation{GraphId: graphID, StageId: stageID, Err: "Stage not completable externally"}
 }
 
-func NewInvalidStageDependenciesError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to create stage with invalid dependencies"}
+// NewInvalidStageDependenciesError : bad stage deps in request
+func NewInvalidStageDependenciesError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Failed to create stage with invalid dependencies"}
 }
 
-func NewInvalidOperationError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Invalid stage operation"}
+// NewInvalidOperationError : bad operation in request
+func NewInvalidOperationError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Invalid stage operation"}
 }
 
-func NewTooManyStagesError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add stage, graph has maximum number of stages"}
+// NewTooManyStagesError : too many stages in your graph
+func NewTooManyStagesError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Failed to add stage, graph has maximum number of stages"}
 }
 
-
-func NewTooManyTerminatinoHooksError(graphId string) ValidationError {
-	return &InvalidGraphOperation{GraphId: graphId, Err: "Failed to add termination hook, graph has maximum number of termination hooks"}
+// NewTooManyTerminationHooksError : too many termination hooks on your graph
+func NewTooManyTerminationHooksError(graphID string) ValidationError {
+	return &InvalidGraphOperation{GraphId: graphID, Err: "Failed to add termination hook, graph has maximum number of termination hooks"}
 }

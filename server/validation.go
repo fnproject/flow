@@ -5,12 +5,12 @@ import (
 	"regexp"
 )
 
-var graphIdRegx = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
+var graphIDRegex = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
 
-var stageIdRegx = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
+var stageIDRegex = regexp.MustCompile("^[a-zA-Z0-9\\-_]{1,255}$")
 
-func validFunctionId(functionId string, allowRelative bool) bool {
-	fn, err := model.ParseFunctionId(functionId)
+func validFunctionID(functionID string, allowRelative bool) bool {
+	fn, err := model.ParseFunctionID(functionID)
 
 	if err != nil {
 		return false
@@ -21,10 +21,10 @@ func validFunctionId(functionId string, allowRelative bool) bool {
 	return true
 }
 
-func validGraphId(graphId string) bool {
-	return graphIdRegx.MatchString(graphId)
+func validGraphID(graphID string) bool {
+	return graphIDRegex.MatchString(graphID)
 }
 
-func validStageId(stageId string) bool {
-	return stageIdRegx.MatchString(stageId)
+func validStageID(stageID string) bool {
+	return stageIDRegex.MatchString(stageID)
 }

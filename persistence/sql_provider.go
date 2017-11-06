@@ -10,29 +10,31 @@ import (
 	"github.com/opentracing/opentracing-go"
 )
 
-type SqlProvider struct {
+
+type sqlProvider struct {
 	snapshotInterval int
 	db               *sqlx.DB
 }
 
 var log = logrus.New().WithField("logger", "persistence")
 
-func NewSqlProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
+// NewSQLProvider creates a journal/snapshot provider with an SQL db backing it
+func NewSQLProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
 
 	log.Info("Creating SQL persistence provider")
-	return &SqlProvider{
+	return &sqlProvider{
 		snapshotInterval: snapshotInterval,
 		db:               db,
 	}, nil
 }
 
-func (provider *SqlProvider) Restart() {}
+func (provider *sqlProvider) Restart() {}
 
-func (provider *SqlProvider) GetSnapshotInterval() int {
+func (provider *sqlProvider) GetSnapshotInterval() int {
 	return provider.snapshotInterval
 }
 
-func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
+func (provider *sqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
 
 	row := provider.db.QueryRowx("SELECT snapshot_type,event_index,snapshot FROM snapshots WHERE actor_name = ?", actorName)
 
@@ -81,7 +83,7 @@ func extractData(actorName string, msgTypeName string, msgBytes []byte) (proto.M
 	return message, nil
 }
 
-func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
+func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
 	pbType := proto.MessageName(snapshot)
 	pbBytes, err := proto.Marshal(snapshot)
 
@@ -97,7 +99,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 	}
 }
 
-func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
+func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
 	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
 	span := opentracing.StartSpan("sql_get_events")
 	defer span.Finish()
@@ -125,7 +127,7 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 }
 
-func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 
 	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndex}).Debug("Persisting event")
 

@@ -43,9 +43,10 @@ type EventStreamPlugin struct {
 	stream *stream.UntypedStream
 }
 
-// OnStart configures the EventST
+// OnStart configures implements plugin.OnStart for the event stream plugin
 func (p *EventStreamPlugin) OnStart(ctx actor.Context) {}
 
+// OnOtherMessage implements plugin.OnOtherMessage - sends message to stream
 func (p *EventStreamPlugin) OnOtherMessage(ctx actor.Context, usrMsg interface{}) {
 	p.stream.PID().Tell(usrMsg)
 }

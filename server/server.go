@@ -27,37 +27,36 @@ import (
 )
 
 const (
-	MaxDelay          = 3600 * 1000 * 24
-	maxRequestTimeout = 1 * time.Hour
-	minRequestTimeout = 1 * time.Second
+	maxDelayStageDelay = 3600 * 1000 * 24
+	maxRequestTimeout  = 1 * time.Hour
+	minRequestTimeout  = 1 * time.Second
 
+	paramGraphID   = "graphId"
+	paramStageID   = "stageId"
+	paramOperation = "operation"
 
-	ParamGraphID   = "graphId"
-	ParamStageID   = "stageId"
-	ParamOperation = "operation"
-
-	QueryParamGraphID    = "graphId"
-	QueryParamFunctionID = "functionId"
+	queryParamGraphID    = "graphId"
+	queryParamFunctionID = "functionId"
 )
 
 var log = logrus.WithField("logger", "server")
 
 func (s *Server) completeExternally(graphID string, stageID string, body []byte, headers http.Header, method string, contentType string, b bool) (*model.CompleteStageExternallyResponse, error) {
-	var hs []*model.HttpHeader
+	var hs []*model.HTTPHeader
 	for k, vs := range headers {
 		for _, v := range vs {
-			hs = append(hs, &model.HttpHeader{
+			hs = append(hs, &model.HTTPHeader{
 				Key:   k,
 				Value: v,
 			})
 		}
 	}
 
-	var m model.HttpMethod
-	if methodValue, found := model.HttpMethod_value[strings.ToLower(method)]; found {
-		m = model.HttpMethod(methodValue)
+	var m model.HTTPMethod
+	if methodValue, found := model.HTTPMethod_value[strings.ToLower(method)]; found {
+		m = model.HTTPMethod(methodValue)
 	} else {
-		return nil, ErrUnsupportedHttpMethod
+		return nil, ErrUnsupportedHTTPMethod
 	}
 
 	if contentType == "" {
@@ -68,7 +67,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	if err != nil {
 		return nil, err
 	}
-	httpReqDatum := model.HttpReqDatum{
+	httpReqDatum := model.HTTPReqDatum{
 		Body:    blob,
 		Headers: hs,
 		Method:  m,
@@ -79,7 +78,7 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 		StageId: stageID,
 		Result: &model.CompletionResult{
 			Successful: b,
-			Datum:      model.NewHttpReqDatum(&httpReqDatum),
+			Datum:      model.NewHTTPReqDatum(&httpReqDatum),
 		},
 	}
 
@@ -89,17 +88,17 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 }
 
 func (s *Server) handleStageOperation(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
-	stageID := c.Param(ParamStageID)
-	if !validStageId(graphID) {
-		renderError(ErrInvalidStageId, c)
+	stageID := c.Param(paramStageID)
+	if !validStageID(graphID) {
+		renderError(ErrInvalidStageID, c)
 		return
 	}
-	operation := c.Param(ParamOperation)
+	operation := c.Param(paramOperation)
 	body, err := c.GetRawData()
 	if err != nil {
 		renderError(ErrReadingInput, c)
@@ -127,8 +126,8 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		other := c.Query("other")
 		cids := []string{stageID}
 		if other != "" {
-			if !validStageId(other) {
-				renderError(ErrInvalidDepStageId, c)
+			if !validStageID(other) {
+				renderError(ErrInvalidDepStageID, c)
 				return
 			}
 			cids = append(cids, other)
@@ -179,9 +178,9 @@ func renderError(err error, c *gin.Context) {
 
 	case model.ValidationError, *protocol.BadProtoMessage:
 		c.Data(http.StatusBadRequest, "text/plain", []byte(e.Error()))
-	case *ServerErr:
+	case *Error:
 		{
-			c.Data(e.HttpStatus, "text/plain", []byte(e.Message))
+			c.Data(e.HTTPStatus, "text/plain", []byte(e.Message))
 		}
 	default:
 		log.WithError(err).Error("Internal server error")
@@ -191,16 +190,16 @@ func renderError(err error, c *gin.Context) {
 
 func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
-	functionID := c.Query(QueryParamFunctionID)
-	graphID := c.Query(QueryParamGraphID)
+	functionID := c.Query(queryParamFunctionID)
+	graphID := c.Query(queryParamGraphID)
 
-	if !validFunctionId(functionID, false) {
+	if !validFunctionID(functionID, false) {
 		log.WithField("function_id", functionID).Info("Invalid function iD ")
-		renderError(ErrInvalidFunctionId, c)
+		renderError(ErrInvalidFunctionID, c)
 		return
 	}
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 
@@ -210,15 +209,15 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 		renderError(err, c)
 		return
 	}
-	c.Header(protocol.HeaderFlowId, result.GraphId)
+	c.Header(protocol.HeaderFlowID, result.GraphId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) handleGraphState(c *gin.Context) {
 
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 
@@ -240,8 +239,8 @@ func resultStatus(result *model.CompletionResult) string {
 }
 
 func (s *Server) handleGetGraphStage(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	stageID := c.Param(ParamStageID)
+	graphID := c.Param(paramGraphID)
+	stageID := c.Param(paramStageID)
 
 	timeout := maxRequestTimeout
 
@@ -263,12 +262,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		}
 	}
 
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
-	if !validStageId(stageID) {
-		renderError(ErrInvalidStageId, c)
+	if !validStageID(stageID) {
+		renderError(ErrInvalidStageID, c)
 		return
 	}
 
@@ -338,12 +337,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 			}
 		}
 
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHttpReq)
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHTTPReq)
 		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		for _, header := range httpReq.Headers {
 			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
 		}
-		httpMethod := model.HttpMethod_name[int32(httpReq.GetMethod())]
+		httpMethod := model.HTTPMethod_name[int32(httpReq.GetMethod())]
 		c.Header(protocol.HeaderMethod, httpMethod)
 		c.Data(http.StatusOK, httpReq.Body.GetContentType(), body)
 		return
@@ -358,7 +357,7 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 				return
 			}
 		}
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHttpResp)
+		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHTTPResp)
 		c.Header(protocol.HeaderResultStatus, resultStatus(result))
 		for _, header := range httpResp.Headers {
 			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
@@ -375,9 +374,9 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 }
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 	request := &model.AddExternalCompletionStageRequest{
@@ -398,16 +397,16 @@ func (s *Server) handleExternalCompletion(c *gin.Context) {
 
 func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 	cidList := c.Query("cids")
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 	cids := strings.Split(cidList, ",")
 
-	for _, stageId := range cids {
-		if !validStageId(stageId) {
-			renderError(ErrInvalidDepStageId, c)
+	for _, stageID := range cids {
+		if !validStageID(stageID) {
+			renderError(ErrInvalidDepStageID, c)
 			return
 		}
 	}
@@ -441,9 +440,9 @@ func (s *Server) handleAnyOf(c *gin.Context) {
 }
 
 func (s *Server) handleSupply(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 	ct := c.ContentType()
@@ -487,9 +486,9 @@ func (s *Server) handleSupply(c *gin.Context) {
 }
 
 func (s *Server) handleCompletedValue(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 
@@ -520,7 +519,7 @@ func (s *Server) addStage(request model.AddStageCommand) (*model.AddStageRespons
 }
 
 func (s *Server) handleCommit(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
+	graphID := c.Param(paramGraphID)
 	request := model.CommitGraphRequest{GraphId: graphID}
 
 	response, err := s.GraphManager.Commit(&request, s.requestTimeout)
@@ -529,14 +528,14 @@ func (s *Server) handleCommit(c *gin.Context) {
 		return
 	}
 
-	c.Header(protocol.HeaderFlowId, response.GraphId)
+	c.Header(protocol.HeaderFlowID, response.GraphId)
 	c.Status(http.StatusOK)
 }
 
 func (s *Server) handleDelay(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 	delayMs := c.Query("delayMs")
@@ -546,7 +545,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 	}
 
 	delay, err := strconv.ParseInt(delayMs, 10, 64)
-	if err != nil || delay < 0 || delay > MaxDelay {
+	if err != nil || delay < 0 || delay > maxDelayStageDelay {
 		renderError(ErrMissingOrInvalidDelay, c)
 		return
 	}
@@ -566,19 +565,19 @@ func (s *Server) handleDelay(c *gin.Context) {
 }
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 	functionID := c.Query("functionId")
 
-	if !validFunctionId(functionID, true) {
-		renderError(ErrInvalidFunctionId, c)
+	if !validFunctionID(functionID, true) {
+		renderError(ErrInvalidFunctionID, c)
 		return
 	}
 
-	if c.GetHeader(protocol.HeaderDatumType) != protocol.DatumTypeHttpReq {
+	if c.GetHeader(protocol.HeaderDatumType) != protocol.DatumTypeHTTPReq {
 		renderError(protocol.ErrInvalidDatumType, c)
 		return
 	}
@@ -607,9 +606,9 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 }
 
 func (s *Server) handleAddTerminationHook(c *gin.Context) {
-	graphID := c.Param(ParamGraphID)
-	if !validGraphId(graphID) {
-		renderError(ErrInvalidGraphId, c)
+	graphID := c.Param(paramGraphID)
+	if !validGraphID(graphID) {
+		renderError(ErrInvalidGraphID, c)
 		return
 	}
 
@@ -695,24 +694,25 @@ func setTracer(ownURL string, zipkinURL string) {
 	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
-
+// Server is the flow service root
 type Server struct {
 	Engine         *gin.Engine
 	GraphManager   actor.GraphManager
-	apiUrl         *url.URL
+	apiURL         *url.URL
 	BlobStore      persistence.BlobStore
 	listen         string
 	requestTimeout time.Duration
 	promHandler    http.Handler
 }
 
-func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
+func newEngine(clusterManager *cluster.Manager) *gin.Engine {
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(), GraphCreateInterceptor, clusterManager.ProxyHandler())
+	engine.Use(gin.Logger(), gin.Recovery(), graphCreateInterceptor, clusterManager.ProxyHandler())
 	return engine
 }
 
-func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinUrl  string) (*Server, error) {
+// New creates a new server - params are injected dependencies
+func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinUrl  string) (*Server, error) {
 
 	setTracer(listenAddress, zipkinUrl)
 
@@ -759,6 +759,7 @@ func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blo
 	return s, nil
 }
 
+// Run starts the server
 func (s *Server) Run() {
 	log.WithField("listen_url", s.listen).Infof("Starting Completer server (timeout %s) ", s.requestTimeout)
 
@@ -767,8 +768,8 @@ func (s *Server) Run() {
 
 // context handler that intercepts graph create requests, injecting a UUID parameter prior
 // to forwarding to the appropriate node in the cluster
-func GraphCreateInterceptor(c *gin.Context) {
-	if c.Request.URL.Path == "/graph" && len(c.Query(QueryParamGraphID)) == 0 {
+func graphCreateInterceptor(c *gin.Context) {
+	if c.Request.URL.Path == "/graph" && len(c.Query(queryParamGraphID)) == 0 {
 		UUID, err := uuid.NewRandom()
 		if err != nil {
 			c.AbortWithError(500, errors.New("Failed to generate UUID for new graph"))
@@ -779,7 +780,7 @@ func GraphCreateInterceptor(c *gin.Context) {
 
 		// set the graphId query param in the original request prior to proxying
 		values := c.Request.URL.Query()
-		values.Add(QueryParamGraphID, graphID)
+		values.Add(queryParamGraphID, graphID)
 		c.Request.URL.RawQuery = values.Encode()
 	}
 }

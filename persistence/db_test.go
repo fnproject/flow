@@ -14,7 +14,7 @@ var dbPath = fmt.Sprintf("%s/flow_test", tmpDir)
 var dbFile = fmt.Sprintf("%s/test.db", dbPath)
 
 
-func testDbUrl() *url.URL {
+func testDbURL() *url.URL {
 	url, err := url.Parse("sqlite3://" + dbFile)
 	if err != nil {
 		panic(err)

@@ -90,7 +90,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
-	req.Header.Set(protocol.HeaderFlowId, msg.GraphId)
+	req.Header.Set(protocol.HeaderFlowID, msg.GraphId)
 	req.Header.Set(protocol.HeaderStageRef, msg.StageId)
 	resp, err := exec.client.Do(req)
 
@@ -136,7 +136,7 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg
 
-	method := strings.ToUpper(model.HttpMethod_name[int32(datum.Method)])
+	method := strings.ToUpper(model.HTTPMethod_name[int32(datum.Method)])
 	stageLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "stage_id": msg.StageId, "target_function_id": msg.FunctionId, "method": method})
 	stageLog.Info("Sending function invocation")
 
@@ -195,14 +195,14 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	var headers = make([]*model.HttpHeader, 0)
+	var headers = make([]*model.HTTPHeader, 0)
 	for headerName, valList := range resp.Header {
 		// Don't copy content type into headers
 		if textproto.CanonicalMIMEHeaderKey(headerName) == "Content-Type" {
 			continue
 		}
 		for _, val := range valList {
-			headers = append(headers, &model.HttpHeader{Key: headerName, Value: val})
+			headers = append(headers, &model.HTTPHeader{Key: headerName, Value: val})
 		}
 	}
 
@@ -214,7 +214,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 
 	resultDatum := &model.Datum{
 		Val: &model.Datum_HttpResp{
-			HttpResp: &model.HttpRespDatum{
+			HttpResp: &model.HTTPRespDatum{
 				Headers:    headers,
 				Body:       blob,
 				StatusCode: uint32(resp.StatusCode)}}}

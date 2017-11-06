@@ -9,6 +9,7 @@ import (
 	"strings"
 	"github.com/sirupsen/logrus"
 	"database/sql"
+	// this is pulled in to ensure we have mysql Drivers for DB/DBX
 	_ "github.com/go-sql-driver/mysql"
 )
 

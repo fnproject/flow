@@ -28,7 +28,7 @@ func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Reques
 		return
 	}
 
-	wsWorker := NewWorker(conn, manager)
+	wsWorker := newWorker(conn, manager)
 	log.Debugf("Subscribing %v to stream", conn.RemoteAddr())
 	wsWorker.Run()
 }

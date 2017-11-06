@@ -212,7 +212,7 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderDatumType, DatumTypeHTTPReq)
 	h.Add(HeaderMethod, "GET")
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")
@@ -223,7 +223,7 @@ func TestReadsHttpReqDatumWithBodyAndHeaders(t *testing.T) {
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetHttpReq())
-	assert.Equal(t, model.HttpMethod_get, d.GetHttpReq().GetMethod())
+	assert.Equal(t, model.HTTPMethod_get, d.GetHttpReq().GetMethod())
 
 	assert.Equal(t, "text/plain", d.GetHttpReq().GetBody().ContentType)
 	assert.Equal(t, []byte("WOMBAT"), getBlobData(t, store, d.GetHttpReq().GetBody()))
@@ -243,14 +243,14 @@ func TestReadsHttpReqDatumWithNoBody(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderDatumType, DatumTypeHTTPReq)
 	h.Add(HeaderMethod, "GET")
 	part := createPart( h, "")
 	d, err := DatumFromPart(store,part)
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetHttpReq())
-	assert.Equal(t, model.HttpMethod_get, d.GetHttpReq().GetMethod())
+	assert.Equal(t, model.HTTPMethod_get, d.GetHttpReq().GetMethod())
 
 	assert.Nil(t,d.GetHttpReq().Body)
 
@@ -260,7 +260,7 @@ func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderDatumType, DatumTypeHTTPReq)
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")
 	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
@@ -269,14 +269,14 @@ func TestRejectsHttpReqDatumWithNoMethod(t *testing.T) {
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Equal(t,ErrMissingHttpMethod,err)
+	assert.Equal(t, ErrMissingHTTPMethod,err)
 }
 
 func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpReq)
+	h.Add(HeaderDatumType, DatumTypeHTTPReq)
 	h.Add(HeaderMethod, "SOME_INVALID_METHOD")
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")
@@ -286,7 +286,7 @@ func TestRejectsHttpReqDatumWithInvalidMethod(t *testing.T) {
 	_, err := DatumFromPart(store,part)
 
 	assert.Error(t, err)
-	assert.Equal(t,ErrInvalidHttpMethod,err)
+	assert.Equal(t, ErrInvalidHTTPMethod,err)
 }
 
 
@@ -294,7 +294,7 @@ func TestReadsHttpRespDatumWithBodyAndHeaders(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderDatumType, DatumTypeHTTPResp)
 	h.Add(HeaderResultCode, "200")
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")
@@ -404,7 +404,7 @@ func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderDatumType, DatumTypeHTTPResp)
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")
 	h.Add(HeaderHeaderPrefix+"multi", "BAZ")
@@ -420,7 +420,7 @@ func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
-	h.Add(HeaderDatumType, DatumTypeHttpResp)
+	h.Add(HeaderDatumType, DatumTypeHTTPResp)
 	h.Add(HeaderResultCode, "SOME_INVALID_CODE")
 	h.Add(HeaderHeaderPrefix+"single", "FOO")
 	h.Add(HeaderHeaderPrefix+"multi", "BAR")

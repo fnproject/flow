@@ -262,7 +262,7 @@ func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 
 }
 
-func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, code uint32) *model.HttpRespDatum {
+func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, code uint32) *model.HTTPRespDatum {
 	require.NotNil(t, result.Result.GetDatum().GetHttpResp())
 
 	datum := result.Result.GetDatum().GetHttpResp()
@@ -330,10 +330,10 @@ func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body 
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
-		Arg: &model.HttpReqDatum{
-			Method: model.HttpMethod_put,
+		Arg: &model.HTTPReqDatum{
+			Method: model.HTTPMethod_put,
 			Body:   body,
-			Headers: []*model.HttpHeader{
+			Headers: []*model.HTTPHeader{
 				{Key: "header_1", Value: "h1val"},
 				{Key: "header_2", Value: "h2val_1"},
 				{Key: "header_2", Value: "h2val_2"},

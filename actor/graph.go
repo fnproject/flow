@@ -255,7 +255,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
-				context.Respond(model.NewStageCompletionError(msg.GraphId, msg.StageId))
+				context.Respond(model.NewAwaitStageError(msg.GraphId, msg.StageId))
 				return
 			}
 			response := &model.GetStageResultResponse{
@@ -302,17 +302,17 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 var appIDRegex = regexp.MustCompile("^([^/]+)/(.*)$")
 
 func resolveFunctionID(original string, relative string) (string, error) {
-	orig, err := model.ParseFunctionId(original)
+	orig, err := model.ParseFunctionID(original)
 	if err != nil {
 		return "", err
 	}
-	rel, err := model.ParseFunctionId(relative)
+	rel, err := model.ParseFunctionID(relative)
 	if err != nil {
 		return "", err
 	}
 
-	if rel.AppId == "." {
-		rel.AppId = orig.AppId
+	if rel.AppID == "." {
+		rel.AppID = orig.AppID
 	}
 	return rel.String(), nil
 }

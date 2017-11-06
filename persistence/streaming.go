@@ -6,14 +6,18 @@ import (
 	"sync"
 )
 
+// StreamCallBack is a callback when an  event is delivered to a persistence stream
 type StreamCallBack func(event *StreamEvent)
 
+// StreamPredicate filters a stream
 type StreamPredicate func(event *StreamEvent) bool
 
+// StreamingProvider is a wrapper for an existing provider that adds event streaming support
 type StreamingProvider struct {
 	state *streamingProviderState
 }
 
+// StreamingProviderState provides streaming access to an actor's events (including historical journal)
 type StreamingProviderState interface {
 	ProviderState
 	// StreamNewEvents sends any  events that match the predicate as they arrive to fn
@@ -26,6 +30,7 @@ type StreamingProviderState interface {
 	UnsubscribeStream(sub *eventstream.Subscription)
 }
 
+// StreamEvent adds metadata to an actor's message
 type StreamEvent struct {
 	ActorName  string
 	EventIndex int
@@ -128,7 +133,7 @@ func (p *StreamingProvider) GetState() ProviderState {
 	return p.state
 }
 
-// GetState returns the persistence.ProviderState associated with this provider
+// GetEventStream returns the underlyinfg proto.actor stream for a streaming provider
 func (p *StreamingProvider) GetEventStream() *eventstream.EventStream {
 	return p.state.stream
 }
@@ -143,7 +148,7 @@ func newStreamingProviderState(target ProviderState) *streamingProviderState {
 	return &streamingProviderState{ProviderState: target, stream: &eventstream.EventStream{}}
 }
 
-func (s *streamingProviderState) PersistEvent(actorName string, eventIndex int, event proto.Message) {
-	s.ProviderState.PersistEvent(actorName, eventIndex, event)
-	s.stream.Publish(&StreamEvent{ActorName: actorName, EventIndex: eventIndex, Event: event})
+func (m *streamingProviderState) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+	m.ProviderState.PersistEvent(actorName, eventIndex, event)
+	m.stream.Publish(&StreamEvent{ActorName: actorName, EventIndex: eventIndex, Event: event})
 }

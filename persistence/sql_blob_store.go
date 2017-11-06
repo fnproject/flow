@@ -12,13 +12,15 @@ type sqlBlobStore struct {
 	db               *sqlx.DB
 }
 
-func NewSqlBlobStore(db *sqlx.DB) (BlobStore, error) {
+// NewSQLBlobStore creates a new blob store on the given DB , the DB should already have tables in place
+func NewSQLBlobStore(db *sqlx.DB) (BlobStore, error) {
 
 	log.Info("Creating SQL persistence provider")
 	return &sqlBlobStore{
 		db: db,
 	}, nil
 }
+
 
 func (s *sqlBlobStore) CreateBlob(contentType string, data []byte) (*model.BlobDatum, error) {
 	id, err := uuid.NewRandom()

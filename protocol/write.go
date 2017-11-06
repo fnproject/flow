@@ -54,12 +54,12 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 		}
 		return nil
 	case *model.Datum_HttpReq:
-		h.Add(HeaderDatumType, DatumTypeHttpReq)
+		h.Add(HeaderDatumType, DatumTypeHTTPReq)
 		httpreq := datum.GetHttpReq()
 		for _, datumHeader := range httpreq.Headers {
 			h.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
-		methodString := strings.ToUpper(model.HttpMethod_name[int32(httpreq.Method)])
+		methodString := strings.ToUpper(model.HTTPMethod_name[int32(httpreq.Method)])
 
 		h.Add(HeaderMethod, methodString)
 
@@ -83,7 +83,7 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 
 		return nil
 	case *model.Datum_HttpResp:
-		h.Add(HeaderDatumType, DatumTypeHttpResp)
+		h.Add(HeaderDatumType, DatumTypeHTTPResp)
 		httpresp := datum.GetHttpResp()
 		for _, datumHeader := range httpresp.Headers {
 			h.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
@@ -136,11 +136,11 @@ func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer 
 // WritePartFromResult emits a result to an HTTP part
 func WritePartFromResult(store persistence.BlobStore, result *model.CompletionResult, writer *multipart.Writer) error {
 	h := textproto.MIMEHeader{}
-	h.Add(HeaderResultStatus, GetResultStatus(result))
+	h.Add(HeaderResultStatus, getResultStatus(result))
 	return writePartFromDatum(h, store, result.Datum, writer)
 }
 
-func GetResultStatus(result *model.CompletionResult) string {
+func getResultStatus(result *model.CompletionResult) string {
 	if result.GetSuccessful() {
 		return ResultStatusSuccess
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
@@ -63,7 +64,9 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 	}
 	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).
+		WithSupervisor(strategy).
+		WithMailbox(mailbox.UnboundedLockfree())
 	// TODO executor is not sharded and would not support clustering once it's made persistent!
 	executor, err := actor.SpawnNamed(executorProps, "executor")
 	if err != nil {

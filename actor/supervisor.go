@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/fnproject/flow/model"
@@ -144,7 +145,9 @@ func (s *graphSupervisor) spawnGraphActor(context actor.Context, graphID string)
 		WithMiddleware(
 			plugin.Use(&PIDAwarePlugin{}),
 			persistence.Using(s.persistenceProvider),
-		)
+		).
+		WithMailbox(mailbox.UnboundedLockfree())
+
 	pid, err := context.SpawnNamed(props, graphID)
 	context.Watch(pid)
 	s.log.WithFields(logrus.Fields{"graph_id": graphID}).Infof("Created graph actor %s", pid.Id)

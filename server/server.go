@@ -24,14 +24,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/opentracing/opentracing-go"
 	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/spf13/viper"
 )
 
 const (
 	MaxDelay          = 3600 * 1000 * 24
 	maxRequestTimeout = 1 * time.Hour
 	minRequestTimeout = 1 * time.Second
-	EnvZipkinURL = "zipkin_url"
+
 
 	ParamGraphID   = "graphId"
 	ParamStageID   = "stageId"
@@ -713,9 +712,9 @@ func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
 	return engine
 }
 
-func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
+func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinUrl  string) (*Server, error) {
 
-	setTracer(listenAddress, viper.GetString(EnvZipkinURL))
+	setTracer(listenAddress, zipkinUrl)
 
 	s := &Server{
 		GraphManager:   manager,

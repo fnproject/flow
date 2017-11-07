@@ -176,7 +176,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 	assert.Equal(t, "PUT", outbound.Method)
 	assert.Equal(t, "body/type", outbound.Header.Get("Content-type"))
 	assert.Equal(t, outbound.Header.Get("header_1"), "h1val")
-	assert.Equal(t, outbound.Header[textproto.CanonicalMIMEHeaderKey("header_2")], []string{"h2val_1","h2val_2"})
+	assert.Equal(t, outbound.Header[textproto.CanonicalMIMEHeaderKey("header_2")], []string{"h2val_1", "h2val_2"})
 
 	br := &bytes.Buffer{}
 	br.ReadFrom(outbound.Body)

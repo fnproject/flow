@@ -1,8 +1,8 @@
 package persistence
 
 import (
-	"testing"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -104,8 +104,6 @@ func getEventsForActor(provider ProviderState, actorName string, startIdx int) [
 	return events
 }
 
-
-
 func givenProvider(t *testing.T) ProviderState {
 	resetTestDb()
 	db, err := CreateDBConnecection(testDbURL())
@@ -114,5 +112,3 @@ func givenProvider(t *testing.T) ProviderState {
 	require.NoError(t, err)
 	return provider
 }
-
-

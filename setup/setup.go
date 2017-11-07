@@ -2,13 +2,13 @@ package setup
 
 import (
 	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/cluster"
 	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/server"
 	"github.com/fnproject/flow/sharding"
-	"github.com/fnproject/flow/cluster"
 
-	"github.com/sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"fmt"
@@ -32,7 +32,7 @@ const (
 	envClusterNodeID     = "cluster_node_id"
 	envClusterNodePort   = "cluster_node_port"
 
-	envZipkinURL 		 = "zipkin_url"
+	envZipkinURL = "zipkin_url"
 )
 
 var defaults = make(map[string]string)
@@ -41,10 +41,6 @@ var log = logrus.New().WithField("logger", "setup")
 func canonKey(key string) string {
 	return strings.Replace(strings.Replace(strings.ToLower(key), "-", "_", -1), ".", "_", -1)
 }
-
-
-
-
 
 // InitFromEnv sets up a whole  flow service from env/config
 func InitFromEnv() (*server.Server, error) {
@@ -112,7 +108,7 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	srv, err := server.New(clusterManager, graphManager, blobStore, viper.GetString(envListen), viper.GetDuration(envRequestTimeout),viper.GetString(envZipkinURL))
+	srv, err := server.New(clusterManager, graphManager, blobStore, viper.GetString(envListen), viper.GetDuration(envRequestTimeout), viper.GetString(envZipkinURL))
 	if err != nil {
 		return nil, err
 	}

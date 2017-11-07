@@ -163,6 +163,6 @@ func (l *wsWorker) Close() {
 func newWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
 	return &wsWorker{conn: conn,
 		subscriptions: make(map[string]*eventstream.Subscription),
-		marshaller: jsonpb.Marshaler{EmitDefaults: true, OrigName: true},
-		manager: manager}
+		marshaller:    jsonpb.Marshaler{EmitDefaults: true, OrigName: true},
+		manager:       manager}
 }

@@ -11,8 +11,8 @@ import (
 	"net/url"
 
 	protoactor "github.com/AsynkronIT/protoactor-go/actor"
-    "github.com/fnproject/flow/actor"
-    "github.com/fnproject/flow/cluster"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/cluster"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/protocol"
@@ -20,10 +20,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/opentracing/opentracing-go"
 	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 const (

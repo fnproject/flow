@@ -1,11 +1,12 @@
 package persistence
+
 /**
-   This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/receiver.go
-   This has been modified to support propagating event indices to plugins
- */
+  This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/receiver.go
+  This has been modified to support propagating event indices to plugins
+*/
 import (
-	"reflect"
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"reflect"
 )
 
 // Using adds the persistence provider to a given actor

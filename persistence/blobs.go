@@ -2,9 +2,9 @@ package persistence
 
 import (
 	"fmt"
-	"sync"
-	"strconv"
 	"github.com/fnproject/flow/model"
+	"strconv"
+	"sync"
 )
 
 // BlobStore is an abstraction for user data persistence

@@ -55,9 +55,9 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
 	case *model.InvokeStageRequest:
-		go func() {sender.Tell(exec.HandleInvokeStage(msg))}()
+		go func() { sender.Tell(exec.HandleInvokeStage(msg)) }()
 	case *model.InvokeFunctionRequest:
-		go func() {sender.Tell(exec.HandleInvokeFunction(msg))}()
+		go func() { sender.Tell(exec.HandleInvokeFunction(msg)) }()
 	}
 }
 
@@ -132,7 +132,6 @@ func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callID}
 }
 
-
 func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg
 
@@ -162,8 +161,8 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		req.Header.Set("Content-Type", datum.Body.ContentType)
 	}
 
-	for _,header := range msg.Arg.Headers {
-		req.Header.Add(header.Key,header.Value)
+	for _, header := range msg.Arg.Headers {
+		req.Header.Add(header.Key, header.Value)
 	}
 
 	resp, err := exec.client.Do(req)

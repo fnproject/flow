@@ -1,12 +1,12 @@
 package persistence
 
 /**
-   This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/in_memory_provider.go
-   This has been modified to support propagating event indices to plugins
- */
+  This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/in_memory_provider.go
+  This has been modified to support propagating event indices to plugins
+*/
 import (
-	"sync"
 	"github.com/golang/protobuf/proto"
+	"sync"
 )
 
 type entry struct {
@@ -70,10 +70,10 @@ func (provider *InMemoryProvider) PersistSnapshot(actorName string, eventIndex i
 }
 
 // GetEvents implements ProviderState.GetEvents
-func (provider *InMemoryProvider) GetEvents(actorName string, eventIndexStart int, callback func(index int,e interface{})) {
+func (provider *InMemoryProvider) GetEvents(actorName string, eventIndexStart int, callback func(index int, e interface{})) {
 	entry, _ := provider.loadOrInit(actorName)
 	for idx, e := range entry.events[eventIndexStart:] {
-		callback(idx,e)
+		callback(idx, e)
 	}
 }
 

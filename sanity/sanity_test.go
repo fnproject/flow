@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/cluster"
-	"github.com/fnproject/flow/persistence"
-	"github.com/fnproject/flow/server"
 	"github.com/fnproject/flow/model"
+	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/protocol"
+	"github.com/fnproject/flow/server"
 	"github.com/fnproject/flow/sharding"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
 	"time"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -233,7 +233,7 @@ func NewTestServer() *server.Server {
 		NodeCount:  1,
 		NodeID:     0,
 		NodePrefix: "node-",
-		NodePort: 8081,
+		NodePort:   8081,
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(10 * clusterSettings.NodeCount)
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
@@ -242,7 +242,7 @@ func NewTestServer() *server.Server {
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second,"")
+	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second, "")
 	if err != nil {
 		panic(err)
 	}

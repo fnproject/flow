@@ -1,9 +1,9 @@
 package persistence
 
 import (
-	"github.com/jmoiron/sqlx"
 	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -20,7 +20,6 @@ func NewSQLBlobStore(db *sqlx.DB) (BlobStore, error) {
 		db: db,
 	}, nil
 }
-
 
 func (s *sqlBlobStore) CreateBlob(contentType string, data []byte) (*model.BlobDatum, error) {
 	id, err := uuid.NewRandom()

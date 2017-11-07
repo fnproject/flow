@@ -33,17 +33,17 @@ const (
 	ResultStatusFailure = "failure"
 
 	// DatumTypeBlob  - datum type for Fnproject-Datumtype
-	DatumTypeBlob     = "blob"
+	DatumTypeBlob = "blob"
 	// DatumTypeEmpty  - datum type for Fnproject-Datumtype
-	DatumTypeEmpty    = "empty"
+	DatumTypeEmpty = "empty"
 	// DatumTypeError  - datum type for Fnproject-Datumtype
-	DatumTypeError    = "error"
+	DatumTypeError = "error"
 	// DatumTypeStageRef  - datum type for Fnproject-Datumtype
 	DatumTypeStageRef = "stageref"
 	// DatumTypeHTTPReq  - datum type for Fnproject-Datumtype
-	DatumTypeHTTPReq  = "httpreq"
+	DatumTypeHTTPReq = "httpreq"
 	// DatumTypeHTTPResp  - datum type for Fnproject-Datumtype
 	DatumTypeHTTPResp = "httpresp"
 	// DatumTypeState  - datum type for Fnproject-Datumtype
-	DatumTypeState    = "state"
+	DatumTypeState = "state"
 )

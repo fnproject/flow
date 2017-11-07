@@ -1,11 +1,11 @@
 package persistence
 
 import (
-	"testing"
+	"github.com/fnproject/flow/model"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fnproject/flow/model"
+	"testing"
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {

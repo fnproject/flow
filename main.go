@@ -5,8 +5,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/sirupsen/logrus"
 	"github.com/fnproject/flow/setup"
+	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.WithField("logger", "main")

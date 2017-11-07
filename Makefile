@@ -16,7 +16,7 @@ vet: $(GOFILES)
 	go vet $(GOPACKAGES)
 
 lint: $(GOFILES)
-	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  golint $$pkg  || OK=1 ;  done ; exit $$OK
+	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  $(GOPATH)/bin/golint $$pkg  || OK=1 ;  done ; exit $$OK
 
 test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)

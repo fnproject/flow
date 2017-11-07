@@ -347,13 +347,14 @@ func TestReadsSuccessfulEncapsulatedResultFromHttpResp(t *testing.T) {
 
 	val, err := store.ReadBlobData(result.Datum.GetBlob())
 
+	require.NoError(t, err)
 	assert.True(t, result.Successful)
 	assert.Equal(t, content, val)
 	assert.Equal(t, "text/plain", result.Datum.GetBlob().ContentType)
 
 }
 
-func TestReadsFailedncapsulatedResultFromHttpResp(t *testing.T) {
+func TestReadsFailedEncapsulatedResultFromHTTPResp(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := http.Header{}
@@ -386,13 +387,14 @@ func TestReadsFailedncapsulatedResultFromHttpResp(t *testing.T) {
 
 	val, err := store.ReadBlobData(result.Datum.GetBlob())
 
+	require.NoError(t, err)
 	assert.False(t, result.Successful)
 	assert.Equal(t, content, val)
 	assert.Equal(t, "text/plain", result.Datum.GetBlob().ContentType)
 
 }
 
-func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
+func TestRejectsHTTPRespDatumWithNoResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()
@@ -408,7 +410,7 @@ func TestRejectsHttpRespDatumWithNoResultCode(t *testing.T) {
 	assert.Equal(t, ErrMissingResultCode, err)
 }
 
-func TestRejectsHttpReqDatumWithInvalidResultCode(t *testing.T) {
+func TestRejectsHTTPReqDatumWithInvalidResultCode(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	h := emptyHeaders()

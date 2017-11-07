@@ -16,50 +16,53 @@ import (
 
 var log = logrus.WithField("logger", "cluster")
 
-type ClusterSettings struct {
+// Settings holds config for clustering and information about the current node
+type Settings struct {
 	NodeCount  int
 	NodeID     int
 	NodePrefix string
 	NodePort   int
 }
 
-
-func (s *ClusterSettings) nodeAddress(i int) (*url.URL, error) {
-	nodeUrl, err := url.Parse(fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort))
+func (s *Settings) nodeAddress(i int) (*url.URL, error) {
+	nodeURL, err := url.Parse(fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort))
 	if err != nil {
 		return nil, err
 	}
-	return nodeUrl, nil
+	return nodeURL, nil
 }
 
-func (s *ClusterSettings) nodeName(index int) string {
+func (s *Settings) nodeName(index int) string {
 	return fmt.Sprintf("%s%d", s.NodePrefix, index)
 }
 
-type ClusterManager struct {
-	settings  *ClusterSettings
+// Manager manages cluster allocation and shard info
+type Manager struct {
+	settings  *Settings
 	extractor sharding.ShardExtractor
 	// node -> proxy
 	reverseProxies map[string]*httputil.ReverseProxy
 }
 
-func NewManager(settings *ClusterSettings, extractor sharding.ShardExtractor) *ClusterManager {
+// NewManager creates a new cluster manager
+func NewManager(settings *Settings, extractor sharding.ShardExtractor) *Manager {
 	proxies := make(map[string]*httputil.ReverseProxy, settings.NodeCount)
 	for i := 0; i < settings.NodeCount; i++ {
 		nodeName := settings.nodeName(i)
-		nodeUrl,err := settings.nodeAddress(i)
+		nodeURL, err := settings.nodeAddress(i)
 
 		if err != nil {
 			panic("Failed to generate proxy URL " + err.Error())
 		}
-		p := httputil.NewSingleHostReverseProxy(nodeUrl)
+		p := httputil.NewSingleHostReverseProxy(nodeURL)
 		proxies[nodeName] = p
 	}
 	log.Info(fmt.Sprintf("Created shard proxy with settings: %+v", settings))
-	return &ClusterManager{settings: settings, extractor: extractor, reverseProxies: proxies}
+	return &Manager{settings: settings, extractor: extractor, reverseProxies: proxies}
 }
 
-func (m *ClusterManager) LocalShards() (shards []int) {
+// LocalShards returns a slice of the shards associated with this clster member
+func (m *Manager) LocalShards() (shards []int) {
 	for shard := 0; shard < m.extractor.ShardCount(); shard++ {
 		nodeIndex := shard % m.settings.NodeCount
 		if nodeIndex == m.settings.NodeID {
@@ -69,16 +72,16 @@ func (m *ClusterManager) LocalShards() (shards []int) {
 	return
 }
 
-func (m *ClusterManager) forward(writer http.ResponseWriter, req *http.Request, node string) error {
+func (m *Manager) forward(writer http.ResponseWriter, req *http.Request, node string) error {
 	proxy, ok := m.reverseProxies[node]
 	if !ok {
-		return errors.New(fmt.Sprintf("Missing proxy for node %s", node))
+		return fmt.Errorf("missing proxy for node %s", node)
 	}
 	proxy.ServeHTTP(writer, req)
 	return nil
 }
 
-func (m *ClusterManager) resolveNode(graphID string) (int, error) {
+func (m *Manager) resolveNode(graphID string) (int, error) {
 	shard, err := m.extractor.ShardID(graphID)
 	if err != nil {
 		return -1, err
@@ -89,8 +92,8 @@ func (m *ClusterManager) resolveNode(graphID string) (int, error) {
 }
 
 // returns node to forward to, if applicable
-func (m *ClusterManager) shouldForward(c *gin.Context) (bool, string) {
-	graphID := extractGraphId(c)
+func (m *Manager) shouldForward(c *gin.Context) (bool, string) {
+	graphID := extractGraphID(c)
 	if len(graphID) == 0 {
 		return false, ""
 	}
@@ -108,22 +111,22 @@ func (m *ClusterManager) shouldForward(c *gin.Context) (bool, string) {
 	return true, nodeName
 }
 
-func extractGraphId(c *gin.Context) string {
+func extractGraphID(c *gin.Context) string {
 	if c.Request.URL.Path == "/graph" {
 		return c.Query("graphId")
-	} else {
-		return c.Param("graphId")
 	}
+	return c.Param("graphId")
 }
 
-func (m *ClusterManager) ProxyHandler() gin.HandlerFunc {
+// ProxyHandler is a gin middleware that sends API requests targeted at other nodes to them directly
+func (m *Manager) ProxyHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		forward, node := m.shouldForward(c)
 		if !forward {
 			log.Info("Processing request locally")
 			return
 		}
-		graphID := extractGraphId(c)
+		graphID := extractGraphID(c)
 		log.WithField("graph_id", graphID).
 			WithField("proxy_node", node).
 			WithField("proxy_url", c.Request.URL.String()).
@@ -135,7 +138,7 @@ func (m *ClusterManager) ProxyHandler() gin.HandlerFunc {
 				WithField("proxy_node", node).
 				WithField("proxy_url", c.Request.URL.String()).
 				Warn("Failed to proxy graph request")
-			c.AbortWithError(502, errors.New("Failed to proxy graph request"))
+			c.AbortWithError(502, errors.New("failed to proxy graph request"))
 			return
 		}
 		c.Abort()

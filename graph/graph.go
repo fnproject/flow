@@ -35,14 +35,18 @@ type CompletionEventListener interface {
 	OnGraphComplete()
 }
 
-//  Lifecycle state of graph
-type GraphState string
+// State describes the lifecycle state of graph
+type State string
 
 const (
-	StateInitial     = GraphState("initial")
-	StateCommitted   = GraphState("committed")
-	StateTerminating = GraphState("terminating")
-	StateCompleted   = GraphState("completed")
+	// StateInitial : The graph has been created but not yet committed, can accept changes
+	StateInitial = State("initial")
+	// StateCommitted : the graph has been committed and can now terminate and can accept changes
+	StateCommitted = State("committed")
+	// StateTerminating : No more regular stage executions
+	StateTerminating = State("terminating")
+	// StateCompleted : No more events/data
+	StateCompleted = State("completed")
 )
 
 // CompletionGraph describes the graph itself
@@ -52,7 +56,7 @@ type CompletionGraph struct {
 	stages        map[string]*CompletionStage
 	eventListener CompletionEventListener
 	log           *logrus.Entry
-	state         GraphState
+	state         State
 	// This is a meta-stage (does not appear in the graph) that acts as the source for the termination chain
 	// This is completed with the termination state
 	terminationRoot      *RawDependency
@@ -62,18 +66,17 @@ type CompletionGraph struct {
 // New Creates a new graph
 func New(id string, functionID string, listener CompletionEventListener) *CompletionGraph {
 	return &CompletionGraph{
-		ID:            id,
-		FunctionID:    functionID,
-		stages:        make(map[string]*CompletionStage),
-		eventListener: listener,
-		log:           log.WithFields(logrus.Fields{"graph_id": id, "function_id": functionID}),
-		state:         StateInitial,
-		terminationRoot: &RawDependency{
-			ID: "_termination",
-		},
+		ID:              id,
+		FunctionID:      functionID,
+		stages:          make(map[string]*CompletionStage),
+		eventListener:   listener,
+		log:             log.WithFields(logrus.Fields{"graph_id": id, "function_id": functionID}),
+		state:           StateInitial,
+		terminationRoot: &RawDependency{ID: "_termination"},
 	}
 }
 
+// GetStages gets a copy of the list of current  stages of the graph - the the stages them selves are the live objects   (and may vary after other events are processed)
 func (graph *CompletionGraph) GetStages() []*CompletionStage {
 	stages := make([]*CompletionStage, 0, len(graph.stages))
 
@@ -418,7 +421,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 				}
 			}
 			if hookCount >= maxTerminationHooks {
-				return model.NewTooManyTerminatinoHooksError(addCmd.GetGraphId())
+				return model.NewTooManyTerminationHooksError(addCmd.GetGraphId())
 			}
 		}
 	}

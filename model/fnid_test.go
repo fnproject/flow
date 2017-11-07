@@ -9,11 +9,11 @@ import (
 
 func TestFunctionIdValidation(t *testing.T) {
 
-	longestAcceptableAppId := strings.Repeat("v", 255)
+	longestAcceptableAppID := strings.Repeat("v", 255)
 	cases := []struct {
-		fnId  string
+		fnID  string
 		works bool
-		appId string
+		appID string
 		path  string
 		query string
 	}{
@@ -26,20 +26,20 @@ func TestFunctionIdValidation(t *testing.T) {
 		{"Myapp/", true, "Myapp", "/", ""},
 		{"myapp/myfn", true, "myapp", "/myfn", ""},
 		{"./myfn", true, ".", "/myfn", ""},
-		{longestAcceptableAppId + "/path", true, longestAcceptableAppId, "/path", ""},
-		{longestAcceptableAppId + "v/path", false, "", "/path", ""},
+		{longestAcceptableAppID + "/path", true, longestAcceptableAppID, "/path", ""},
+		{longestAcceptableAppID + "v/path", false, "", "/path", ""},
 		{"myapp/myfn/with/long/path", true, "myapp", "/myfn/with/long/path", ""},
 		{"myapp/myfn /spaces", false, "", "", ""},
 	}
 
 	for _, c := range cases {
-		parsed, err := ParseFunctionId(c.fnId)
+		parsed, err := ParseFunctionID(c.fnID)
 		if err != nil && c.works {
-			t.Errorf("Expecting %s to parse, but does not", c.fnId)
+			t.Errorf("Expecting %s to parse, but does not", c.fnID)
 			continue
 		}
 		if err == nil && !c.works {
-			t.Errorf("Expecting %s not to parse, but did", c.fnId)
+			t.Errorf("Expecting %s not to parse, but did", c.fnID)
 			continue
 		}
 		if !c.works {
@@ -47,7 +47,7 @@ func TestFunctionIdValidation(t *testing.T) {
 		}
 
 		require.NotNil(t, parsed)
-		assert.Equal(t, c.appId, parsed.AppId)
+		assert.Equal(t, c.appID, parsed.AppID)
 		assert.Equal(t, c.path, parsed.Path)
 		assert.Equal(t, c.query, parsed.Query)
 

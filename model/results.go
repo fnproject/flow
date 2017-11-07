@@ -1,5 +1,6 @@
 package model
 
+// NewInternalErrorResult is a shortcut to create an error result with a given message
 func NewInternalErrorResult(code ErrorDatumType, message string) *CompletionResult {
 	return &CompletionResult{
 		Successful: false,
@@ -9,6 +10,7 @@ func NewInternalErrorResult(code ErrorDatumType, message string) *CompletionResu
 	}
 }
 
+// NewEmptyResult creates a  successful result with an empty datum attached
 func NewEmptyResult() *CompletionResult {
 	return &CompletionResult{
 		Successful: true,
@@ -16,10 +18,12 @@ func NewEmptyResult() *CompletionResult {
 	}
 }
 
+// NewEmptyDatum creates a new empty datum
 func NewEmptyDatum() *Datum {
 	return &Datum{Val: &Datum_Empty{Empty: &EmptyDatum{}}}
 }
 
+// NewBlobDatum creates a new blob datum
 func NewBlobDatum(blob *BlobDatum) *Datum {
 	return &Datum{
 		Val: &Datum_Blob{
@@ -28,6 +32,7 @@ func NewBlobDatum(blob *BlobDatum) *Datum {
 	}
 }
 
+// NewStageRefDatum creates a stage ref datum to a specific stage in the current graph
 func NewStageRefDatum(stageID string) *Datum {
 	return &Datum{
 		Val: &Datum_StageRef{
@@ -36,6 +41,7 @@ func NewStageRefDatum(stageID string) *Datum {
 	}
 }
 
+// NewSuccessfulResult creates a successful result from a given datum
 func NewSuccessfulResult(datum *Datum) *CompletionResult {
 	return &CompletionResult{
 		Successful: true,
@@ -43,6 +49,7 @@ func NewSuccessfulResult(datum *Datum) *CompletionResult {
 	}
 }
 
+// NewFailedResult creates a failed result from a given datum
 func NewFailedResult(datum *Datum) *CompletionResult {
 	return &CompletionResult{
 		Successful: false,
@@ -50,7 +57,8 @@ func NewFailedResult(datum *Datum) *CompletionResult {
 	}
 }
 
-func NewHttpReqDatum(httpreq *HttpReqDatum) *Datum {
+// NewHTTPReqDatum creates a datum from a HttpReq
+func NewHTTPReqDatum(httpreq *HTTPReqDatum) *Datum {
 	return &Datum{
 		Val: &Datum_HttpReq{
 			HttpReq: httpreq,
@@ -58,6 +66,7 @@ func NewHttpReqDatum(httpreq *HttpReqDatum) *Datum {
 	}
 }
 
+// NewStateDatum creates a graph state datum
 func NewStateDatum(stateType StateDatumType) *Datum {
 	return &Datum{
 		Val: &Datum_State{

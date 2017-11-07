@@ -1,11 +1,11 @@
 package persistence
 
 import (
-	"testing"
+	"github.com/fnproject/flow/model"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fnproject/flow/model"
+	"testing"
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {
@@ -58,7 +58,7 @@ func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
 func givenEmptyBlobStore() BlobStore {
 
 	db := setupDb()
-	store, err := NewSqlBlobStore(db)
+	store, err := NewSQLBlobStore(db)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func givenEmptyBlobStore() BlobStore {
 func setupDb() *sqlx.DB {
 	resetTestDb()
 
-	db, err := CreateDBConnecection(testDbUrl())
+	db, err := CreateDBConnecection(testDbURL())
 	if err != nil {
 		panic(err)
 	}

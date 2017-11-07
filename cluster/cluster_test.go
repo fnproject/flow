@@ -14,12 +14,12 @@ const (
 )
 
 var (
-	defaultSettings = &ClusterSettings{
+	defaultSettings = &Settings{
 		NodeCount:  2,
 		NodeID:     1,
 		NodePrefix: "node-",
 	}
-	defaultManager = &ClusterManager{
+	defaultManager = &Manager{
 		settings:  defaultSettings,
 		extractor: sharding.NewFixedSizeExtractor(defaultSettings.NodeCount * 10),
 	}

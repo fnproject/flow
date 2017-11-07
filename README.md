@@ -1,8 +1,9 @@
-# Fn Flow Service
+# Fn Flow
+![Fn Project](http://fnproject.io/images/fn-300x125.png)
 
 [![CircleCI](https://circleci.com/gh/fnproject/flow.svg?style=svg)](https://circleci.com/gh/fnproject/flow)
-
-![logo: you complete me!](logo.jpg) 
+[![GoDoc](https://godoc.org/github.com/fnproject/flow?status.svg)](https://godoc.org/github.com/fnproject/flow)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/flow)](https://goreportcard.com/report/github.com/fnproject/flow)
 
 To find out how to use Fn Flow in Java read the [user guide](https://github.com/fnproject/fdk-java/blob/master/docs/FnFlowsUserGuide.md). 
 

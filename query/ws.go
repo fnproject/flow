@@ -67,9 +67,8 @@ func extractCommand(data []byte) (wsCommandHandler, error) {
 			return nil, err
 		}
 		return cmdObj, nil
-	} else {
-		return nil, fmt.Errorf("Unsupported command type %s", cmd.Command)
 	}
+	return nil, fmt.Errorf("unsupported command type %s", cmd.Command)
 
 }
 
@@ -90,22 +89,22 @@ type rawEventMsg struct {
 	Data json.RawMessage `json:"data"`
 }
 
-func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent, subscriptionId string) {
+func (l *wsWorker) SendGraphMessage(event *persistence.StreamEvent, subscriptionID string) {
 	body := event.Event
 	protoType := proto.MessageName(body)
 
-	bodyjson, err := l.marshaller.MarshalToString(body)
+	bodyJSON, err := l.marshaller.MarshalToString(body)
 	if err != nil {
 		log.Warnf("Failed to convert to JSON: %s", err)
 		return
 	}
-	msgJson, err := json.Marshal(&rawEventMsg{Type: protoType, Data: json.RawMessage(bodyjson), Sub: subscriptionId})
+	msgJSON, err := json.Marshal(&rawEventMsg{Type: protoType, Data: json.RawMessage(bodyJSON), Sub: subscriptionID})
 
 	if err != nil {
 		log.Warnf("Failed to convert to JSON: %s", err)
 		return
 	}
-	l.conn.WriteMessage(websocket.TextMessage, []byte(msgJson))
+	l.conn.WriteMessage(websocket.TextMessage, []byte(msgJSON))
 }
 func (l *wsWorker) Run() {
 
@@ -125,10 +124,10 @@ func (l *wsWorker) Run() {
 		return false
 	}
 
-	subscriptionId := "_all"
-	sub := l.manager.StreamNewEvents(lifecycleEventPred, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, subscriptionId) })
+	subscriptionID := "_all"
+	sub := l.manager.StreamNewEvents(lifecycleEventPred, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, subscriptionID) })
 
-	l.subscriptions[subscriptionId] = sub
+	l.subscriptions[subscriptionID] = sub
 
 	// main cmd loop
 	for {
@@ -161,7 +160,7 @@ func (l *wsWorker) Close() {
 	}
 }
 
-func NewWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
+func newWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
 	return &wsWorker{conn: conn,
 		subscriptions: make(map[string]*eventstream.Subscription),
 		marshaller:    jsonpb.Marshaler{EmitDefaults: true, OrigName: true},

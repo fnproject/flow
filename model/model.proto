@@ -16,11 +16,11 @@ message BlobDatum {
     uint64 length = 3;
 }
 
-message HttpHeader {
+message HTTPHeader {
     string key = 1;
     string value = 2;
 }
-enum HttpMethod {
+enum HTTPMethod {
     unknown_method = 0;
     get = 1;
     head = 2;
@@ -31,15 +31,15 @@ enum HttpMethod {
     patch = 6;
 }
 
-message HttpReqDatum {
+message HTTPReqDatum {
     BlobDatum body = 1;
-    repeated HttpHeader headers = 3;
-    HttpMethod method = 4;
+    repeated HTTPHeader headers = 3;
+    HTTPMethod method = 4;
 }
 
-message HttpRespDatum {
+message HTTPRespDatum {
     BlobDatum body = 1;
-    repeated HttpHeader headers = 3;
+    repeated HTTPHeader headers = 3;
     uint32 status_code = 4;
 }
 
@@ -85,8 +85,8 @@ message Datum {
         BlobDatum blob = 2;
         ErrorDatum error = 3;
         StageRefDatum stage_ref = 4;
-        HttpReqDatum http_req = 5;
-        HttpRespDatum http_resp = 6;
+        HTTPReqDatum http_req = 5;
+        HTTPRespDatum http_resp = 6;
         StateDatum state = 7;
     }
 }
@@ -150,7 +150,7 @@ message AddExternalCompletionStageRequest {
 message AddInvokeFunctionStageRequest {
     string graph_id = 1;
     string function_id = 2;
-    HttpReqDatum arg = 3;
+    HTTPReqDatum arg = 3;
     string code_location = 4;
     string caller_id = 5;
 }
@@ -276,7 +276,7 @@ message InvokeFunctionRequest {
     string graph_id = 1;
     string stage_id = 2;
     string function_id = 3;
-    HttpReqDatum arg = 4;
+    HTTPReqDatum arg = 4;
 }
 
 message InvokeStageRequest {

@@ -15,7 +15,7 @@ import (
 func TestShouldWriteSimpleBlob(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 	blob, _ := store.CreateBlob("text/plain", []byte("foo"))
-	datum := &model.Datum{Val: &model.Datum_Blob{blob}}
+	datum := &model.Datum{Val: &model.Datum_Blob{Blob: blob}}
 
 	headers, body := writeDatum(store, datum)
 
@@ -29,14 +29,14 @@ func TestShouldWriteEmptyBlob(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 	blob, _ := store.CreateBlob("text/plain", []byte(""))
 
-	datum := &model.Datum{Val: &model.Datum_Blob{blob}}
+	datum := &model.Datum{Val: &model.Datum_Blob{Blob: blob}}
 
 	_, body := writeDatum(store, datum)
 	assert.Equal(t, "", body)
 }
 
 func TestShouldWriteEmptyDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_Empty{&model.EmptyDatum{}}}
+	datum := &model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -46,7 +46,7 @@ func TestShouldWriteEmptyDatum(t *testing.T) {
 }
 
 func TestShouldWriteErrorDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_Error{&model.ErrorDatum{Message: "error", Type: model.ErrorDatumType_function_timeout}}}
+	datum := &model.Datum{Val: &model.Datum_Error{Error: &model.ErrorDatum{Message: "error", Type: model.ErrorDatumType_function_timeout}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -56,7 +56,7 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 }
 
 func TestShouldWriteStageRefDatum(t *testing.T) {
-	datum := &model.Datum{Val: &model.Datum_StageRef{&model.StageRefDatum{StageRef: "3141"}}}
+	datum := &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: "3141"}}}
 	store := persistence.NewInMemBlobStore()
 
 	headers, body := writeDatum(store, datum)
@@ -70,9 +70,9 @@ func TestShouldWriteHttpReqDatum(t *testing.T) {
 	blob, _ := store.CreateBlob("text/plain", []byte("test"))
 
 	datum := &model.Datum{Val: &model.Datum_HttpReq{
-		HttpReq: &model.HttpReqDatum{
-			Method: model.HttpMethod_options,
-			Headers: []*model.HttpHeader{
+		HttpReq: &model.HTTPReqDatum{
+			Method: model.HTTPMethod_options,
+			Headers: []*model.HTTPHeader{
 				{"h1", "h1val1"},
 				{"h1", "h1val2"},
 				{"h2", "h2val"},
@@ -84,7 +84,7 @@ func TestShouldWriteHttpReqDatum(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, DatumTypeHttpReq, headers.Get(HeaderDatumType))
+	assert.Equal(t, DatumTypeHTTPReq, headers.Get(HeaderDatumType))
 	assert.Equal(t, "OPTIONS", headers.Get(HeaderMethod))
 
 	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
@@ -101,14 +101,14 @@ func TestShouldWriteHttpReqDatumWithNoBody(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	datum := &model.Datum{Val: &model.Datum_HttpReq{
-		HttpReq: &model.HttpReqDatum{
-			Method:  model.HttpMethod_get,
-			Headers: []*model.HttpHeader{},
+		HttpReq: &model.HTTPReqDatum{
+			Method:  model.HTTPMethod_get,
+			Headers: []*model.HTTPHeader{},
 		}},
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, DatumTypeHttpReq, headers.Get(HeaderDatumType))
+	assert.Equal(t, DatumTypeHTTPReq, headers.Get(HeaderDatumType))
 	assert.Empty(t, headers.Get(HeaderContentType))
 	assert.Empty(t, body)
 }
@@ -119,9 +119,9 @@ func TestShouldWriteHttpRespDatum(t *testing.T) {
 	blob, _ := store.CreateBlob("text/plain", []byte("test"))
 
 	datum := &model.Datum{Val: &model.Datum_HttpResp{
-		HttpResp: &model.HttpRespDatum{
+		HttpResp: &model.HTTPRespDatum{
 			StatusCode: 401,
-			Headers: []*model.HttpHeader{
+			Headers: []*model.HTTPHeader{
 				{"h1", "h1val1"},
 				{"h1", "h1val2"},
 				{"h2", "h2val"},
@@ -133,7 +133,7 @@ func TestShouldWriteHttpRespDatum(t *testing.T) {
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, DatumTypeHttpResp, headers.Get(HeaderDatumType))
+	assert.Equal(t, DatumTypeHTTPResp, headers.Get(HeaderDatumType))
 	assert.Equal(t, "401", headers.Get(HeaderResultCode))
 
 	assert.Equal(t, "text/plain", headers.Get(HeaderContentType))
@@ -150,14 +150,14 @@ func TestShouldWriteHttpRespDatumWithNoBody(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	datum := &model.Datum{Val: &model.Datum_HttpResp{
-		HttpResp: &model.HttpRespDatum{
+		HttpResp: &model.HTTPRespDatum{
 			StatusCode: 401,
-			Headers:    []*model.HttpHeader{},
+			Headers:    []*model.HTTPHeader{},
 		}},
 	}
 
 	headers, body := writeDatum(store, datum)
-	assert.Equal(t, DatumTypeHttpResp, headers.Get(HeaderDatumType))
+	assert.Equal(t, DatumTypeHTTPResp, headers.Get(HeaderDatumType))
 	assert.Empty(t, headers.Get(HeaderContentType))
 	assert.Empty(t, body)
 }
@@ -176,16 +176,16 @@ func TestShouldAddResultStatusToResult(t *testing.T) {
 
 }
 
-func TestShouldWriteStateDatum(t *testing.T){
+func TestShouldWriteStateDatum(t *testing.T) {
 	store := persistence.NewInMemBlobStore()
 
 	stateDatum := model.NewStateDatum(model.StateDatumType_succeeded)
 
-	headers,body := writeDatum(store,stateDatum)
+	headers, body := writeDatum(store, stateDatum)
 
-	assert.Equal(t,DatumTypeState,headers.Get(HeaderDatumType))
-	assert.Equal(t,"succeeded",headers.Get(HeaderStateType))
-	assert.Equal(t,"succeeded", body)
+	assert.Equal(t, DatumTypeState, headers.Get(HeaderDatumType))
+	assert.Equal(t, "succeeded", headers.Get(HeaderStateType))
+	assert.Equal(t, "succeeded", body)
 
 }
 

@@ -5,33 +5,37 @@ import (
 	"regexp"
 )
 
+// FunctionID An holder for a function ID (by parts)
+// can be parsed and stringified
 type FunctionID struct {
-	AppId string
+	AppID string
 	Path  string
 	// Query including ? if present
 	Query string
 }
 
+// IsRelative : is this function ID relative  or absolute
 func (fid *FunctionID) IsRelative() bool {
-	return fid.AppId == "."
+	return fid.AppID == "."
 }
 
 func (fid *FunctionID) String() string {
-	return fid.AppId + fid.Path + fid.Query
+	return fid.AppID + fid.Path + fid.Query
 }
 
-var fnIdRegex = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+var fnIDRegex = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
 
-func ParseFunctionId(fnId string) (*FunctionID, error) {
+// ParseFunctionID extracts a function ID from a string
+func ParseFunctionID(fnID string) (*FunctionID, error) {
 
-	res := fnIdRegex.FindStringSubmatch(fnId)
+	res := fnIDRegex.FindStringSubmatch(fnID)
 
 	if res == nil {
 		return nil, fmt.Errorf("invalid function ID")
 	}
 
 	return &FunctionID{
-		AppId: res[1],
+		AppID: res[1],
 		Path:  res[2],
 		Query: res[3],
 	}, nil

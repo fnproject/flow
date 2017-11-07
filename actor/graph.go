@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	"regexp"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/flow/graph"
@@ -14,6 +12,7 @@ import (
 	"github.com/fnproject/flow/persistence"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
+	"regexp"
 )
 
 // TODO: read this from configuration!
@@ -201,7 +200,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		stageID := g.graph.NextStageID()
 
-		realFunctionID, err := resolveFunctionId(g.graph.FunctionID, msg.FunctionId)
+		realFunctionID, err := resolveFunctionID(g.graph.FunctionID, msg.FunctionId)
 		if err != nil {
 			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s", g.graph.FunctionID, msg.FunctionId, err))
 		}
@@ -257,7 +256,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
-				context.Tell(sender, model.NewStageCompletionError(msg.GraphId, msg.StageId))
+				context.Tell(sender, model.NewAwaitStageError(msg.GraphId, msg.StageId))
 				return
 			}
 			response := &model.GetStageResultResponse{
@@ -301,20 +300,20 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 	}
 }
 
-var appIdRegex = regexp.MustCompile("^([^/]+)/(.*)$")
+var appIDRegex = regexp.MustCompile("^([^/]+)/(.*)$")
 
-func resolveFunctionId(original string, relative string) (string, error) {
-	orig, err := model.ParseFunctionId(original)
+func resolveFunctionID(original string, relative string) (string, error) {
+	orig, err := model.ParseFunctionID(original)
 	if err != nil {
 		return "", err
 	}
-	rel, err := model.ParseFunctionId(relative)
+	rel, err := model.ParseFunctionID(relative)
 	if err != nil {
 		return "", err
 	}
 
-	if rel.AppId == "." {
-		rel.AppId = orig.AppId
+	if rel.AppID == "." {
+		rel.AppID = orig.AppID
 	}
 	return rel.String(), nil
 }

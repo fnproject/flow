@@ -1,9 +1,9 @@
 package persistence
 
 import (
-	"github.com/jmoiron/sqlx"
 	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -12,7 +12,8 @@ type sqlBlobStore struct {
 	db               *sqlx.DB
 }
 
-func NewSqlBlobStore(db *sqlx.DB) (BlobStore, error) {
+// NewSQLBlobStore creates a new blob store on the given DB , the DB should already have tables in place
+func NewSQLBlobStore(db *sqlx.DB) (BlobStore, error) {
 
 	log.Info("Creating SQL persistence provider")
 	return &sqlBlobStore{

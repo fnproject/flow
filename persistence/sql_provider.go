@@ -1,43 +1,44 @@
 package persistence
 
 import (
-	"github.com/golang/protobuf/proto"
-	"fmt"
-	"github.com/sirupsen/logrus"
 	"database/sql"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/jmoiron/sqlx"
-	"reflect"
 	"github.com/opentracing/opentracing-go"
+	"github.com/sirupsen/logrus"
+	"reflect"
 )
 
-type SqlProvider struct {
+type sqlProvider struct {
 	snapshotInterval int
 	db               *sqlx.DB
 }
 
 var log = logrus.New().WithField("logger", "persistence")
 
-func NewSqlProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
+// NewSQLProvider creates a journal/snapshot provider with an SQL db backing it
+func NewSQLProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
 
 	log.Info("Creating SQL persistence provider")
-	return &SqlProvider{
+	return &sqlProvider{
 		snapshotInterval: snapshotInterval,
 		db:               db,
 	}, nil
 }
 
-func (provider *SqlProvider) Restart() {}
+func (provider *sqlProvider) Restart() {}
 
-func (provider *SqlProvider) GetSnapshotInterval() int {
+func (provider *sqlProvider) GetSnapshotInterval() int {
 	return provider.snapshotInterval
 }
 
-func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
+func (provider *sqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
 
 	row := provider.db.QueryRowx("SELECT snapshot_type,event_index,snapshot FROM snapshots WHERE actor_name = ?", actorName)
 
 	if row.Err() != nil {
-		log.WithField("actor_name", actorName).Errorf("Error getting snapshot value from DB ", row.Err())
+		log.WithField("actor_name", actorName).Error("Error getting snapshot value from DB ", row.Err())
 		return nil, -1, false
 	}
 
@@ -50,7 +51,7 @@ func (provider *SqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	}
 
 	if err != nil {
-		log.WithField("actor_name", actorName).Errorf("Error snapshot value from DB ", err)
+		log.WithField("actor_name", actorName).Error("Error snapshot value from DB ", err)
 		return nil, -1, false
 	}
 	message, err := extractData(actorName, snapshotType, snapshotBytes)
@@ -81,7 +82,7 @@ func extractData(actorName string, msgTypeName string, msgBytes []byte) (proto.M
 	return message, nil
 }
 
-func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
+func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message) {
 	pbType := proto.MessageName(snapshot)
 	pbBytes, err := proto.Marshal(snapshot)
 
@@ -97,8 +98,8 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 	}
 }
 
-func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
-	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
+func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
+	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndexStart}).Debug("Getting events")
 	span := opentracing.StartSpan("sql_get_events")
 	defer span.Finish()
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
@@ -120,14 +121,14 @@ func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		if err != nil {
 			panic(err)
 		}
-		callback(eventIndex,msg)
+		callback(eventIndex, msg)
 	}
 
 }
 
-func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
+func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 
-	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndex}).Debug("Persisting event")
+	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndex}).Debug("Persisting event")
 
 	pbType := proto.MessageName(event)
 	pbBytes, err := proto.Marshal(event)

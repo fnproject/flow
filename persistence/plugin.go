@@ -1,12 +1,13 @@
 package persistence
+
 /**
    This is derived from vendor/github.com/AsynkronIT/protoactor-go/persistence/plugin.go
    This has been modified to support propagating event indices to plugins
- */
+= */
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/golang/protobuf/proto"
 	"github.com/AsynkronIT/protoactor-go/persistence"
+	"github.com/golang/protobuf/proto"
 )
 
 type persistent interface {
@@ -17,6 +18,7 @@ type persistent interface {
 	Name() string
 }
 
+// Mixin is the persistence mixin for actors
 type Mixin struct {
 	eventIndex    int
 	providerState ProviderState
@@ -25,13 +27,17 @@ type Mixin struct {
 	recovering    bool
 }
 
+// Recovering indicates if this actor is recovering (in which all messages are replays) or not
 func (mixin *Mixin) Recovering() bool {
 	return mixin.recovering
 }
 
+// Name is the actors' persistence name
 func (mixin *Mixin) Name() string {
 	return mixin.name
 }
+
+// PersistReceive saves an event to the actors journal
 func (mixin *Mixin) PersistReceive(message proto.Message) {
 	mixin.providerState.PersistEvent(mixin.Name(), mixin.eventIndex, message)
 	mixin.eventIndex++
@@ -40,6 +46,7 @@ func (mixin *Mixin) PersistReceive(message proto.Message) {
 	}
 }
 
+// PersistSnapshot overwrites an actor's current snapshot
 func (mixin *Mixin) PersistSnapshot(snapshot proto.Message) {
 	mixin.providerState.PersistSnapshot(mixin.Name(), mixin.eventIndex, snapshot)
 }

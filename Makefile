@@ -1,8 +1,9 @@
 GOFILES = $(shell find . -name '*.go' -not -path './vendor/*')
 GOPACKAGES = $(shell go list ./...  | grep -v /vendor/)
-
+# GOPATH can take multiple values - only grab the first as that's where go get puts stuff
+GOLINTPATH =$(shell echo $$GOPATH | sed -e 's/:.*//')/bin/golint
 # Just builds
-all: test build
+all: myday build
 
 dep: glide.yaml
 	glide install --strip-vendor
@@ -12,18 +13,28 @@ dep-up:
 
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
+vet: $(GOFILES)
+	go vet $(GOPACKAGES)
+
+lint: $(GOFILES)
+	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  $(GOLINTPATH) $$pkg  || OK=1 ;  done ; exit $$OK
+
 test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
 	protoc  --proto_path=$(@D) --go_out=$(@D) $<
 
-build:  $(GOFILES)
+build: $(GOFILES)
 	go build -o flow-service
 
 run: build
 	GIN_MODE=debug ./flow-service
 
+fmt: $(GOFILES)
+	gofmt -w -s $(GOFILES)
+
+myday: test lint vet
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 CONTAINER_COMPLETER_DIR := /go/src/github.com/fnproject/flow

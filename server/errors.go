@@ -2,57 +2,65 @@ package server
 
 import "net/http"
 
-type ServerErr struct {
-	HttpStatus int
+// Error A server-side error with a corresponding code
+type Error struct {
+	HTTPStatus int
 	Message    string
 }
 
 var (
-	ErrInvalidGraphId = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrInvalidGraphID = invalid or non-existent graph ID
+	ErrInvalidGraphID = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid graph id",
 	}
-	ErrInvalidStageId = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrInvalidStageID  - invalid or non-existent stage ID
+	ErrInvalidStageID = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid stage id",
 	}
-	ErrInvalidDepStageId = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrInvalidDepStageID - invalid stage dependency ID
+	ErrInvalidDepStageID = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid dependency stage id",
 	}
-	ErrInvalidFunctionId = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrInvalidFunctionID - bad function ID
+	ErrInvalidFunctionID = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid function id",
 	}
-	ErrUnrecognisedCompletionOperation = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrUnrecognisedCompletionOperation - invalid completer operation
+	ErrUnrecognisedCompletionOperation = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid completion operation",
 	}
-	ErrMissingBody = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrMissingBody Body missing from body-mandatory request
+	ErrMissingBody = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Body is required",
 	}
-
-	ErrInvalidGetTimeout = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrInvalidGetTimeout - timeout is out of range
+	ErrInvalidGetTimeout = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid timeoutMs parameter",
 	}
-
-	ErrMissingOrInvalidDelay = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrMissingOrInvalidDelay - delay param was malformed
+	ErrMissingOrInvalidDelay = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Invalid or missing delayMs parameter ",
 	}
-
-	ErrReadingInput = &ServerErr{
-		HttpStatus: http.StatusBadRequest,
+	// ErrReadingInput - I/O error reading input
+	ErrReadingInput = &Error{
+		HTTPStatus: http.StatusBadRequest,
 		Message:    "Error reading request input",
 	}
-	ErrUnsupportedHttpMethod = &ServerErr{
-		HttpStatus: http.StatusMethodNotAllowed,
+	// ErrUnsupportedHTTPMethod - invalid HTTP method on request
+	ErrUnsupportedHTTPMethod = &Error{
+		HTTPStatus: http.StatusMethodNotAllowed,
 		Message:    "Method not supported",
 	}
 )
 
-func (e *ServerErr) Error() string {
+func (e *Error) Error() string {
 	return e.Message
 }

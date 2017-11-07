@@ -30,7 +30,7 @@ func NewPrometheusCollector() (zipkintracer.Collector, error) {
 	return pc, nil
 }
 
-// PrometheusCollector implements Collector.
+// Collect implements Collector.
 func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 	var labelValuesToUse map[string]string
 
@@ -95,5 +95,5 @@ func getLabels(span *zipkincore.Span) ([]string, map[string]string) {
 	return keys, labelMap
 }
 
-// PrometheusCollector implements Collector.
+// Close implements Collector.
 func (PrometheusCollector) Close() error { return nil }

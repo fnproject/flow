@@ -1,14 +1,15 @@
 package persistence
 
 import (
-	"net/url"
-	"github.com/jmoiron/sqlx"
-	"fmt"
-	"path/filepath"
-	"os"
-	"strings"
-	"github.com/sirupsen/logrus"
 	"database/sql"
+	"fmt"
+	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	// this is pulled in to ensure we have mysql Drivers for DB/DBX
 	_ "github.com/go-sql-driver/mysql"
 )
 

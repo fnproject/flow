@@ -1,0 +1,31 @@
+version: '3'
+services:
+  node-0:
+    image: "fnproject/flow:latest"
+    ports:
+     - "8081"
+    volumes:
+     - ./data:/data
+    environment:
+    - listen=0.0.0.0:8081
+    - cluster_node_prefix=node-
+    - cluster_node_count=2
+    - cluster_node_id=0
+    - db_url=sqlite3:///data/completer.db
+    - http_proxy=
+    - HTTP_PROXY=
+
+  node-1:
+    image: "fnproject/flow:latest"
+    ports:
+     - "8081"
+    volumes:
+     - ./data:/data
+    environment:
+    - listen=0.0.0.0:8081
+    - cluster_node_prefix=node-
+    - cluster_node_count=2
+    - cluster_node_id=1
+    - db_url=sqlite3:///data/completer.db
+    - http_proxy=
+    - HTTP_PROXY=

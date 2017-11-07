@@ -1,9 +1,13 @@
 package actor
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
+
+	"github.com/fnproject/flow/sharding"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
@@ -12,7 +16,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const supervisorName = "supervisor"
+const (
+	supervisorBaseName = "supervisor"
+)
 
 // GraphManager encapsulates all graph operations
 type GraphManager interface {
@@ -23,27 +29,24 @@ type GraphManager interface {
 	Commit(*model.CommitGraphRequest, time.Duration) (*model.GraphRequestProcessedResponse, error)
 	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
 	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
-	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription
-	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack)
+	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error)
+	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error
 	UnsubscribeStream(sub *eventstream.Subscription)
 }
 
 type actorManager struct {
 	log                 *logrus.Entry
-	supervisor          *actor.PID
+	shardSupervisors    map[int]*actor.PID
 	executor            *actor.PID
 	persistenceProvider *persistence.StreamingProvider
+	shardExtractor      sharding.ShardExtractor
+	strategy            actor.SupervisorStrategy
 }
 
 // NewGraphManagerFromEnv creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string) (GraphManager, error) {
+func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnUrl string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
-	decider := func(reason interface{}) actor.Directive {
-		log.Warnf("Stopping failed graph actor due to error: %v", reason)
-		return actor.StopDirective
-	}
-	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
 	parsedUrl, err := url.Parse(fnUrl)
 	if err != nil {
@@ -54,21 +57,43 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore pe
 		fnUrl = parsedUrl.String()
 	}
 
-	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
-	executor, _ := actor.SpawnNamed(executorProps, "executor")
-	wrappedProvider := persistence.NewStreamingProvider(persistenceProvider)
+	decider := func(reason interface{}) actor.Directive {
+		log.Warnf("Stopping failed graph actor due to error: %v", reason)
+		return actor.StopDirective
+	}
+	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
 
-	supervisorProps := actor.
-		FromInstance(NewSupervisor(executor, wrappedProvider)).
-		WithSupervisor(strategy).
-		WithMiddleware(persistence.Using(wrappedProvider))
-	supervisor, _ := actor.SpawnNamed(supervisorProps, supervisorName)
+	executorProps := actor.FromInstance(NewExecutor(fnUrl, blobStore)).WithSupervisor(strategy)
+	// TODO executor is not sharded and would not support clustering once it's made persistent!
+	executor, err := actor.SpawnNamed(executorProps, "executor")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to spawn executor actor: %v", err))
+	}
+
+	streamingProvider := persistence.NewStreamingProvider(persistenceProvider)
+
+	supervisors := make(map[int]*actor.PID)
+	for _, shard := range shards {
+		name := supervisorName(shard)
+		supervisorProps := actor.
+			FromInstance(NewSupervisor(name, executor, streamingProvider)).
+			WithSupervisor(strategy).
+			WithMiddleware(persistence.Using(streamingProvider))
+
+		shardSupervisor, err := actor.SpawnNamed(supervisorProps, name)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to spawn actor %s: %v", name, err))
+		}
+		supervisors[shard] = shardSupervisor
+	}
 
 	return &actorManager{
 		log:                 log,
-		supervisor:          supervisor,
+		shardSupervisors:    supervisors,
 		executor:            executor,
-		persistenceProvider: wrappedProvider,
+		persistenceProvider: streamingProvider,
+		shardExtractor:      shardExtractor,
+		strategy:            strategy,
 	}, nil
 }
 
@@ -130,10 +155,37 @@ func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Durati
 	return r.(*model.GraphRequestProcessedResponse), e
 }
 
+func supervisorName(shardID int) (name string) {
+	return fmt.Sprintf("%s-%d", supervisorBaseName, shardID)
+}
+
+func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
+	msg, ok := req.(model.GraphMessage)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("Ignoring request of unknown type %v", reflect.TypeOf(req)))
+	}
+
+	shardID, err := m.shardExtractor.ShardID(msg.GetGraphId())
+	if err != nil {
+		m.log.Warnf("Failed to extract shard for graph %s: %v", msg.GetGraphId(), err)
+		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
+	}
+
+	if pid, ok := m.shardSupervisors[shardID]; !ok {
+		m.log.Warnf("No local supervisor found for shard %d", shardID)
+		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
+	} else {
+		return pid, nil
+	}
+}
 
 func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {
+	supervisor, err := m.lookupSupervisor(req)
+	if err != nil {
+		return nil, err
+	}
 
-	future := m.supervisor.RequestFuture(req, timeout)
+	future := supervisor.RequestFuture(req, timeout)
 	r, err := future.Result()
 	if err != nil {
 		return nil, err
@@ -143,25 +195,38 @@ func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (i
 	if err, ok := r.(error); ok {
 		return nil, err
 	}
-
 	return r, nil
 }
 
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
 }
-func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) *eventstream.Subscription {
-	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphActorPath(graphID), fromIndex, fn)
 
+func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error) {
+	graphPath, err := m.graphActorPath(graphID)
+	if err != nil {
+		return nil, err
+	}
+	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, fromIndex, fn), nil
 }
-func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) {
-	m.persistenceProvider.GetStreamingState().QueryActorJournal(graphActorPath(graphID), fromIndex, p, fn)
+
+func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error {
+	graphPath, err := m.graphActorPath(graphID)
+	if err != nil {
+		return err
+	}
+	m.persistenceProvider.GetStreamingState().QueryActorJournal(graphPath, fromIndex, p, fn)
+	return nil
 }
 
 func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
 	m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
 }
 
-func graphActorPath(graphID string) string {
-	return supervisorName + "/" + graphID
+func (m *actorManager) graphActorPath(graphID string) (string, error) {
+	shardID, err := m.shardExtractor.ShardID(graphID)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/%s", supervisorName(shardID), graphID), nil
 }

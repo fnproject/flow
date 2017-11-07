@@ -89,7 +89,7 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 		panic(err)
 	}
 
-	_, err = provider.db.Exec("INSERT OR REPLACE INTO snapshots (actor_name,snapshot_type,event_index,snapshot) VALUES (?,?,?,?)",
+	_, err = provider.db.Exec("REPLACE INTO snapshots (actor_name,snapshot_type,event_index,snapshot) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
 
 	if err != nil {
@@ -138,7 +138,7 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 
 	span := opentracing.StartSpan("sql_persist_event")
 	defer span.Finish()
-	_, err = provider.db.Exec("INSERT OR REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
+	_, err = provider.db.Exec("REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
 	if err != nil {
 		panic(err)

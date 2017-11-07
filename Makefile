@@ -31,7 +31,8 @@ build: $(GOFILES)
 run: build
 	GIN_MODE=debug ./flow-service
 
-
+fmt: $(GOFILES)
+	gofmt -w -s $(GOFILES)
 
 myday: test lint vet
 

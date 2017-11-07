@@ -106,7 +106,7 @@ func getEventsForActor(provider ProviderState, actorName string, startIdx int) [
 
 func givenProvider(t *testing.T) ProviderState {
 	resetTestDb()
-	db, err := CreateDBConnecection(testDbURL())
+	db, err := CreateDBConnection(testDbURL())
 	require.NoError(t, err)
 	provider, err := NewSQLProvider(db, 0)
 	require.NoError(t, err)

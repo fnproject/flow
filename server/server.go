@@ -712,9 +712,9 @@ func newEngine(clusterManager *cluster.Manager) *gin.Engine {
 }
 
 // New creates a new server - params are injected dependencies
-func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinUrl  string) (*Server, error) {
+func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
 
-	setTracer(listenAddress, zipkinUrl)
+	setTracer(listenAddress, zipkinURL)
 
 	s := &Server{
 		GraphManager:   manager,

@@ -17,7 +17,7 @@ func NewFnTracer(t opentracing.Tracer) opentracing.Tracer {
 	return &FnTracer{t}
 }
 
-// FnTracer implements opentracing.Tracer
+// StartSpan implements opentracing.Tracer
 // Override StartSpan to wrap the returned Span in a FnSpan
 func (fnt FnTracer) StartSpan(operationName string, opts ...opentracing.StartSpanOption) opentracing.Span {
 	return NewFnSpan(fnt.Tracer.StartSpan(operationName, opts...))
@@ -34,13 +34,13 @@ func NewFnSpan(s opentracing.Span) opentracing.Span {
 	return &FnSpan{s}
 }
 
-// FnSpan implements opentracing.Span
+// Finish implements opentracing.Span
 func (fns FnSpan) Finish() {
 	fns.copyBaggageItemsToTags()
 	fns.Span.Finish()
 }
 
-// FnSpan implements opentracing.Span
+// FinishWithOptions implements opentracing.Span
 func (fns FnSpan) FinishWithOptions(opts opentracing.FinishOptions) {
 	fns.copyBaggageItemsToTags()
 	fns.Span.FinishWithOptions(opts)

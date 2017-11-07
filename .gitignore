@@ -3,6 +3,8 @@
 *.dll
 *.so
 *.dylib
+flow-service
+flow-service-docker
 completer
 completer-docker
 main

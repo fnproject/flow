@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"github.com/jmoiron/sqlx"
 	"reflect"
+	"github.com/opentracing/opentracing-go"
 )
 
 type SqlProvider struct {
@@ -98,6 +99,8 @@ func (provider *SqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 
 func (provider *SqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
 	log.WithFields(logrus.Fields{"actor_name":actorName,"event_index":eventIndexStart}).Debug("Getting events")
+	span := opentracing.StartSpan("sql_get_events")
+	defer span.Finish()
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
 		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
@@ -133,9 +136,10 @@ func (provider *SqlProvider) PersistEvent(actorName string, eventIndex int, even
 		panic(err)
 	}
 
+	span := opentracing.StartSpan("sql_persist_event")
+	defer span.Finish()
 	_, err = provider.db.Exec("REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
-
 	if err != nil {
 		panic(err)
 	}

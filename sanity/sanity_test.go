@@ -245,7 +245,7 @@ func NewTestServer() *server.Server {
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second)
+	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second,"")
 	if err != nil {
 		panic(err)
 	}

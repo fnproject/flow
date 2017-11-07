@@ -21,12 +21,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/opentracing/opentracing-go"
+	"github.com/openzipkin/zipkin-go-opentracing"
 )
 
 const (
 	MaxDelay          = 3600 * 1000 * 24
 	maxRequestTimeout = 1 * time.Hour
 	minRequestTimeout = 1 * time.Second
+
 
 	ParamGraphID   = "graphId"
 	ParamStageID   = "stageId"
@@ -641,6 +645,57 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+func (s *Server) handlePrometheusMetrics(c *gin.Context) {
+	s.promHandler.ServeHTTP(c.Writer, c.Request)
+}
+
+func setTracer(ownURL string, zipkinURL string) {
+	var (
+		debugMode          = false
+		serviceName        = "flow-service"
+		serviceHostPort    = ownURL
+		zipkinHTTPEndpoint = zipkinURL
+		// ex: "http://zipkin:9411/api/v1/spans"
+	)
+
+	var collector zipkintracer.Collector
+
+	// custom Zipkin collector to send tracing spans to Prometheus
+	promCollector, promErr := NewPrometheusCollector()
+	if promErr != nil {
+		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
+	}
+
+	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
+
+	if zipkinHTTPEndpoint != "" {
+		// Custom PrometheusCollector and Zipkin HTTPCollector
+		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
+		if zipErr != nil {
+			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
+		}
+		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
+	} else {
+		// Custom PrometheusCollector only
+		collector = promCollector
+	}
+
+	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
+		zipkintracer.ClientServerSameSpan(true),
+		zipkintracer.TraceID128Bit(true),
+	)
+	if err != nil {
+		logrus.WithError(err).Fatalln("couldn't start tracer")
+	}
+
+	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
+	fntracer := NewFnTracer(ziptracer)
+
+	opentracing.SetGlobalTracer(fntracer)
+	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
+}
+
+
 type Server struct {
 	Engine         *gin.Engine
 	GraphManager   actor.GraphManager
@@ -648,6 +703,7 @@ type Server struct {
 	BlobStore      persistence.BlobStore
 	listen         string
 	requestTimeout time.Duration
+	promHandler    http.Handler
 }
 
 func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
@@ -656,7 +712,9 @@ func newEngine(clusterManager *cluster.ClusterManager) *gin.Engine {
 	return engine
 }
 
-func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration) (*Server, error) {
+func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinUrl  string) (*Server, error) {
+
+	setTracer(listenAddress, zipkinUrl)
 
 	s := &Server{
 		GraphManager:   manager,
@@ -664,6 +722,7 @@ func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blo
 		listen:         listenAddress,
 		BlobStore:      blobStore,
 		requestTimeout: maxRequestTimeout,
+		promHandler:    promhttp.Handler(),
 	}
 
 	s.Engine.GET("/ping", func(c *gin.Context) {
@@ -673,6 +732,8 @@ func New(clusterManager *cluster.ClusterManager, manager actor.GraphManager, blo
 	s.Engine.GET("/wss", func(c *gin.Context) {
 		query.WSSHandler(manager, c.Writer, c.Request)
 	})
+
+	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
 
 	graph := s.Engine.Group("/graph")
 	{

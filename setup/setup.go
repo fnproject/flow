@@ -14,7 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -30,6 +30,8 @@ const (
 	EnvClusterNodePrefix = "cluster_node_prefix"
 	EnvClusterNodeID     = "cluster_node_id"
 	EnvClusterNodePort   = "cluster_node_port"
+
+	EnvZipkinURL = "zipkin_url"
 )
 
 var defaults = make(map[string]string)
@@ -39,36 +41,9 @@ func canonKey(key string) string {
 	return strings.Replace(strings.Replace(strings.ToLower(key), "-", "_", -1), ".", "_", -1)
 }
 
-func SetDefault(key string, value string) {
-	defaults[canonKey(key)] = value
-}
 
-func GetString(key string) string {
-	key = canonKey(key)
-	return defaults[key]
-}
 
-func GetInteger(key string) int {
-	if valueStr := GetString(key); len(valueStr) > 0 {
-		val, err := strconv.Atoi(valueStr)
-		if err != nil {
-			panic(fmt.Sprintf("Value of key %s is not a number", key))
-		}
-		return val
-	}
-	panic(fmt.Sprintf("Missing required key %s", key))
-}
 
-func GetDurationMs(key string) time.Duration {
-	key = canonKey(key)
-
-	strVal := defaults[key]
-	val, err := strconv.ParseUint(strVal, 10, 64)
-	if err != nil {
-		panic(fmt.Sprintf("Invalid value '%s' for config key '%s' - couldn't parse as int", strVal, key))
-	}
-	return time.Millisecond * time.Duration(val)
-}
 
 func InitFromEnv() (*server.Server, error) {
 
@@ -78,25 +53,25 @@ func InitFromEnv() (*server.Server, error) {
 	}
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
-	SetDefault(EnvLogLevel, "debug")
-	SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
-	SetDefault(EnvListen, fmt.Sprintf(":8081"))
-	SetDefault(EnvSnapshotInterval, "1000")
-	SetDefault(EnvFnApiURL, "http://localhost:8080/r")
-	SetDefault(EnvRequestTimeout, "60000")
+	viper.SetDefault(EnvLogLevel, "debug")
+	viper.SetDefault(EnvDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
+	viper.SetDefault(EnvListen, fmt.Sprintf(":8081"))
+	viper.SetDefault(EnvSnapshotInterval, "1000")
+	viper.SetDefault(EnvFnApiURL, "http://localhost:8080/r")
+	viper.SetDefault(EnvRequestTimeout, "60000ms")
 
 	// single node defaults
-	SetDefault(EnvClusterNodePrefix, "node-")
-	SetDefault(EnvClusterNodeID, "0")
-	SetDefault(EnvClusterNodeCount, "1")
-	SetDefault(EnvClusterNodePort, "8081")
+	viper.SetDefault(EnvClusterNodePrefix, "node-")
+	viper.SetDefault(EnvClusterNodeID, "0")
+	viper.SetDefault(EnvClusterNodeCount, "1")
+	viper.SetDefault(EnvClusterNodePort, "8081")
 
 	for _, v := range os.Environ() {
 		vals := strings.Split(v, "=")
 		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
 	}
 
-	logLevel, err := logrus.ParseLevel(GetString(EnvLogLevel))
+	logLevel, err := logrus.ParseLevel(viper.GetString(EnvLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
 	}
@@ -112,30 +87,30 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	nodeCount := GetInteger(EnvClusterNodeCount)
+	nodeCount := viper.GetInt(EnvClusterNodeCount)
 	var shardCount int
-	if len(GetString(EnvClusterShardCount)) == 0 {
+	if len(viper.GetString(EnvClusterShardCount)) == 0 {
 		shardCount = 10 * nodeCount
 	} else {
-		shardCount = GetInteger(EnvClusterShardCount)
+		shardCount = viper.GetInt(EnvClusterShardCount)
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
 	clusterSettings := &cluster.ClusterSettings{
 		NodeCount:  nodeCount,
-		NodeID:     GetInteger(EnvClusterNodeID),
-		NodePrefix: GetString(EnvClusterNodePrefix),
-		NodePort:   GetInteger(EnvClusterNodePort),
+		NodeID:     viper.GetInt(EnvClusterNodeID),
+		NodePrefix: viper.GetString(EnvClusterNodePrefix),
+		NodePort:   viper.GetInt(EnvClusterNodePort),
 	}
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
 	shards := clusterManager.LocalShards()
-	graphManager, err := actor.NewGraphManager(provider, blobStore, GetString(EnvFnApiURL), shardExtractor, shards)
+	graphManager, err := actor.NewGraphManager(provider, blobStore, viper.GetString(EnvFnApiURL), shardExtractor, shards)
 	if err != nil {
 		return nil, err
 	}
 
-	srv, err := server.New(clusterManager, graphManager, blobStore, GetString(EnvListen), GetDurationMs(EnvRequestTimeout))
+	srv, err := server.New(clusterManager, graphManager, blobStore, viper.GetString(EnvListen), viper.GetDuration(EnvRequestTimeout),viper.GetString(EnvZipkinURL))
 	if err != nil {
 		return nil, err
 	}
@@ -144,13 +119,13 @@ func InitFromEnv() (*server.Server, error) {
 }
 
 func InitStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, error) {
-	dbUrlString := GetString(EnvDBURL)
+	dbUrlString := viper.GetString(EnvDBURL)
 	dbUrl, err := url.Parse(dbUrlString)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid DB URL in %s : %s", EnvDBURL, dbUrlString)
 	}
 
-	snapshotIntervalStr := GetString(EnvSnapshotInterval)
+	snapshotIntervalStr := viper.GetString(EnvSnapshotInterval)
 	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
 	if ok != nil {
 		snapshotInterval = 1000

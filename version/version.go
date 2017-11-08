@@ -1,4 +1,4 @@
 package version
 
 // Version of Completer
-var Version = "0.1.58"
+var Version = "0.1.59"

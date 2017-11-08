@@ -54,7 +54,7 @@ func InitFromEnv() (*server.Server, error) {
 	viper.SetDefault(envSnapshotInterval, "1000")
 	viper.SetDefault(envRequestTimeout, "60000ms")
 	viper.SetDefault(envClusterNodeCount, "1")
-	viper.SetDefault(envClusterShardCount, "10")
+	viper.SetDefault(envClusterShardCount, "1")
 	viper.SetDefault(envClusterNodePrefix, "node-")
 	viper.SetDefault(envClusterNodeID, "0")
 	viper.SetDefault(envClusterNodePort, "8081")

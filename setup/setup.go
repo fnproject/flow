@@ -39,13 +39,13 @@ var log = logrus.New().WithField("logger", "setup")
 
 // InitFromEnv sets up a whole  flow service from env/config
 func InitFromEnv() (*server.Server, error) {
-	viper.AutomaticEnv() // picks up env vars automatically
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
 	}
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
+	// Set viper configuration and activate its reading from env
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetDefault(envFnAPIURL, "http://localhost:8080/r")
 	viper.SetDefault(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
@@ -53,14 +53,13 @@ func InitFromEnv() (*server.Server, error) {
 	viper.SetDefault(envListen, fmt.Sprintf(":8081"))
 	viper.SetDefault(envSnapshotInterval, "1000")
 	viper.SetDefault(envRequestTimeout, "60000ms")
-
-	// single node defaults
 	viper.SetDefault(envClusterNodeCount, "1")
 	viper.SetDefault(envClusterShardCount, "10")
 	viper.SetDefault(envClusterNodePrefix, "node-")
 	viper.SetDefault(envClusterNodeID, "0")
 	viper.SetDefault(envClusterNodePort, "8081")
-	viper.AutomaticEnv() // picks up env vars automatically
+	viper.AutomaticEnv()
+
 	logLevel, err := logrus.ParseLevel(viper.GetString(envLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")

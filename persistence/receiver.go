@@ -5,8 +5,9 @@ package persistence
   This has been modified to support propagating event indices to plugins
 */
 import (
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"reflect"
+
+	"github.com/AsynkronIT/protoactor-go/actor"
 )
 
 // Using adds the persistence provider to a given actor
@@ -23,6 +24,11 @@ func Using(provider Provider) func(next actor.ActorFunc) actor.ActorFunc {
 				}
 			default:
 				next(ctx)
+				if p, ok := ctx.Actor().(persistent); ok {
+					if p.isSnapshotRequested() {
+						p.sendSnapshotRequest()
+					}
+				}
 			}
 		}
 		return fn

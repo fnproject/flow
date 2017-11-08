@@ -12,6 +12,8 @@ import (
 
 type persistent interface {
 	init(provider Provider, context actor.Context)
+	isSnapshotRequested() bool
+	sendSnapshotRequest()
 	PersistReceive(message proto.Message)
 	PersistSnapshot(snapshot proto.Message)
 	Recovering() bool
@@ -20,11 +22,12 @@ type persistent interface {
 
 // Mixin is the persistence mixin for actors
 type Mixin struct {
-	eventIndex    int
-	providerState ProviderState
-	name          string
-	receiver      receiver
-	recovering    bool
+	eventIndex        int
+	providerState     ProviderState
+	name              string
+	receiver          receiver
+	recovering        bool
+	snapshotRequested bool
 }
 
 // Recovering indicates if this actor is recovering (in which all messages are replays) or not
@@ -42,7 +45,11 @@ func (mixin *Mixin) PersistReceive(message proto.Message) {
 	mixin.providerState.PersistEvent(mixin.Name(), mixin.eventIndex, message)
 	mixin.eventIndex++
 	if mixin.eventIndex%mixin.providerState.GetSnapshotInterval() == 0 {
-		mixin.receiver.Receive(&persistence.RequestSnapshot{})
+		// Do not invoke Receive since this will overwrite actor's context
+		// if PersistReceive is called inside actor's Receive method.
+
+		// mixin.receiver.Receive(&persistence.RequestSnapshot{})
+		mixin.snapshotRequested = true
 	}
 }
 
@@ -62,6 +69,7 @@ func (mixin *Mixin) init(provider Provider, context actor.Context) {
 	mixin.eventIndex = 0
 	mixin.receiver = receiver
 	mixin.recovering = true
+	mixin.snapshotRequested = false
 
 	mixin.providerState.Restart()
 	if snapshot, eventIndex, ok := mixin.providerState.GetSnapshot(mixin.Name()); ok {
@@ -74,6 +82,15 @@ func (mixin *Mixin) init(provider Provider, context actor.Context) {
 	})
 	mixin.recovering = false
 	receiver.Receive(&persistence.ReplayComplete{})
+}
+
+func (mixin *Mixin) isSnapshotRequested() bool {
+	return mixin.snapshotRequested
+}
+
+func (mixin *Mixin) sendSnapshotRequest() {
+	mixin.snapshotRequested = false
+	mixin.receiver.Receive(&persistence.RequestSnapshot{})
 }
 
 type receiver interface {

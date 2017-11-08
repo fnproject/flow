@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"time"
 
+	"regexp"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/flow/graph"
@@ -12,7 +14,6 @@ import (
 	"github.com/fnproject/flow/persistence"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
-	"regexp"
 )
 
 // TODO: read this from configuration!
@@ -110,7 +111,6 @@ func currentTimestamp() *timestamp.Timestamp {
 }
 
 func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
-	sender := context.Sender()
 	if !g.validateCmd(cmd, context) {
 		return
 	}
@@ -122,11 +122,11 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		event := &model.GraphCreatedEvent{GraphId: msg.GraphId, FunctionId: msg.FunctionId, Ts: currentTimestamp()}
 		g.PersistReceive(event)
 		g.initGraph(event)
-		context.Tell(sender, &model.CreateGraphResponse{GraphId: msg.GraphId})
+		context.Respond(&model.CreateGraphResponse{GraphId: msg.GraphId})
 
 	case *model.GetGraphStateRequest:
 		g.log.Debug("Get graph state")
-		context.Tell(sender, g.createExternalState())
+		context.Respond(g.createExternalState())
 
 	case *model.AddChainedStageRequest:
 		g.log.Debug("Adding chained stage")
@@ -142,7 +142,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			CallerId:     msg.CallerId,
 		})
 
-		context.Tell(sender, &model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddCompletedValueStageRequest:
 		g.log.Debug("Adding completed value stage")
@@ -161,7 +161,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
 		})
-		context.Tell(sender, &model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddDelayStageRequest:
 		g.log.Debug("Adding delay stage")
@@ -181,7 +181,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 		g.PersistReceive(delayEvent)
 		g.scheduleDelay(delayEvent)
-		context.Tell(sender, &model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddExternalCompletionStageRequest:
 		g.log.Debug("Adding external completion stage")
@@ -194,7 +194,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			CodeLocation: msg.CodeLocation,
 			CallerId:     msg.CallerId,
 		})
-		context.Tell(sender, &model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
@@ -225,7 +225,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			FunctionId: realFunctionID,
 			Arg:        msg.Arg,
 		}, g.GetSelf())
-		context.Tell(sender, &model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.CompleteStageExternallyRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing stage externally")
@@ -238,25 +238,25 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 				Ts:      currentTimestamp(),
 			})
 		}
-		context.Tell(sender, &model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
+		context.Respond(&model.CompleteStageExternallyResponse{GraphId: msg.GraphId, StageId: msg.StageId, Successful: completable})
 
 	case *model.CommitGraphRequest:
 		response := &model.GraphRequestProcessedResponse{GraphId: msg.GraphId}
 		if g.graph.IsCommitted() {
 			// idempotent
-			context.Tell(sender, response)
+			context.Respond(response)
 			return
 		}
 		g.log.Debug("Committing graph")
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
-		context.Tell(sender, response)
+		context.Respond(response)
 
 	case *model.GetStageResultRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
 			if err != nil {
-				context.Tell(sender, model.NewAwaitStageError(msg.GraphId, msg.StageId))
+				context.Respond(model.NewAwaitStageError(msg.GraphId, msg.StageId))
 				return
 			}
 			response := &model.GetStageResultResponse{
@@ -264,7 +264,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 				StageId: msg.StageId,
 				Result:  result.(*model.CompletionResult),
 			}
-			context.Tell(sender, response)
+			context.Respond(response)
 		})
 
 	case *model.CompleteDelayStageRequest:

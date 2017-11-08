@@ -19,55 +19,46 @@ import (
 )
 
 const (
-	envFnAPIURL         = "api_url"
-	envDBURL            = "db_url"
-	envLogLevel         = "log_level"
-	envListen           = "listen"
-	envSnapshotInterval = "snapshot_interval"
-	envRequestTimeout   = "request_timeout"
+	envFnAPIURL         = "API_URL"
+	envDBURL            = "DB_URL"
+	envLogLevel         = "LOG_LEVEL"
+	envListen           = "LISTEN"
+	envSnapshotInterval = "SNAPSHOT_INTERVAL"
+	envRequestTimeout   = "REQUEST_TIMEOUT"
 
-	envClusterNodeCount  = "cluster_node_count"
-	envClusterShardCount = "cluster_shard_count"
-	envClusterNodePrefix = "cluster_node_prefix"
-	envClusterNodeID     = "cluster_node_id"
-	envClusterNodePort   = "cluster_node_port"
+	envClusterNodeCount  = "CLUSTER_NODE_COUNT"
+	envClusterShardCount = "CLUSTER_SHARD_COUNT"
+	envClusterNodePrefix = "CLUSTER_NODE_PREFIX"
+	envClusterNodeID     = "CLUSTER_NODE_ID"
+	envClusterNodePort   = "CLUSTER_NODE_PORT"
 
-	envZipkinURL = "zipkin_url"
+	envZipkinURL = "ZIPKIN_URL"
 )
 
-var defaults = make(map[string]string)
 var log = logrus.New().WithField("logger", "setup")
-
-func canonKey(key string) string {
-	return strings.Replace(strings.Replace(strings.ToLower(key), "-", "_", -1), ".", "_", -1)
-}
 
 // InitFromEnv sets up a whole  flow service from env/config
 func InitFromEnv() (*server.Server, error) {
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
 	}
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
-	viper.SetDefault(envLogLevel, "debug")
+	// Set viper configuration and activate its reading from env
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetDefault(envFnAPIURL, "http://localhost:8080/r")
 	viper.SetDefault(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
+	viper.SetDefault(envLogLevel, "debug")
 	viper.SetDefault(envListen, fmt.Sprintf(":8081"))
 	viper.SetDefault(envSnapshotInterval, "1000")
-	viper.SetDefault(envFnAPIURL, "http://localhost:8080/r")
 	viper.SetDefault(envRequestTimeout, "60000ms")
-
-	// single node defaults
+	viper.SetDefault(envClusterNodeCount, "1")
+	viper.SetDefault(envClusterShardCount, "1")
 	viper.SetDefault(envClusterNodePrefix, "node-")
 	viper.SetDefault(envClusterNodeID, "0")
-	viper.SetDefault(envClusterNodeCount, "1")
 	viper.SetDefault(envClusterNodePort, "8081")
-
-	for _, v := range os.Environ() {
-		vals := strings.Split(v, "=")
-		defaults[canonKey(vals[0])] = strings.Join(vals[1:], "=")
-	}
+	viper.AutomaticEnv()
 
 	logLevel, err := logrus.ParseLevel(viper.GetString(envLogLevel))
 	if err != nil {

@@ -15,10 +15,10 @@ Most workflow systems strongly separate the coordination of a process from its e
  
 This creates several new problems that Fn Flow aims to overcome: 
 
-* *Two languages, two sets of tools* : As a software engineer you are already likely to be skilled at solving problems using existing programming languages and tools;  requiring you to spontaneously move to a different paradigm and language just to distribute your process is hard work and slows you down. We think building things faster is always better and Flow is designed to let you stick to the languages and tools that you already know to quickly churn out features.  
+* *Two languages, two sets of tools* : As a software engineer you are already likely to be skilled at solving problems using existing programming languages and tools;  requiring you to spontaneously move to a different paradigm and language just to distribute your process is hard work and slows you down. We think this context-switching is harmful and Flow is designed to let you stick to the languages and tools that you already know to quickly add features.  
 * *Restricted Semantics* : While workflow languages are programming languages like any other, they typically do not have the same semantics as the languages you would use for other tasks, forcing you to reduce your process to something that fits in the semantic model of the workflow system. For state machine type systems this is often problematic as processes grow in complexity.  The number of links between states can result in more programming errors and programs that are hard to read and reason about. Flow allows you to code in existing languages (like Java) and use existing code to implement your process.
-* *Error handling* : In the cloud, processes often need to handle and recover from failures in other systems, this recovery is frequently more complex than just trying again a few more times. Flow exposes process errors to the workflow in a similar way to exceptions allowing you to handle, recover and take action as you see fit - including running more code to resolve the issue.  
-* *Glue code and context* : Workflow systems are frequently used to orchestrate independent, heterogeneous tasks together. On paper this sounds simple, just drag and drop the tasks into a graph and run the code, right? In practice one task is unlikely to to take exactly the same input as another tasks output (if they did they would not be be very independent). Tasks may also need context data from other tasks that executed before the previous step. In current workflow languages this often results in you having to add new tasks to translate data from one task to another and introduce complex data handling to pass context around. Flow allows you to use the language features of an existing programming language - glue code can be expressed using (e.g.) java methods and expressions and context as variables. 
+* *Error handling* : In the cloud, processes often need to handle and recover from failures in other systems, this recovery is frequently more complex than just trying again a few more times. Flow exposes these errors in a similar way to exceptions allowing you to handle, recover and take action as you see fit - including running more code to resolve the issue.  
+* *Glue code and context* : Workflow systems are frequently used to orchestrate independent, heterogeneous tasks together. On paper this sounds simple, just drag and drop the tasks into a graph and run the code, right? In practice one task is unlikely to to take exactly the same input as another tasks output (if they did they would not be be very independent!). Tasks may also need context data from other tasks that executed before the previous step. In current workflow languages this often results in you having to add new tasks to translate data from one task to another and introduce complex data handling to pass context around. Flow allows you to use the language features of an existing programming language - glue code can be expressed using (e.g.) Java methods and expressions - without sacrificing type-safety.
 
 
 ## For example... 
@@ -67,12 +67,12 @@ public void handleRequest(ScrapeReq input) throws Exception {
 }
 ```
 
-While the above program can be written and reasoned about as a single method, (and [tested using a JUnit rule](https://github.com/fnproject/fdk-java/blob/master/testing/src/main/java/com/fnproject/fn/testing/FnTestingRule.java)) it is in fact executed by braking each stage of the computation down into chunks, each of which runs as an independent Fn call - for instance the results of 'detect-plates' may be processed on one or more different containers. Functions like 'detect-plates' may take a while to run and when they are running none of the surrounding code blocks are consuming resources in the platform. 
+While the above program can be written and reasoned about as a single method, (and [tested using a JUnit rule](https://github.com/fnproject/fdk-java/blob/master/testing/src/main/java/com/fnproject/fn/testing/FnTestingRule.java)) it is in fact executed by braking each stage of the computation down into Fn Functions, each of which runs as an independent Fn call - for instance the results of 'detect-plates' may be processed on one or more different containers. Functions like 'detect-plates' may take a while to run and when they are running none of the surrounding code blocks are consuming resources in the platform. 
 
 
 
 ## Writing Flow functions 
-Flow Functions are currently supported in Java but the platform is not language specific and new language bindings can be build by implementing the function side of the [Flow API](docs/API.md). 
+Flow Functions are currently supported in Java but the platform is not language specific and new language bindings can be build by implementing the function side of the [Flow API](docs/API.md). We are working on adding support for JavaScript, Python and Go.
 
 To find out how to use Fn Flow in Java read the [user guide](https://github.com/fnproject/fdk-java/blob/master/docs/FnFlowsUserGuide.md). 
 
@@ -87,13 +87,7 @@ The Flow Service retains a trace of each Flow's execution and can publish the re
 
 Make sure the functions server is running 
 ```bash 
-fn start                                                                                                                                                 master ✭ ◼
-mount: permission denied (are you root?)
-Could not mount /sys/kernel/security.
-AppArmor detection and --privileged mode might break.
-mount: permission denied (are you root?)
-time="2017-09-16T22:04:49Z" level=info msg="datastore dialed" datastore=sqlite3 max_idle_connections=256
-time="2017-09-16T22:04:49Z" level=info msg="no docker auths from config files found (this is fine)" error="open /root/.dockercfg: no such file or directory"
+$ fn start                                                                                                                                                 ....
 time="2017-09-16T22:04:49Z" level=info msg="available memory" ram=1590210560
 
       ______
@@ -111,14 +105,12 @@ On Mac:
 ```bash
 export DOCKER_LOCALHOST=docker.for.mac.localhost
 ```
-
-Otherwise run
-
+Otherwise run:
 ```bash
 $ export DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
 ```
 
-Then run the flow service  : 
+Then run the Flow Service: 
 ```
 docker run --rm  -d -p 8081:8081 \
            -e API_URL="http://$DOCKER_LOCALHOST:8080/r" \
@@ -127,7 +119,6 @@ docker run --rm  -d -p 8081:8081 \
            fnproject/flow:latest
 ```
 
-
 Note if you have an HTTP proxy configured in docker you should add the docker loopback interface (and docker.for.mac.localhost) to your `no_proxy` settings.  
 
 Configure via the environment 
@@ -135,7 +126,7 @@ Configure via the environment
 | Env | Default | Usage |
 | --- | --- | --- |
 | API_URL | http://localhost:8080 | sets the FN API endpoint for outbound invocations | 
-| DB_URL | sqlite3://./data/flow.db | DB url, also use "inmem:/" for in memory storage |
+| DB_URL | sqlite3://./data/flow.db | DB url, you may also use "inmem:/" for in memory storage |
 | LISTEN |  :8081 | listen host/port (overrides PORT)  |
 
 # Get help

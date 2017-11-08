@@ -443,9 +443,6 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		if stage == nil {
 			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
 		}
-		if stage.GetOperation() != model.CompletionOperation_externalCompletion {
-			return model.NewStageNotCompletableError(msg.GraphId, msg.StageId)
-		}
 
 	case *model.GetStageResultRequest:
 		if valid := graph.validateStages(append(make([]string, 0), msg.StageId)); !valid {

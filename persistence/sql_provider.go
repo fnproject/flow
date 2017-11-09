@@ -3,11 +3,13 @@ package persistence
 import (
 	"database/sql"
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
-	"reflect"
 )
 
 type sqlProvider struct {
@@ -16,6 +18,8 @@ type sqlProvider struct {
 }
 
 var log = logrus.New().WithField("logger", "persistence")
+
+const slowQueryTime = 30 * time.Second
 
 // NewSQLProvider creates a journal/snapshot provider with an SQL db backing it
 func NewSQLProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
@@ -94,6 +98,7 @@ func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 		actorName, pbType, eventIndex, pbBytes)
 
 	if err != nil {
+		log.WithField("actor_name", actorName).WithError(err).Error("Error writing snapshot to DB")
 		panic(err)
 	}
 }
@@ -104,7 +109,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 	defer span.Finish()
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
-		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB ")
+		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB")
 
 		// DON't PANIC ?
 		panic(err)
@@ -134,14 +139,23 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 	pbBytes, err := proto.Marshal(event)
 
 	if err != nil {
+		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error marshalling event")
 		panic(err)
 	}
 
 	span := opentracing.StartSpan("sql_persist_event")
 	defer span.Finish()
+
+	queryStart := time.Now()
 	_, err = provider.db.Exec("REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
 	if err != nil {
+		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error writing event to DB")
 		panic(err)
 	}
+
+	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {
+		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithField("query_sec", queryTime.Seconds()).Warn("Slow DB query")
+	}
+
 }

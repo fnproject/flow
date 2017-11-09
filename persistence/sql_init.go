@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -74,7 +73,8 @@ func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 	case "mysql":
 		sqlxDb.SetMaxIdleConns(maxIdleConns)
 		sqlxDb.SetMaxOpenConns(maxIdleConns)
-		sqlxDb.SetConnMaxLifetime(1 * time.Minute)
+		// setting the lifetime seems to result in drive bad connection errors
+		// sqlxDb.SetConnMaxLifetime(1 * time.Minute)
 	}
 	for _, v := range tables {
 		_, err = sqlxDb.Exec(v)

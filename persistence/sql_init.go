@@ -3,12 +3,13 @@ package persistence
 import (
 	"database/sql"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 	// this is pulled in to ensure we have mysql Drivers for DB/DBX
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -30,8 +31,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	 blob_data BLOB);`,
 }
 
-// CreateDBConnecection sets up a DB connection and ensures required tables exist
-func CreateDBConnecection(url *url.URL) (*sqlx.DB, error) {
+// CreateDBConnection sets up a DB connection and ensures required tables exist
+func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 	driver := url.Scheme
 	switch driver {
 	case "mysql", "sqlite3":

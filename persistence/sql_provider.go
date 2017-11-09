@@ -39,11 +39,16 @@ func (provider *sqlProvider) GetSnapshotInterval() int {
 
 func (provider *sqlProvider) GetSnapshot(actorName string) (snapshot interface{}, eventIndex int, ok bool) {
 
+	queryStart := time.Now()
 	row := provider.db.QueryRowx("SELECT snapshot_type,event_index,snapshot FROM snapshots WHERE actor_name = ?", actorName)
 
 	if row.Err() != nil {
 		log.WithField("actor_name", actorName).Error("Error getting snapshot value from DB ", row.Err())
 		return nil, -1, false
+	}
+
+	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {
+		log.WithField("actor_name", actorName).WithField("query_sec", queryTime.Seconds()).Warn("Slow DB query while reading a snapshot")
 	}
 
 	var snapshotType string
@@ -61,7 +66,7 @@ func (provider *sqlProvider) GetSnapshot(actorName string) (snapshot interface{}
 	message, err := extractData(actorName, snapshotType, snapshotBytes)
 
 	if err != nil {
-		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).WithError(err).Errorf("Failed to read  protobuf for snapshot")
+		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": snapshotType}).WithError(err).Error("Failed to extract snapshot")
 		return nil, -1, false
 	}
 
@@ -72,7 +77,6 @@ func extractData(actorName string, msgTypeName string, msgBytes []byte) (proto.M
 	protoType := proto.MessageType(msgTypeName)
 
 	if protoType == nil {
-		log.WithFields(logrus.Fields{"actor_name": actorName, "message_type": msgTypeName}).Errorf("protocol type not supported by protobuf")
 		return nil, fmt.Errorf("Unsupported protocol type %s", protoType)
 	}
 	t := protoType.Elem()
@@ -94,6 +98,7 @@ func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 		panic(err)
 	}
 
+	queryStart := time.Now()
 	_, err = provider.db.Exec("REPLACE INTO snapshots (actor_name,snapshot_type,event_index,snapshot) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
 
@@ -101,6 +106,11 @@ func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 		log.WithField("actor_name", actorName).WithError(err).Error("Error writing snapshot to DB")
 		panic(err)
 	}
+
+	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {
+		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithField("query_sec", queryTime.Seconds()).Warn("Slow DB write while persisting snapshot")
+	}
+
 }
 
 func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
@@ -110,8 +120,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
 		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB")
-
-		// DON't PANIC ?
+		// DON'T PANIC ?
 		panic(err)
 	}
 	defer rows.Close()
@@ -124,6 +133,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 		msg, err := extractData(actorName, eventType, eventBytes)
 		if err != nil {
+			log.WithField("actor_name", actorName).WithField("event_type", eventType).WithError(err).Error("Error getting events value from DB")
 			panic(err)
 		}
 		callback(eventIndex, msg)
@@ -149,13 +159,14 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 	queryStart := time.Now()
 	_, err = provider.db.Exec("REPLACE INTO events (actor_name,event_type,event_index,event) VALUES (?,?,?,?)",
 		actorName, pbType, eventIndex, pbBytes)
+
 	if err != nil {
 		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error writing event to DB")
 		panic(err)
 	}
 
 	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {
-		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithField("query_sec", queryTime.Seconds()).Warn("Slow DB query")
+		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithField("query_sec", queryTime.Seconds()).Warn("Slow DB write while persisting event")
 	}
 
 }

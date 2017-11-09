@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -66,10 +67,14 @@ func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 	}
 
 	maxIdleConns := 256 // TODO we need to strip this out of the URL probably
-	sqlxDb.SetMaxIdleConns(maxIdleConns)
 	switch driver {
 	case "sqlite3":
+		sqlxDb.SetMaxIdleConns(1)
 		sqlxDb.SetMaxOpenConns(1)
+	case "mysql":
+		sqlxDb.SetMaxIdleConns(maxIdleConns)
+		sqlxDb.SetMaxOpenConns(maxIdleConns)
+		sqlxDb.SetConnMaxLifetime(1 * time.Minute)
 	}
 	for _, v := range tables {
 		_, err = sqlxDb.Exec(v)

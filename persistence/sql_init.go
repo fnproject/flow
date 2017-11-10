@@ -27,6 +27,7 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	snapshot BLOB NOT NULL);`,
 
 	`CREATE TABLE IF NOT EXISTS blobs (
+	 graph_id varchar(255) NOT NULL,
 	 blob_id varchar(255) NOT NULL PRIMARY KEY ,
 	 blob_data BLOB);`,
 }

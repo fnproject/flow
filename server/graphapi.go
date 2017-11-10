@@ -1,57 +1,59 @@
 package server
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
-
-	"fmt"
-	"net/url"
-
-	protoactor "github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/fnproject/flow/actor"
-	"github.com/fnproject/flow/cluster"
-	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
-	"github.com/fnproject/flow/protocol"
-	"github.com/fnproject/flow/query"
-
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/opentracing/opentracing-go"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"github.com/fnproject/flow/actor"
+	"github.com/fnproject/flow/query"
+	"github.com/fnproject/flow/protocol"
+	protoactor "github.com/AsynkronIT/protoactor-go/actor"
+	"strings"
+	"fmt"
+	"net/http"
+	"github.com/fnproject/flow/model"
+	"time"
+	"strconv"
 )
 
-const (
-	maxDelayStageDelay = 3600 * 1000 * 24
-	maxRequestTimeout  = 1 * time.Hour
-	minRequestTimeout  = 1 * time.Second
 
-	paramGraphID   = "graphId"
-	paramStageID   = "stageId"
-	paramOperation = "operation"
+func (s *Server) completeExternally(graphID string, stageID string, body []byte, headers http.Header, method string, contentType string, b bool) (*model.CompleteStageExternallyResponse, error) {
+	var hs []*model.HTTPHeader
+	for k, vs := range headers {
+		for _, v := range vs {
+			hs = append(hs, &model.HTTPHeader{
+				Key:   k,
+				Value: v,
+			})
+		}
+	}
 
-	queryParamGraphID    = "graphId"
-	queryParamFunctionID = "functionId"
-)
+	var m model.HTTPMethod
+	if methodValue, found := model.HTTPMethod_value[strings.ToLower(method)]; found {
+		m = model.HTTPMethod(methodValue)
+	} else {
+		return nil, ErrUnsupportedHTTPMethod
+	}
 
-var log = logrus.WithField("logger", "server")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
 
-func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
-
-	result, err := protocol.CompletionResultFromRequest(s.BlobStore, req)
+	blob, err := s.BlobStore.CreateBlob(contentType, body)
 	if err != nil {
 		return nil, err
+	}
+	httpReqDatum := model.HTTPReqDatum{
+		Body:    blob,
+		Headers: hs,
+		Method:  m,
 	}
 
 	request := model.CompleteStageExternallyRequest{
 		GraphId: graphID,
 		StageId: stageID,
-		Result:  result,
+		Result: &model.CompletionResult{
+			Successful: b,
+			Datum:      model.NewHTTPReqDatum(&httpReqDatum),
+		},
 	}
 
 	response, err := s.GraphManager.CompleteStageExternally(&request, s.requestTimeout)
@@ -71,22 +73,29 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		return
 	}
 	operation := c.Param(paramOperation)
+	body, err := c.GetRawData()
+	if err != nil {
+		renderError(ErrReadingInput, c)
+		return
+	}
 
 	switch operation {
-
 	case "complete":
-		response, err := s.completeWithResult(graphID, stageID, c.Request)
+		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
 		if err != nil {
 			renderError(err, c)
 			return
 		}
 		c.Header(protocol.HeaderStageRef, response.StageId)
-		if response.Successful {
-			c.Status(http.StatusOK)
-		} else {
-			c.String(http.StatusConflict, "Stage is already completed")
+		c.Status(http.StatusOK)
+	case "fail":
+		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
+		if err != nil {
+			renderError(err, c)
+			return
 		}
-
+		c.Header(protocol.HeaderStageRef, response.StageId)
+		c.Status(http.StatusOK)
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}
@@ -105,11 +114,6 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 		}
 
-		body, err := c.GetRawData()
-		if err != nil {
-			renderError(ErrReadingInput, c)
-			return
-		}
 		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
 		if err != nil {
 			renderError(err, c)
@@ -137,24 +141,6 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 		c.Header(protocol.HeaderStageRef, response.StageId)
 		c.Status(http.StatusOK)
-	}
-}
-
-func renderError(err error, c *gin.Context) {
-	if gin.Mode() == gin.DebugMode {
-		log.WithError(err).Error("Error occurred in request")
-	}
-	switch e := err.(type) {
-
-	case model.ValidationError, *protocol.BadProtoMessage:
-		c.Data(http.StatusBadRequest, "text/plain", []byte(e.Error()))
-	case *Error:
-		{
-			c.Data(e.HTTPStatus, "text/plain", []byte(e.Message))
-		}
-	default:
-		log.WithError(err).Error("Internal server error")
-		c.Status(http.StatusInternalServerError)
 	}
 }
 
@@ -522,7 +508,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 
 	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
-		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
+		CallerId: c.GetHeader(protocol.HeaderCallerRef),
 	}
 	response, err := s.addStage(request)
 
@@ -614,123 +600,30 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (s *Server) handlePrometheusMetrics(c *gin.Context) {
-	s.promHandler.ServeHTTP(c.Writer, c.Request)
-}
-
-func setTracer(ownURL string, zipkinURL string) {
-	var (
-		debugMode          = false
-		serviceName        = "flow-service"
-		serviceHostPort    = ownURL
-		zipkinHTTPEndpoint = zipkinURL
-		// ex: "http://zipkin:9411/api/v1/spans"
-	)
-
-	var collector zipkintracer.Collector
-
-	// custom Zipkin collector to send tracing spans to Prometheus
-	promCollector, promErr := NewPrometheusCollector()
-	if promErr != nil {
-		logrus.WithError(promErr).Fatalln("couldn't start Prometheus trace collector")
-	}
-
-	logger := zipkintracer.LoggerFunc(func(i ...interface{}) error { logrus.Error(i...); return nil })
-
-	if zipkinHTTPEndpoint != "" {
-		// Custom PrometheusCollector and Zipkin HTTPCollector
-		httpCollector, zipErr := zipkintracer.NewHTTPCollector(zipkinHTTPEndpoint, zipkintracer.HTTPLogger(logger))
-		if zipErr != nil {
-			logrus.WithError(zipErr).Fatalln("couldn't start Zipkin trace collector")
-		}
-		collector = zipkintracer.MultiCollector{httpCollector, promCollector}
-	} else {
-		// Custom PrometheusCollector only
-		collector = promCollector
-	}
-
-	ziptracer, err := zipkintracer.NewTracer(zipkintracer.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
-		zipkintracer.ClientServerSameSpan(true),
-		zipkintracer.TraceID128Bit(true),
-	)
-	if err != nil {
-		logrus.WithError(err).Fatalln("couldn't start tracer")
-	}
-
-	// wrap the Zipkin tracer in a FnTracer which will also send spans to Prometheus
-	fntracer := NewFnTracer(ziptracer)
-
-	opentracing.SetGlobalTracer(fntracer)
-	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
-}
 
 
-// Server is the flow service root
-type Server struct {
-	Engine         *gin.Engine
-	GraphManager   actor.GraphManager
-	apiURL         *url.URL
-	BlobStore      persistence.BlobStore
-	listen         string
-	requestTimeout time.Duration
-	promHandler    http.Handler
-}
-
-func newEngine(clusterManager *cluster.Manager) *gin.Engine {
-	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(), graphCreateInterceptor, clusterManager.ProxyHandler())
-	return engine
-}
-
-// New creates a new server - params are injected dependencies
-func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
-
-	setTracer(listenAddress, zipkinURL)
-
-	s := &Server{
-		GraphManager:   manager,
-		Engine:         newEngine(clusterManager),
-		listen:         listenAddress,
-		BlobStore:      blobStore,
-		requestTimeout: maxRequestTimeout,
-		promHandler:    promhttp.Handler(),
-	}
-
-	s.Engine.GET("/ping", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+func createGraphApi(s *Server, manager actor.GraphManager) {
+	s.Engine.GET("/wss", func(c *gin.Context) {
+		query.WSSHandler(manager, c.Writer, c.Request)
 	})
-	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
+	graph := s.Engine.Group("/graph")
+	{
+		graph.POST("", s.handleCreateGraph)
+		graph.GET("/:graphId", s.handleGraphState)
+		graph.POST("/:graphId/supply", s.handleSupply)
+		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
+		graph.POST("/:graphId/completedValue", s.handleCompletedValue)
+		graph.POST("/:graphId/delay", s.handleDelay)
+		graph.POST("/:graphId/allOf", s.handleAllOf)
+		graph.POST("/:graphId/anyOf", s.handleAnyOf)
+		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
+		graph.POST("/:graphId/commit", s.handleCommit)
+		graph.POST("/:graphId/terminationHook", s.handleAddTerminationHook)
 
-	createGraphApi(s, manager)
-
-	createBlobApi(s)
-
-	return s, nil
-}
-
-
-// Run starts the server
-func (s *Server) Run() {
-	log.WithField("listen_url", s.listen).Infof("Starting Completer server (timeout %s) ", s.requestTimeout)
-
-	s.Engine.Run(s.listen)
-}
-
-// context handler that intercepts graph create requests, injecting a UUID parameter prior
-// to forwarding to the appropriate node in the cluster
-func graphCreateInterceptor(c *gin.Context) {
-	if c.Request.URL.Path == "/graph" && len(c.Query(queryParamGraphID)) == 0 {
-		UUID, err := uuid.NewRandom()
-		if err != nil {
-			c.AbortWithError(500, errors.New("Failed to generate UUID for new graph"))
-			return
+		stage := graph.Group("/:graphId/stage")
+		{
+			stage.GET("/:stageId", s.handleGetGraphStage)
+			stage.POST("/:stageId/:operation", s.handleStageOperation)
 		}
-		graphID := UUID.String()
-		log.Infof("Generated new graph ID %s", graphID)
-
-		// set the graphId query param in the original request prior to proxying
-		values := c.Request.URL.Query()
-		values.Add(queryParamGraphID, graphID)
-		c.Request.URL.RawQuery = values.Encode()
 	}
 }

@@ -1,19 +1,19 @@
 package persistence
 
 import (
-	"testing"
-
 	"github.com/fnproject/flow/model"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"bytes"
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {
 	store := givenEmptyBlobStore()
 
 	data := []byte("Some data")
-	blob, err := store.CreateBlob("test/type", data)
+	blob, err := store.Create("graph","test/type", bytes.NewReader(data))
 
 	assert.NoError(t, err)
 	require.NotNil(t, blob)
@@ -27,10 +27,10 @@ func TestShouldRetrieveStoredBlob(t *testing.T) {
 	store := givenEmptyBlobStore()
 
 	data := []byte("Some data")
-	blob, err := store.CreateBlob("test/type", data)
+	blob, err := store.Create("graph","test/type", bytes.NewReader(data))
 	require.NoError(t, err)
 
-	newData, err := store.ReadBlobData(blob)
+	newData, err := store.Read("graph",blob)
 	assert.NoError(t, err)
 	assert.Equal(t, data, newData)
 
@@ -39,7 +39,7 @@ func TestShouldRetrieveStoredBlob(t *testing.T) {
 func TestShouldFailWithUnknownBlob(t *testing.T) {
 	store := givenEmptyBlobStore()
 
-	newData, err := store.ReadBlobData(&model.BlobDatum{BlobId: "foo"})
+	newData, err := store.Read("graph",&model.BlobDatum{BlobId: "foo"})
 	assert.Nil(t, newData)
 	assert.Error(t, err)
 
@@ -47,11 +47,11 @@ func TestShouldFailWithUnknownBlob(t *testing.T) {
 func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
 	store := givenEmptyBlobStore()
 
-	blob, err := store.CreateBlob("test/type", []byte{})
+	blob, err := store.Create("graph","test/type", bytes.NewReader([]byte{}))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), blob.Length)
 
-	data, err := store.ReadBlobData(blob)
+	data, err := store.Read("graph",blob)
 	assert.NoError(t, err)
 	assert.Empty(t, data)
 }
@@ -65,6 +65,7 @@ func givenEmptyBlobStore() BlobStore {
 	}
 	return store
 }
+
 func setupDb() *sqlx.DB {
 	resetTestDb()
 

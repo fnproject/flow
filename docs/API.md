@@ -45,6 +45,7 @@ When using _blob_ types, their media type must be defined by including the `Cont
 ```
 Content-Type: application/java-serialized-object
 FnProject-DatumType: blob
+FnProject-BlobId: 123kl1j2l12
 ```
 The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
 

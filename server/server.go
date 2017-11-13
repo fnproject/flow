@@ -154,7 +154,11 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			return
 		}
 		c.Header(protocol.HeaderStageRef, response.StageId)
-		c.Status(http.StatusOK)
+		if response.Successful {
+			c.Status(http.StatusOK)
+		} else {
+			c.String(http.StatusBadRequest, "Stage is already completed")
+		}
 	case "completeExceptionally":
 		response, err := s.completeWithResultStatus(graphID, stageID, c.Request, false)
 		if err != nil {
@@ -162,7 +166,11 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 			return
 		}
 		c.Header(protocol.HeaderStageRef, response.StageId)
-		c.Status(http.StatusOK)
+		if response.Successful {
+			c.Status(http.StatusOK)
+		} else {
+			c.String(http.StatusBadRequest, "Stage is already completed")
+		}
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}

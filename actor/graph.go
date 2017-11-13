@@ -16,10 +16,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: read this from configuration!
 const (
-	inactiveTimeout = time.Duration(24 * time.Hour)
-	readTimeout     = time.Duration(5 * time.Minute)
+	// The commitTimeout indicates how long a graph actor has between being started
+	// and committed before it is passivated
+	commitTimeout = time.Duration(5 * time.Minute)
+
+	// The inactiveTimeout indicates how long a graph actor has between being committed
+	// and completed before it is passivated
+	completionTimeout = time.Duration(24 * time.Hour)
+
+	// The readTimeout indicates how long a completed graph has after being rematerialized
+	// from storage before it is passivated
+	readTimeout = time.Duration(5 * time.Minute)
 )
 
 type graphActor struct {
@@ -249,6 +257,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 		g.log.Debug("Committing graph")
 		g.persistAndUpdateGraph(&model.GraphCommittedEvent{GraphId: msg.GraphId, Ts: currentTimestamp()})
+		context.SetReceiveTimeout(completionTimeout)
 		context.Respond(response)
 
 	case *model.GetStageResultRequest:
@@ -327,7 +336,7 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 
 	case *actor.Started:
 		g.log.Debugf("Started actor %s", g.GetSelf().Id)
-		context.SetReceiveTimeout(inactiveTimeout)
+		context.SetReceiveTimeout(commitTimeout)
 
 	case *actor.ReceiveTimeout:
 		if g.graph != nil {
@@ -341,8 +350,11 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 			g.graph.Recover()
 
 			if g.graph.IsCompleted() {
-				// graph is in read-only mode, so request passivation after read timeout
+				// graph is in read-only mode
 				context.SetReceiveTimeout(readTimeout)
+			} else {
+				// graph is still being processed
+				context.SetReceiveTimeout(completionTimeout)
 			}
 		}
 

@@ -65,15 +65,15 @@ func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 		return nil, err
 	}
 
-	maxIdleConns := 256 // TODO we need to strip this out of the URL probably
+	maxIdleConns := 10 // TODO we need to strip this out of the URL probably
 	switch driver {
 	case "sqlite3":
 		sqlxDb.SetMaxIdleConns(1)
 		sqlxDb.SetMaxOpenConns(1)
 	case "mysql":
 		sqlxDb.SetMaxIdleConns(maxIdleConns)
-		sqlxDb.SetMaxOpenConns(maxIdleConns)
-		// setting the lifetime seems to result in drive bad connection errors
+		sqlxDb.SetMaxOpenConns(5 * maxIdleConns)
+		// setting the lifetime seems to result in driver bad connection errors
 		// sqlxDb.SetConnMaxLifetime(1 * time.Minute)
 	}
 	for _, v := range tables {

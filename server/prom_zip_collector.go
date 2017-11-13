@@ -61,7 +61,7 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 			prometheus.SummaryOpts{
 				Name: "flow_span_" + span.GetName() + "_duration_secs_summary",
 				Help: "Span " + span.GetName() + " duration, by span name",
-				Objectives: map[float64]float64 {0.5: 0.01, 0.75: 0.01, 0.9: 0.01, 0.99: 0.001},
+				Objectives: map[float64]float64 {0.5: 0.01, 0.9: 0.01, 0.99: 0.001},
 			},
 			labelKeysFromSpan,
 		)

@@ -70,7 +70,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	partWriter := multipart.NewWriter(buf)
 
 	if msg.Closure != nil {
-		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
+		err := protocol.WritePartFromDatum(&model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
@@ -78,7 +78,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		}
 	}
 	for _, result := range msg.Args {
-		err := protocol.WritePartFromResult(exec.blobStore, result, partWriter)
+		err := protocol.WritePartFromResult( result, partWriter)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
@@ -136,11 +136,11 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	var bodyReader io.Reader
 
 	if datum.Body != nil {
-		blobData, err := exec.blobStore.ReadBlobData(datum.Body)
+		var err error
+		bodyReader, err = exec.blobStore.Read(msg.GraphId,datum.Body)
 		if err != nil {
 			return invokeFailed(msg, "Failed to read data for invocation", "")
 		}
-		bodyReader = bytes.NewReader(blobData)
 	} else {
 		bodyReader = http.NoBody
 	}
@@ -176,13 +176,6 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	}
 
 	callID := resp.Header.Get(fnCallIDHeader)
-	buf := &bytes.Buffer{}
-	_, err = buf.ReadFrom(resp.Body)
-	if err != nil {
-		exec.log.Error("Error reading data from function:", err)
-		return invokeFailed(msg, "Failed to call function could not read response", callID)
-
-	}
 
 	var contentType = resp.Header.Get("Content-type")
 	if contentType == "" {
@@ -199,8 +192,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		}
 	}
 
-	bytes := buf.Bytes()
-	blob, err := exec.blobStore.CreateBlob(contentType, bytes)
+	blob, err := exec.blobStore.Create(msg.GraphId,contentType, resp.Body)
 	if err != nil {
 		return invokeFailed(msg, "Failed to persist HTTP response data", callID)
 	}

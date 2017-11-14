@@ -298,15 +298,9 @@ func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *m
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
+	closureBlob  := model.NewBlobBody("closure", 101, "arg1/type")
+	argBlob  := model.NewBlobBody("arg1", 101, "arg1/type")
 
-	closureBlob, err := store.CreateBlob("closure/type", []byte("closure"))
-	if err != nil {
-		panic(err)
-	}
-	argBlob, err := store.CreateBlob("arg1/type", []byte("arg1"))
-	if err != nil {
-		panic(err)
-	}
 	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
@@ -359,16 +353,20 @@ func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType 
 	assert.Equal(t, errType, errorDatum.Type)
 }
 
-func getBlobData(t *testing.T, s persistence.BlobStore, blob *model.BlobDatum) []byte {
-	data, err := s.ReadBlobData(blob)
+func getBlobData(t *testing.T, s persistence.BlobStore,blob *model.BlobDatum) []byte {
+	data, err := s.Read("graph-id",blob)
 
 	require.NoError(t, err)
-	return data
+	buf:= bytes.Buffer{}
+	_ , err = buf.ReadFrom(data)
+
+	require.NoError(t,err)
+	return buf.Bytes()
 }
 
-func createBlob(t *testing.T, store persistence.BlobStore, contentType string, data []byte) *model.BlobDatum {
+func createBlob(t *testing.T, store persistence.BlobStore,  contentType string, data []byte) *model.BlobDatum {
 
-	blob, err := store.CreateBlob(contentType, data)
+	blob, err := store.Create("graph-id", contentType, bytes.NewReader(data))
 	require.NoError(t, err)
 	return blob
 }

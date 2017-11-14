@@ -69,7 +69,7 @@ func givenEmptyBlobStore() BlobStore {
 func setupDb() *sqlx.DB {
 	resetTestDb()
 
-	db, err := CreateDBConnection(testDbURL())
+	db, err := CreateDBConnection(testDBURL())
 	if err != nil {
 		panic(err)
 	}

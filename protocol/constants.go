@@ -24,6 +24,12 @@ const (
 	// HeaderFlowID  - the flow ID (for return values)
 	HeaderFlowID = "Fnproject-FlowId"
 
+	// HeaderBlobID  - a blob reference
+	HeaderBlobID = "Fnproject-BlobId"
+
+	// HeaderBlobLength  - a blob reference
+	HeaderBlobLength = "Fnproject-BlobLength"
+
 	// HeaderContentType - congten type header
 	HeaderContentType = "Content-Type"
 

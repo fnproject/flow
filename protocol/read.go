@@ -15,18 +15,18 @@ import (
 )
 
 // DatumFromPart reads a model Datum Object from a multipart part
-func DatumFromPart(store persistence.BlobStore, part *multipart.Part) (*model.Datum, error) {
-	return readDatum(store, part, part.Header)
+func DatumFromPart(part *multipart.Part) (*model.Datum, error) {
+	return readDatum(part, part.Header)
 }
 
 // DatumFromRequest reads a model Datum Object from an HTTP request
-func DatumFromRequest(store persistence.BlobStore, req *http.Request) (*model.Datum, error) {
-	return readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
+func DatumFromRequest(req *http.Request) (*model.Datum, error) {
+	return readDatum(req.Body, textproto.MIMEHeader(req.Header))
 }
 
 // CompletionResultFromRequest reads a Datum and completion result from an incoming request
-func CompletionResultFromRequest(store persistence.BlobStore, req *http.Request) (*model.CompletionResult, error) {
-	datum, err := readDatum(store, req.Body, textproto.MIMEHeader(req.Header))
+func CompletionResultFromRequest(req *http.Request) (*model.CompletionResult, error) {
+	datum, err := readDatum(req.Body, textproto.MIMEHeader(req.Header))
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	if err != nil {
 		return nil, fmt.Errorf("invalid encapsulated HTTP frame: %s", err.Error())
 	}
-	datum, err := readDatum(store, actualResponse.Body, textproto.MIMEHeader(actualResponse.Header))
+	datum, err := readDatum(actualResponse.Body, textproto.MIMEHeader(actualResponse.Header))
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *ht
 	return &model.CompletionResult{Successful: resultStatus, Datum: datum}, nil
 }
 
-func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader) (*model.Datum, error) {
+func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error) {
 
 	datumType := header.Get(HeaderDatumType)
 	if datumType == "" {
@@ -88,13 +88,11 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 	switch datumType {
 	case DatumTypeBlob:
 
-		blob, err := readBlob(store, part, header, false)
+		body, err := readBlob(header, false)
 		if err != nil {
 			return nil, err
 		}
-		return &model.Datum{
-			Val: &model.Datum_Blob{Blob: blob},
-		}, nil
+		return model.NewBlobDatum(body), nil
 
 	case DatumTypeEmpty:
 		return &model.Datum{Val: &model.Datum_Empty{Empty: &model.EmptyDatum{}}}, nil
@@ -159,11 +157,17 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 				}
 			}
 		}
-
-		blob, err := readBlob(store, part, header, true)
-		if err != nil {
-			return nil, err
+		var blob *model.BlobDatum
+		if header.Get(HeaderBlobID) != "" {
+			var err error
+			blob, err = readBlob(header, true)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			blob = nil
 		}
+
 		return &model.Datum{Val: &model.Datum_HttpReq{HttpReq: &model.HTTPReqDatum{Body: blob, Headers: headers, Method: model.HTTPMethod(method)}}}, nil
 
 	case DatumTypeHTTPResp:
@@ -183,7 +187,7 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 				}
 			}
 		}
-		blob, err := readBlob(store, part, header, true)
+		blob, err := readBlob(header, true)
 		if err != nil {
 			return nil, err
 		}
@@ -193,24 +197,29 @@ func readDatum(store persistence.BlobStore, part io.Reader, header textproto.MIM
 	}
 }
 
-func readBlob(store persistence.BlobStore, part io.Reader, header textproto.MIMEHeader, allowNil bool) (*model.BlobDatum, error) {
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(part)
+func readBlob(header textproto.MIMEHeader, allowNil bool) (*model.BlobDatum, error) {
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to read blob datum from body")
-	}
-
-	data := buf.Bytes()
-	if allowNil && len(data) == 0 {
-		return nil, nil
-	}
 	contentType := header.Get(HeaderContentType)
 	if "" == contentType {
 		return nil, ErrMissingContentType
 	}
+	blobId := header.Get(HeaderBlobID)
+	if "" == blobId {
+		return nil, ErrMissingBlobID
+	}
 
-	blob, err := store.CreateBlob(contentType, data)
+	blobLength := header.Get(HeaderBlobLength)
+	if "" == blobLength {
+		return nil, ErrMissingBlobLength
+	}
+	blobLengthInt, err := strconv.ParseUint(blobLength, 10, 64)
+
+	if err != nil {
+		return nil, ErrInvalidBlobLength
+
+	}
+
+	blob := model.NewBlobBody(blobId, blobLengthInt, contentType)
 	if err != nil {
 		return nil, err
 	}

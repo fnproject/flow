@@ -7,24 +7,19 @@ import (
 	"strings"
 
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 )
 
-func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
+func writePartFromDatum(h textproto.MIMEHeader, datum *model.Datum, writer *multipart.Writer) error {
 	switch datum.Val.(type) {
 	case *model.Datum_Blob:
 		blob := datum.GetBlob()
 		h.Add(HeaderDatumType, DatumTypeBlob)
-		h.Add(HeaderContentType, blob.ContentType)
-		partWriter, err := writer.CreatePart(h)
+		writeBlobHeaders(h, blob)
+		_, err := writer.CreatePart(h)
 		if err != nil {
 			return err
 		}
-		data, err := store.ReadBlobData(blob)
-		if err != nil {
-			return err
-		}
-		partWriter.Write(data)
+
 		return nil
 
 	case *model.Datum_Empty:
@@ -68,17 +63,14 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 			h.Add(HeaderContentType, blob.ContentType)
 
 		}
-		pw, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
 
 		if blob != nil {
-			data, err := store.ReadBlobData(blob)
-			if err != nil {
-				return err
-			}
-			pw.Write(data)
+			writeBlobHeaders(h, blob)
+		}
+
+		_, err := writer.CreatePart(h)
+		if err != nil {
+			return err
 		}
 
 		return nil
@@ -96,17 +88,14 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 			h.Add(HeaderContentType, blob.ContentType)
 
 		}
-		pw, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
 
 		if blob != nil {
-			data, err := store.ReadBlobData(blob)
-			if err != nil {
-				return err
-			}
-			pw.Write(data)
+			writeBlobHeaders(h, blob)
+		}
+
+		_, err := writer.CreatePart(h)
+		if err != nil {
+			return err
 		}
 
 		return nil
@@ -127,17 +116,22 @@ func writePartFromDatum(h textproto.MIMEHeader, store persistence.BlobStore, dat
 
 	}
 }
+func writeBlobHeaders(h textproto.MIMEHeader, blob *model.BlobDatum) {
+	h.Add(HeaderContentType, blob.ContentType)
+	h.Add(HeaderBlobID, blob.BlobId)
+	h.Add(HeaderBlobLength, fmt.Sprintf("%d", blob.Length))
+}
 
 // WritePartFromDatum emits a datum to an HTTP part
-func WritePartFromDatum(store persistence.BlobStore, datum *model.Datum, writer *multipart.Writer) error {
-	return writePartFromDatum(textproto.MIMEHeader{}, store, datum, writer)
+func WritePartFromDatum(datum *model.Datum, writer *multipart.Writer) error {
+	return writePartFromDatum(textproto.MIMEHeader{}, datum, writer)
 }
 
 // WritePartFromResult emits a result to an HTTP part
-func WritePartFromResult(store persistence.BlobStore, result *model.CompletionResult, writer *multipart.Writer) error {
+func WritePartFromResult(result *model.CompletionResult, writer *multipart.Writer) error {
 	h := textproto.MIMEHeader{}
 	h.Add(HeaderResultStatus, getResultStatus(result))
-	return writePartFromDatum(h, store, result.Datum, writer)
+	return writePartFromDatum(h, result.Datum, writer)
 }
 
 func getResultStatus(result *model.CompletionResult) string {

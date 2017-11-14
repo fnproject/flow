@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
 	"io"
 	"bytes"
 )

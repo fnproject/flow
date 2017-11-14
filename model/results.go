@@ -24,11 +24,20 @@ func NewEmptyDatum() *Datum {
 }
 
 // NewBlobDatum creates a new blob datum
-func NewBlobDatum(blob *BlobDatum) *Datum {
+func NewBlobDatum(body *BlobDatum) *Datum {
 	return &Datum{
 		Val: &Datum_Blob{
-			Blob: blob,
+			Blob: body,
 		},
+	}
+}
+
+// NewBlobBody creates a new blob body element
+func NewBlobBody(id string, length uint64, contentType string) *BlobDatum {
+	return &BlobDatum{
+		BlobId:      id,
+		Length:      length,
+		ContentType: contentType,
 	}
 }
 

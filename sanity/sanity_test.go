@@ -93,34 +93,34 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-		protocol.HeaderResultStatus: "baah",
-	}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
+			protocol.HeaderResultStatus: "baah",
+		}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
 
 	tc.StartWithGraph("Completes External Completion Successfully").
 		ThenPOST("/graph/:graphID/externalCompletion").
 		ExpectStageCreated().
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
-		WithHeaders(map[string]string{"fnproject-resultstatus": "success",}).
+		WithHeaders(map[string]string{"fnproject-resultstatus": "success"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-		evt, ok := msg.(*model.StageCompletedEvent)
-		require.True(ctx, ok)
-		assert.True(ctx, evt.Result.Successful)
-	})
+			evt, ok := msg.(*model.StageCompletedEvent)
+			require.True(ctx, ok)
+			assert.True(ctx, evt.Result.Successful)
+		})
 
 	tc.StartWithGraph("Completes External Completion With Failure").
 		ThenPOST("/graph/:graphID/externalCompletion").
 		ExpectStageCreated().
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
-		WithHeaders(map[string]string{"fnproject-resultstatus": "failure",}).
+		WithHeaders(map[string]string{"fnproject-resultstatus": "failure"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-		evt, ok := msg.(*model.StageCompletedEvent)
-		require.True(ctx, ok)
-		assert.False(ctx, evt.Result.Successful)
-	})
+			evt, ok := msg.(*model.StageCompletedEvent)
+			require.True(ctx, ok)
+			assert.False(ctx, evt.Result.Successful)
+		})
 
 	tc.StartWithGraph("Conflicts on already completed stage ").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -131,8 +131,8 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-		"fnproject-resultstatus": "failure",
-	}).ExpectStatus(409)
+			"fnproject-resultstatus": "failure",
+		}).ExpectStatus(409)
 
 	StageAcceptsMetadata(func(s string) *APICmd {
 		return tc.StartWithGraph(s).
@@ -255,23 +255,23 @@ func StageAcceptsErrorType(s func(string) *APICmd) {
 	s("Rejects missing error type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"content-type":        "text/plain"}).
+			"fnproject-datumtype": "error",
+			"content-type":        "text/plain"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingErrorType)
 
 	s("Rejects missing content type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"fnproject-errortype": "error"}).
+			"fnproject-datumtype": "error",
+			"fnproject-errortype": "error"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingContentType)
 
 	s("Rejects non-text content type").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "error",
-		"fnproject-errortype": "error",
-		"content-type":        "application/octet-stream"}).
+			"fnproject-datumtype": "error",
+			"fnproject-errortype": "error",
+			"content-type":        "application/octet-stream"}).
 		WithBodyString("body").ExpectRequestErr(protocol.ErrInvalidContentType)
 
 	s("Accepts valid error datum").WithBodyString("str").WithErrorDatum(model.ErrorDatumType_name[int32(model.ErrorDatumType_invalid_stage_response)], "msg").ExpectStageCreated()
@@ -286,8 +286,8 @@ func StageAcceptsEmptyType(s func(string) *APICmd) {
 	s("Accepts empty datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "empty",
-		"content-type":        "text/plain"}).
+			"fnproject-datumtype": "empty",
+			"content-type":        "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }
@@ -299,10 +299,10 @@ func StageAcceptsHTTPReqType(s func(string) *APICmd) {
 	s("Accepts httpreq datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype": "httpreq",
-		"fnproject-method":    "get",
+			"fnproject-datumtype": "httpreq",
+			"fnproject-method":    "get",
 
-		"content-type": "text/plain"}).
+			"content-type": "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }
@@ -314,9 +314,9 @@ func StageAcceptsHTTPRespType(s func(string) *APICmd) {
 	s("Accepts httpresp datum").
 		WithBodyString("str").
 		WithHeaders(map[string]string{
-		"fnproject-datumtype":  "httpresp",
-		"fnproject-resultcode": "100",
-		"content-type":         "text/plain"}).
+			"fnproject-datumtype":  "httpresp",
+			"fnproject-resultcode": "100",
+			"content-type":         "text/plain"}).
 		WithBodyString("body").ExpectStageCreated()
 
 }
@@ -326,19 +326,19 @@ func StageAcceptsMetadata(s func(string) *APICmd) {
 	s("Works with no metadata ").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-		assert.Equal(ctx, "", event.CodeLocation)
-		assert.Equal(ctx, "", event.CallerId)
-	})
+			assert.Equal(ctx, "", event.CodeLocation)
+			assert.Equal(ctx, "", event.CallerId)
+		})
 
 	s("Works with no metadata ").
 		WithHeader(protocol.HeaderCodeLocation, "code-loc").
 		WithHeader(protocol.HeaderCallerRef, "caller-id").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-		assert.Equal(ctx, "code-loc", event.CodeLocation)
-		assert.Equal(ctx, "caller-id", event.CallerId)
+			assert.Equal(ctx, "code-loc", event.CodeLocation)
+			assert.Equal(ctx, "caller-id", event.CallerId)
 
-	})
+		})
 
 }
 

@@ -120,20 +120,20 @@ func (c *APICmd) ExpectStatus(status int) *APICmd {
 func (c *APICmd) ExpectGraphCreated() *APICmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		flowIDHeader := resp.Header.Get("Fnproject-FlowId")
-		require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.Header)
-		ctx.graphID = flowIDHeader
-	}, "Graph was created")
+			flowIDHeader := resp.Header.Get("Fnproject-FlowId")
+			require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.Header)
+			ctx.graphID = flowIDHeader
+		}, "Graph was created")
 }
 
 // ExpectStageCreated verifies that the server reported that  a stage was created
 func (c *APICmd) ExpectStageCreated() *APICmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-		stage := resp.Header.Get("Fnproject-StageId")
-		require.NotEmpty(ctx, stage, "StageID not in header")
-		ctx.stageID = stage
-	}, "Stage was created")
+			stage := resp.Header.Get("Fnproject-StageId")
+			require.NotEmpty(ctx, stage, "StageID not in header")
+			ctx.stageID = stage
+		}, "Stage was created")
 }
 
 // ExpectLastStageAddedEvent  adds an expectation on the last StageAddedEvent

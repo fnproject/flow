@@ -87,14 +87,12 @@ func (s *Server) completeExternally(graphID string, stageID string, body []byte,
 	return response, err
 }
 
-func (s *Server) completeWithResultStatus(graphID string, stageID string, req *http.Request, b bool) (*model.CompleteStageExternallyResponse, error) {
+func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
 
 	result, err := protocol.CompletionResultFromRequest(s.BlobStore, req)
 	if err != nil {
 		return nil, err
 	}
-
-	result.Successful = b
 
 	request := model.CompleteStageExternallyRequest{
 		GraphId: graphID,
@@ -121,34 +119,9 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 	operation := c.Param(paramOperation)
 
 	switch operation {
+
 	case "complete":
-		body, err := c.GetRawData()
-		if err != nil {
-			renderError(ErrReadingInput, c)
-			return
-		}
-		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), true)
-		if err != nil {
-			renderError(err, c)
-			return
-		}
-		c.Header(protocol.HeaderStageRef, response.StageId)
-		c.Status(http.StatusOK)
-	case "fail":
-		body, err := c.GetRawData()
-		if err != nil {
-			renderError(ErrReadingInput, c)
-			return
-		}
-		response, err := s.completeExternally(graphID, stageID, body, c.Request.Header, c.Request.Method, c.ContentType(), false)
-		if err != nil {
-			renderError(err, c)
-			return
-		}
-		c.Header(protocol.HeaderStageRef, response.StageId)
-		c.Status(http.StatusOK)
-	case "completeNormally":
-		response, err := s.completeWithResultStatus(graphID, stageID, c.Request, true)
+		response, err := s.completeWithResult(graphID, stageID, c.Request)
 		if err != nil {
 			renderError(err, c)
 			return
@@ -157,20 +130,9 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		if response.Successful {
 			c.Status(http.StatusOK)
 		} else {
-			c.String(http.StatusBadRequest, "Stage is already completed")
+			c.String(http.StatusConflict, "Stage is already completed")
 		}
-	case "completeExceptionally":
-		response, err := s.completeWithResultStatus(graphID, stageID, c.Request, false)
-		if err != nil {
-			renderError(err, c)
-			return
-		}
-		c.Header(protocol.HeaderStageRef, response.StageId)
-		if response.Successful {
-			c.Status(http.StatusOK)
-		} else {
-			c.String(http.StatusBadRequest, "Stage is already completed")
-		}
+
 	default:
 		other := c.Query("other")
 		cids := []string{stageID}

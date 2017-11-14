@@ -83,6 +83,12 @@ func (tc *testCtx) FailNow() {
 	panic(testFailed)
 }
 
+// With adds a middleware to a test that updates teh current command in-place
+func (c *APICmd) With(op func(*APICmd)) *APICmd {
+	op(c)
+	return c
+}
+
 // WithHeader appends a header to the current request
 func (c *APICmd) WithHeader(k string, v string) *APICmd {
 	c.headers[k] = v
@@ -114,24 +120,24 @@ func (c *APICmd) ExpectStatus(status int) *APICmd {
 func (c *APICmd) ExpectGraphCreated() *APICmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-			flowIDHeader := resp.Header.Get("Fnproject-FlowId")
-			require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.Header)
-			ctx.graphID = flowIDHeader
-		}, "Graph was created")
+		flowIDHeader := resp.Header.Get("Fnproject-FlowId")
+		require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.Header)
+		ctx.graphID = flowIDHeader
+	}, "Graph was created")
 }
 
 // ExpectStageCreated verifies that the server reported that  a stage was created
 func (c *APICmd) ExpectStageCreated() *APICmd {
 	return c.ExpectStatus(200).
 		Expect(func(ctx *testCtx, resp *http.Response) {
-			stage := resp.Header.Get("Fnproject-StageId")
-			require.NotEmpty(ctx, stage, "StageID not in header")
-			ctx.stageID = stage
-		}, "Stage was created")
+		stage := resp.Header.Get("Fnproject-StageId")
+		require.NotEmpty(ctx, stage, "StageID not in header")
+		ctx.stageID = stage
+	}, "Stage was created")
 }
 
-// ExpectLastStageEvent  adds an expectation on the last StageAddedEvent
-func (c *APICmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent)) *APICmd {
+// ExpectLastStageAddedEvent  adds an expectation on the last StageAddedEvent
+func (c *APICmd) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAddedEvent)) *APICmd {
 	return c.Expect(func(ctx *testCtx, resp *http.Response) {
 		var lastStageAddedEvent *model.StageAddedEvent
 
@@ -148,6 +154,26 @@ func (c *APICmd) ExpectLastStageEvent(test func(*testCtx, *model.StageAddedEvent
 
 		test(ctx, lastStageAddedEvent)
 	}, "Expecting Stage added event ")
+}
+
+// ExpectLastStageEvent  adds an expectation on the last StageMessage (of any type)
+func (c *APICmd) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APICmd {
+	return c.Expect(func(ctx *testCtx, resp *http.Response) {
+		var lastStageEvent model.Event
+
+		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
+			func(event *persistence.StreamEvent) bool {
+				_, ok := event.Event.(model.Event)
+				return ok
+			},
+			func(event *persistence.StreamEvent) {
+				lastStageEvent = event.Event.(model.Event)
+			})
+
+		require.NotNil(ctx, lastStageEvent, "Expecting at least one stage  event, got none")
+
+		test(ctx, lastStageEvent)
+	}, "Expecting Stage message")
 }
 
 // ExpectRequestErr expects an request error matching a given error case
@@ -204,6 +230,11 @@ func (c *APICmd) ThenCall(method string, path string) *APICmd {
 	newCmd := &APICmd{method: method, path: path, headers: map[string]string{}}
 	c.cmd = append(c.cmd, newCmd)
 	return newCmd
+}
+
+// ThenPOST is a shorthand for c.ThenCall("POST",path)
+func (c *APICmd) ThenPOST(path string) *APICmd {
+	return c.ThenCall("POST", path)
 }
 
 func (c *APICmd) toReq(ctx *testCtx) *http.Request {

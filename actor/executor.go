@@ -100,16 +100,10 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	defer resp.Body.Close()
 
 	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
-	if len(lbDelayHeader) > 0 {
-		stageLog.WithField("fn_lb_delay", lbDelayHeader).Info("Fn load balancer delay")
-	} else {
-		stageLog.Info("No Fn load balancer delay header received")
-	}
-
 	callID := resp.Header.Get(fnCallIDHeader)
 
 	if !successfulResponse(resp) {
-		stageLog.WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
+		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
 			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callID}
@@ -119,11 +113,11 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 
 	result, err := protocol.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
 	if err != nil {
-		stageLog.Error("Failed to read result from functions service", err)
+		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
 
 	}
-	stageLog.WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
+	stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }

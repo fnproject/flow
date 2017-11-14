@@ -54,4 +54,14 @@ var (
 	ErrInvalidContentType = &BadProtoMessage{
 		message: "Unsupported content type for datum",
 	}
+
+	// ErrMissingResultStatus -no result status header in request
+	ErrMissingResultStatus = &BadProtoMessage{
+		message: "Missing " + HeaderResultStatus + " header",
+	}
+
+	// ErrInvalidResultStatus bad format of result status
+	ErrInvalidResultStatus = &BadProtoMessage{
+		message: "Invalid " + HeaderResultStatus + " header",
+	}
 )

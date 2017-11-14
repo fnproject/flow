@@ -87,7 +87,7 @@ func (m *Manager) resolveNode(graphID string) (int, error) {
 		return -1, err
 	}
 	nodeIndex := shard % m.settings.NodeCount
-	log.WithField("graph_id", graphID).WithField("cluster_shard", shard).Info("Resolved shard")
+	log.WithField("graph_id", graphID).WithField("cluster_shard", shard).Debug("Resolved shard")
 	return nodeIndex, nil
 }
 
@@ -100,7 +100,7 @@ func (m *Manager) shouldForward(c *gin.Context) (bool, string) {
 
 	nodeIndex, err := m.resolveNode(graphID)
 	nodeName := m.settings.nodeName(nodeIndex)
-	log.WithField("graph_id", graphID).WithField("cluster_node", nodeName).Info("Resolved node")
+	log.WithField("graph_id", graphID).WithField("cluster_node", nodeName).Debug("Resolved node")
 	if err != nil {
 		log.Info(fmt.Sprintf("Failed to resolve node for graphId %s: %v", graphID, err))
 		return false, ""
@@ -123,14 +123,14 @@ func (m *Manager) ProxyHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		forward, node := m.shouldForward(c)
 		if !forward {
-			log.Info("Processing request locally")
+			log.Debug("Processing request locally")
 			return
 		}
 		graphID := extractGraphID(c)
 		log.WithField("graph_id", graphID).
 			WithField("proxy_node", node).
 			WithField("proxy_url", c.Request.URL.String()).
-			Info("Proxying graph request")
+			Debug("Proxying graph request")
 
 		if err := m.forward(c.Writer, c.Request, node); err != nil {
 			// TODO should we retry if this fails? buffer requests while upstream is unavailable?

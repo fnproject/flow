@@ -41,52 +41,6 @@ const (
 
 var log = logrus.WithField("logger", "server")
 
-func (s *Server) completeExternally(graphID string, stageID string, body []byte, headers http.Header, method string, contentType string, b bool) (*model.CompleteStageExternallyResponse, error) {
-	var hs []*model.HTTPHeader
-	for k, vs := range headers {
-		for _, v := range vs {
-			hs = append(hs, &model.HTTPHeader{
-				Key:   k,
-				Value: v,
-			})
-		}
-	}
-
-	var m model.HTTPMethod
-	if methodValue, found := model.HTTPMethod_value[strings.ToLower(method)]; found {
-		m = model.HTTPMethod(methodValue)
-	} else {
-		return nil, ErrUnsupportedHTTPMethod
-	}
-
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
-	blob, err := s.BlobStore.CreateBlob(contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	httpReqDatum := model.HTTPReqDatum{
-		Body:    blob,
-		Headers: hs,
-		Method:  m,
-	}
-
-	request := model.CompleteStageExternallyRequest{
-		GraphId: graphID,
-		StageId: stageID,
-		Result: &model.CompletionResult{
-			Successful: b,
-			Datum:      model.NewHTTPReqDatum(&httpReqDatum),
-		},
-	}
-
-	response, err := s.GraphManager.CompleteStageExternally(&request, s.requestTimeout)
-
-	return response, err
-}
-
 func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
 
 	result, err := protocol.CompletionResultFromRequest(s.BlobStore, req)

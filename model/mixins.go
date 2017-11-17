@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/fnproject/flow/blobs"
 )
 
 // This contains mixins that add operations and types to the protobuf messages
@@ -136,4 +137,13 @@ func (m *AddDelayStageRequest) GetDependencyCount() int {
 // GetDependencyCount for AddStageCommand.GetDependencyCount
 func (m *AddInvokeFunctionStageRequest) GetDependencyCount() int {
 	return 0
+}
+
+// BlobDatumFromBlobStoreBlob creates a model blob from a blobstore result
+func BlobDatumFromBlobStoreBlob(b *blobs.Blob) *BlobDatum {
+	return &BlobDatum{
+		BlobId:      b.ID,
+		ContentType: b.ContentType,
+		Length:      b.Length,
+	}
 }

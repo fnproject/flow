@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -22,6 +21,11 @@ func DatumFromPart(part *multipart.Part) (*model.Datum, error) {
 // DatumFromRequest reads a model Datum Object from an HTTP request
 func DatumFromRequest(req *http.Request) (*model.Datum, error) {
 	return readDatum(req.Body, textproto.MIMEHeader(req.Header))
+}
+
+// BlobFromRequest reads only a blob from the incoming request
+func BlobFromRequest(req *http.Request) (*model.BlobDatum, error) {
+	return readBlob(textproto.MIMEHeader(req.Header), false)
 }
 
 // CompletionResultFromRequest reads a Datum and completion result from an incoming request
@@ -59,7 +63,7 @@ func statusFromHeader(statusString string) (bool, error) {
 }
 
 // CompletionResultFromEncapsulatedResponse returns a result expressed as HTTP in HTTP (body of outer req is A whole HTTP result frame) this is here to overcome the lack of outbound headers for default functions
-func CompletionResultFromEncapsulatedResponse(store persistence.BlobStore, r *http.Response) (*model.CompletionResult, error) {
+func CompletionResultFromEncapsulatedResponse(r *http.Response) (*model.CompletionResult, error) {
 
 	actualResponse, err := http.ReadResponse(bufio.NewReader(r.Body), nil)
 	if err != nil {
@@ -187,9 +191,15 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 				}
 			}
 		}
-		blob, err := readBlob(header, true)
-		if err != nil {
-			return nil, err
+		var blob *model.BlobDatum
+		if header.Get(HeaderBlobID) != "" {
+			var err error
+			blob, err = readBlob(header, true)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			blob = nil
 		}
 		return &model.Datum{Val: &model.Datum_HttpResp{HttpResp: &model.HTTPRespDatum{Body: blob, Headers: headers, StatusCode: uint32(resultCode)}}}, nil
 	default:
@@ -219,7 +229,7 @@ func readBlob(header textproto.MIMEHeader, allowNil bool) (*model.BlobDatum, err
 
 	}
 
-	blob := model.NewBlobBody(blobId, blobLengthInt, contentType)
+	blob := model.NewBlob(blobId, blobLengthInt, contentType)
 	if err != nil {
 		return nil, err
 	}

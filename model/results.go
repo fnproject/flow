@@ -32,8 +32,8 @@ func NewBlobDatum(body *BlobDatum) *Datum {
 	}
 }
 
-// NewBlobBody creates a new blob body element
-func NewBlobBody(id string, length uint64, contentType string) *BlobDatum {
+// NewBlob creates a new blob body element
+func NewBlob(id string, length uint64, contentType string) *BlobDatum {
 	return &BlobDatum{
 		BlobId:      id,
 		Length:      length,

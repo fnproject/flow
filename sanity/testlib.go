@@ -27,7 +27,7 @@ type testCtx struct {
 	t            *testing.T
 	graphID      string
 	stageID      string
-	lastResponse *http.Response
+	lastResponse *HttpResp
 	server       *server.Server
 }
 
@@ -44,7 +44,7 @@ func (tc *testCtx) PushNarrative(narrative string) *testCtx {
 // TestCase is a Server API test case that can be recorded and run
 type TestCase struct {
 	narrative string
-	tests     []*APICmd
+	tests     []*APIChain
 }
 
 // NewCase starts a test case with a given name
@@ -52,51 +52,60 @@ func NewCase(narrative string) *TestCase {
 	return &TestCase{narrative: narrative}
 }
 
-type resultFunc func(ctx *testCtx, response *http.Response)
+// HttpResp wraps an httpResponse with a buffered body
+type HttpResp struct {
+	resp *http.Response
+	body []byte
+}
+
+func (r *HttpResp) String() string {
+	return fmt.Sprintf("code:%d  h: %v  body: %s", r.resp.StatusCode, r.resp.Header, string(r.body))
+}
+
+type resultFunc func(ctx *testCtx, response *HttpResp)
 
 type resultAction struct {
 	narrative string
 	action    resultFunc
 }
 
-// APICmd is an operation on root API
-type APICmd struct {
+// APIChain is an operation on root API
+type APIChain struct {
 	narrative string
 	path      string
 	method    string
 	headers   map[string]string
 	body      []byte
 	expect    []*resultAction
-	cmd       []*APICmd
+	cmd       []*APIChain
 }
 
 func (tc *testCtx) Errorf(msg string, args ...interface{}) {
 	tc.failed = true
-	tc.t.Errorf("Expectation failed: \n\t\t%s ", strings.Join(tc.narrative, "\n\t\t ->  "))
-	tc.t.Errorf(msg, args...)
-	tc.t.Errorf("Last Response was: %v", tc.lastResponse)
+	tc.t.Logf("Expectation failed: \n\t\t%s ", strings.Join(tc.narrative, "\n\t\t ->  "))
+	tc.t.Logf(msg, args...)
+	tc.t.Logf("Last Response was: %v", tc.lastResponse)
+	tc.t.Fail()
 }
 
-const testFailed = "TestFailed"
-
 func (tc *testCtx) FailNow() {
-	panic(testFailed)
+	tc.t.FailNow()
 }
 
 // With adds a middleware to a test that updates teh current command in-place
-func (c *APICmd) With(op func(*APICmd)) *APICmd {
+func (c *APIChain) With(op func(*APIChain)) *APIChain {
 	op(c)
 	return c
 }
 
 // WithHeader appends a header to the current request
-func (c *APICmd) WithHeader(k string, v string) *APICmd {
+func (c *APIChain) WithHeader(k string, v string) *APIChain {
 	c.headers[k] = v
 	return c
 }
 
 // WithHeaders appends a map of headers to the current request
-func (c *APICmd) WithHeaders(h map[string]string) *APICmd {
+func (c *APIChain) WithHeaders(h map[string]string) *APIChain {
 	for k, v := range h {
 		c.headers[k] = v
 	}
@@ -104,41 +113,41 @@ func (c *APICmd) WithHeaders(h map[string]string) *APICmd {
 }
 
 // Expect appends an expectation to the current case
-func (c *APICmd) Expect(fn resultFunc, msg string, args ...interface{}) *APICmd {
+func (c *APIChain) Expect(fn resultFunc, msg string, args ...interface{}) *APIChain {
 	c.expect = append(c.expect, &resultAction{fmt.Sprintf(msg, args...), fn})
 	return c
 }
 
 // ExpectStatus creates an HTTP code expectation
-func (c *APICmd) ExpectStatus(status int) *APICmd {
-	return c.Expect(func(ctx *testCtx, resp *http.Response) {
-		assert.Equal(ctx, status, resp.StatusCode, "Http status should be %d", status)
+func (c *APIChain) ExpectStatus(status int) *APIChain {
+	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+		assert.Equal(ctx, status, resp.resp.StatusCode, "Http status should be %d", status)
 	}, "status matches %d", status)
 }
 
 // ExpectGraphCreated - verifies that the server reported a graph was created
-func (c *APICmd) ExpectGraphCreated() *APICmd {
+func (c *APIChain) ExpectGraphCreated() *APIChain {
 	return c.ExpectStatus(200).
-		Expect(func(ctx *testCtx, resp *http.Response) {
-			flowIDHeader := resp.Header.Get("Fnproject-FlowId")
-			require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.Header)
-			ctx.graphID = flowIDHeader
-		}, "Graph was created")
+		Expect(func(ctx *testCtx, resp *HttpResp) {
+		flowIDHeader := resp.resp.Header.Get("Fnproject-FlowId")
+		require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.resp.Header)
+		ctx.graphID = flowIDHeader
+	}, "Graph was created")
 }
 
 // ExpectStageCreated verifies that the server reported that  a stage was created
-func (c *APICmd) ExpectStageCreated() *APICmd {
+func (c *APIChain) ExpectStageCreated() *APIChain {
 	return c.ExpectStatus(200).
-		Expect(func(ctx *testCtx, resp *http.Response) {
-			stage := resp.Header.Get("Fnproject-StageId")
-			require.NotEmpty(ctx, stage, "StageID not in header")
-			ctx.stageID = stage
-		}, "Stage was created")
+		Expect(func(ctx *testCtx, resp *HttpResp) {
+		stage := resp.resp.Header.Get("Fnproject-StageId")
+		require.NotEmpty(ctx, stage, "StageID not in header")
+		ctx.stageID = stage
+	}, "Stage was created")
 }
 
 // ExpectLastStageAddedEvent  adds an expectation on the last StageAddedEvent
-func (c *APICmd) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAddedEvent)) *APICmd {
-	return c.Expect(func(ctx *testCtx, resp *http.Response) {
+func (c *APIChain) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAddedEvent)) *APIChain {
+	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
 		var lastStageAddedEvent *model.StageAddedEvent
 
 		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
@@ -157,8 +166,8 @@ func (c *APICmd) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAdded
 }
 
 // ExpectLastStageEvent  adds an expectation on the last StageMessage (of any type)
-func (c *APICmd) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APICmd {
-	return c.Expect(func(ctx *testCtx, resp *http.Response) {
+func (c *APIChain) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APIChain {
+	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
 		var lastStageEvent model.Event
 
 		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
@@ -177,38 +186,32 @@ func (c *APICmd) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APICmd 
 }
 
 // ExpectRequestErr expects an request error matching a given error case
-func (c *APICmd) ExpectRequestErr(serverErr error) *APICmd {
-	return c.Expect(func(ctx *testCtx, resp *http.Response) {
-		assert.Equal(ctx, 400, resp.StatusCode)
-		assert.Equal(ctx, "text/plain", resp.Header.Get("content-type"))
-		buf := &bytes.Buffer{}
-		_, err := buf.ReadFrom(resp.Body)
-		require.NoError(ctx, err)
-		assert.Equal(ctx, serverErr.Error(), string(buf.Bytes()), "Error body did not match")
+func (c *APIChain) ExpectRequestErr(serverErr error) *APIChain {
+	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+		assert.Equal(ctx, 400, resp.resp.StatusCode)
+		assert.Equal(ctx, "text/plain", resp.resp.Header.Get("content-type"))
+		assert.Equal(ctx, serverErr.Error(), string(resp.body), "Error body did not match")
 	}, "Request Error :  %s", serverErr.Error())
 }
 
 // ExpectServerErr expects a server-side error matching a given error
-func (c *APICmd) ExpectServerErr(serverErr *server.Error) *APICmd {
-	return c.Expect(func(ctx *testCtx, resp *http.Response) {
-		assert.Equal(ctx, serverErr.HTTPStatus, resp.StatusCode)
-		assert.Equal(ctx, "text/plain", resp.Header.Get("content-type"))
-		buf := &bytes.Buffer{}
-		_, err := buf.ReadFrom(resp.Body)
-		require.NoError(ctx, err)
-		assert.Equal(ctx, serverErr.Message, string(buf.Bytes()), "Error body did not match")
+func (c *APIChain) ExpectServerErr(serverErr *server.Error) *APIChain {
+	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+		assert.Equal(ctx, serverErr.HTTPStatus, resp.resp.StatusCode)
+		assert.Equal(ctx, "text/plain", resp.resp.Header.Get("content-type"))
+		assert.Equal(ctx, serverErr.Message, string(resp.body), "Error body did not match")
 	}, "Server Error : %d %s", serverErr.HTTPStatus, serverErr.Message)
 }
 
 // WithBodyString adds a body string to the current command
-func (c *APICmd) WithBodyString(data string) *APICmd {
+func (c *APIChain) WithBodyString(data string) *APIChain {
 	c.body = []byte(data)
 	return c
 
 }
 
 // WithBlobDatum appends a blob datum to the current request
-func (c *APICmd) WithBlobDatum(contentType string, data string) *APICmd {
+func (c *APIChain) WithBlobDatum(contentType string, data string) *APIChain {
 	return c.WithBodyString(data).WithHeaders(map[string]string{
 		"content-type":        contentType,
 		"fnproject-datumtype": "blob",
@@ -217,7 +220,7 @@ func (c *APICmd) WithBlobDatum(contentType string, data string) *APICmd {
 }
 
 // WithErrorDatum appends an ErrorDatum to the current request
-func (c *APICmd) WithErrorDatum(errorType string, message string) *APICmd {
+func (c *APIChain) WithErrorDatum(errorType string, message string) *APIChain {
 	return c.WithBodyString(message).WithHeaders(map[string]string{
 		"content-type":        "text/plain",
 		"fnproject-errortype": errorType,
@@ -226,18 +229,18 @@ func (c *APICmd) WithErrorDatum(errorType string, message string) *APICmd {
 }
 
 // ThenCall chains a new api-call on to the state of the previous call - placeholders (e.g. :stageID, :graphID)  inherited from the previous call will be substituted into the next path
-func (c *APICmd) ThenCall(method string, path string) *APICmd {
-	newCmd := &APICmd{method: method, path: path, headers: map[string]string{}}
+func (c *APIChain) ThenCall(method string, path string) *APIChain {
+	newCmd := &APIChain{method: method, path: path, headers: map[string]string{}}
 	c.cmd = append(c.cmd, newCmd)
 	return newCmd
 }
 
 // ThenPOST is a shorthand for c.ThenCall("POST",path)
-func (c *APICmd) ThenPOST(path string) *APICmd {
+func (c *APIChain) ThenPOST(path string) *APIChain {
 	return c.ThenCall("POST", path)
 }
 
-func (c *APICmd) toReq(ctx *testCtx) *http.Request {
+func (c *APIChain) toReq(ctx *testCtx) *http.Request {
 	placeholders := func(key string) string {
 
 		var s = strings.Replace(key, ":graphID", ctx.graphID, -1)
@@ -266,7 +269,7 @@ func (c *APICmd) toReq(ctx *testCtx) *http.Request {
 	return r
 }
 
-func (c *APICmd) run(ctx testCtx, s *server.Server) {
+func (c *APIChain) run(ctx testCtx, s *server.Server) {
 	ctx.server = s
 	nuCtx := (&ctx).PushNarrative(c.narrative)
 
@@ -277,7 +280,11 @@ func (c *APICmd) run(ctx testCtx, s *server.Server) {
 	fmt.Printf("Test : %s\n", nuCtx)
 
 	s.Engine.ServeHTTP(resp, req)
-	nuCtx.lastResponse = resp.Result()
+	buf := bytes.Buffer{}
+	_, err := buf.ReadFrom(resp.Body)
+	require.NoError(ctx.t, err)
+
+	nuCtx.lastResponse = &HttpResp{resp: resp.Result(), body: buf.Bytes()}
 
 	for _, check := range c.expect {
 		nuCtx = nuCtx.PushNarrative(check.narrative)
@@ -291,35 +298,25 @@ func (c *APICmd) run(ctx testCtx, s *server.Server) {
 }
 
 // Call Starts a test tree with an arbitrary HTTP call
-func (c *TestCase) Call(description string, method string, path string) *APICmd {
-	cmd := &APICmd{narrative: c.narrative + ":" + description, method: method, path: path, headers: map[string]string{}}
+func (c *TestCase) Call(description string, method string, path string) *APIChain {
+	cmd := &APIChain{narrative: c.narrative + ":" + description, method: method, path: path, headers: map[string]string{}}
 	c.tests = append(c.tests, cmd)
 	return cmd
 }
 
 // StartWithGraph creates a new test tree with an graph
-func (c *TestCase) StartWithGraph(msg string) *APICmd {
-	return c.Call(msg, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
+func (c *TestCase) StartWithGraph(description string) *APIChain {
+	return c.Call(description, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
 }
 
 // Run runs an whole test tree.
 func (c *TestCase) Run(t *testing.T, server *server.Server) {
-	defer func() {
-		// if a run fails keep on going
-		for {
-			r := recover()
-			if r == nil {
-				return
-			}
-			if r != testFailed {
-				panic(r)
-			}
-		}
-	}()
 
 	for _, tc := range c.tests {
-		ctx := testCtx{t: t}
+		t.Run(tc.narrative, func(t *testing.T) {
+			ctx := testCtx{t: t}
+			tc.run(ctx, server)
+		})
 
-		tc.run(ctx, server)
 	}
 }

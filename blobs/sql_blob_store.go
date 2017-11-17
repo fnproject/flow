@@ -1,12 +1,12 @@
-package persistence
+package blobs
 
 import (
-	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
 	"io"
 	"bytes"
+	"github.com/sirupsen/logrus"
 )
 
 type sqlBlobStore struct {
@@ -14,9 +14,10 @@ type sqlBlobStore struct {
 	db               *sqlx.DB
 }
 
+var log = logrus.WithField("logger", "sql_blob_store")
 
 // NewSQLBlobStore creates a new blob store on the given DB , the DB should already have tables in place
-func NewSQLBlobStore(db *sqlx.DB) (BlobStore, error) {
+func NewSQLBlobStore(db *sqlx.DB) (Store, error) {
 
 	log.Info("Creating SQL persistence provider")
 	return &sqlBlobStore{
@@ -24,9 +25,8 @@ func NewSQLBlobStore(db *sqlx.DB) (BlobStore, error) {
 	}, nil
 }
 
-
 // Create implements BlobStore - this buffers the blob to send to the DB
-func (s *sqlBlobStore) Create(graphID string, contentType string, input io.Reader) (*model.BlobDatum, error) {
+func (s *sqlBlobStore) Create(graphID string, contentType string, input io.Reader) (*Blob, error) {
 	id, err := uuid.NewRandom()
 
 	if err != nil {
@@ -52,20 +52,20 @@ func (s *sqlBlobStore) Create(graphID string, contentType string, input io.Reade
 		return nil, err
 	}
 
-	return &model.BlobDatum{
-		BlobId:      idString,
+	return &Blob{
+		ID:          idString,
 		Length:      uint64(len(data)),
 		ContentType: contentType,
 	}, nil
 }
 
 // Read implements BlobStore - this buffers the blob before creating a reader
-func (s *sqlBlobStore) Read(graphID string, blob *model.BlobDatum) (io.Reader, error) {
+func (s *sqlBlobStore) Read(graphID string, blobID string) (io.Reader, error) {
 	span := opentracing.StartSpan("sql_read_blob_data")
 	defer span.Finish()
-	row := s.db.QueryRowx("SELECT blob_data FROM blobs where blob_id = ?", blob.BlobId)
+	row := s.db.QueryRowx("SELECT blob_data FROM blobs where blob_id = ?", blobID)
 	if row.Err() != nil {
-		log.WithField("blob_id", blob.BlobId).WithError(row.Err()).Errorf("Error querying blob from DB ")
+		log.WithField("blob_id", blobID).WithError(row.Err()).Errorf("Error querying blob from DB ")
 		return nil, row.Err()
 	}
 
@@ -74,19 +74,9 @@ func (s *sqlBlobStore) Read(graphID string, blob *model.BlobDatum) (io.Reader, e
 
 	if err != nil {
 
-		log.WithField("blob_id", blob.BlobId).WithError(row.Err()).Errorf("Error reading blob from DB")
+		log.WithField("blob_id", blobID).WithError(row.Err()).Errorf("Error reading blob from DB")
 		return nil, err
 	}
 	return bytes.NewBuffer(blobData), nil
 
-}
-
-// Delete implements BlobStore
-func (s *sqlBlobStore) Delete(graphID string, blob *model.BlobDatum) error {
-	span := opentracing.StartSpan("sql_delete_blob")
-
-
-	defer span.Finish()
-
-	return nil
 }

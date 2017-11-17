@@ -7,136 +7,162 @@ import (
 	"strings"
 
 	"github.com/fnproject/flow/model"
+	"net/http"
 )
 
-func writePartFromDatum(h textproto.MIMEHeader, datum *model.Datum, writer *multipart.Writer) error {
+// WriteTarget is an abstraction for writing protocol frames to a given output format (e.g. http, multipart body)
+type WriteTarget interface {
+	Write(header textproto.MIMEHeader, body []byte) error
+}
+
+type partTarget struct {
+	writer *multipart.Writer
+}
+
+// Write implements WriteTarget
+func (t *partTarget) Write(header textproto.MIMEHeader, body []byte) error {
+	w, err := t.writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(body)
+	return nil
+}
+
+type httpTarget struct {
+	writer http.ResponseWriter
+}
+
+// NewMultipartTaget creates a write target based on a multipart string
+func NewMultipartTarget(writer *multipart.Writer) WriteTarget {
+	return &partTarget{
+		writer: writer,
+	}
+}
+
+//NewResponseWriterTarget creates a write target from an http.ResponseWriter
+func NewResponseWriterTarget(writer http.ResponseWriter) WriteTarget {
+	return &httpTarget{
+		writer: writer,
+	}
+}
+
+// Write implements WriteTarget
+func (t *httpTarget) Write(header textproto.MIMEHeader, body []byte) error {
+	for k, vs := range header {
+		for _, v := range vs {
+			t.writer.Header().Add(k, v)
+		}
+	}
+	_, err := t.writer.Write([]byte(body))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func WriteDatum(target WriteTarget, datum *model.Datum, ) error {
+	return writeDatumToTarget(target, textproto.MIMEHeader{}, datum)
+}
+
+func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *model.Datum) error {
+
 	switch datum.Val.(type) {
+
 	case *model.Datum_Blob:
 		blob := datum.GetBlob()
-		h.Add(HeaderDatumType, DatumTypeBlob)
-		writeBlobHeaders(h, blob)
-		_, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		header.Add(HeaderDatumType, DatumTypeBlob)
+		addBlobHeaders(header, blob)
+		return target.Write(header, []byte{})
 
 	case *model.Datum_Empty:
-		h.Add(HeaderDatumType, DatumTypeEmpty)
-		_, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
-		return nil
+		header.Add(HeaderDatumType, DatumTypeEmpty)
+		return target.Write(header, []byte{})
+
 	case *model.Datum_Error:
-		h.Add(HeaderDatumType, DatumTypeError)
+		header.Add(HeaderDatumType, DatumTypeError)
 		errorType := model.ErrorDatumType_name[int32(datum.GetError().Type)]
 		stringTypeName := strings.Replace(errorType, "_", "-", -1)
-		h.Add(HeaderErrorType, stringTypeName)
-		partWriter, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
-		partWriter.Write([]byte(datum.GetError().Message))
-		return nil
+		header.Add(HeaderErrorType, stringTypeName)
+		header.Add(HeaderContentType, "text/plain")
+		return target.Write(header, []byte(datum.GetError().Message))
+
 	case *model.Datum_StageRef:
-		h.Add(HeaderDatumType, DatumTypeStageRef)
-		h.Add(HeaderStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
-		_, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
-		return nil
+		header.Add(HeaderDatumType, DatumTypeStageRef)
+		header.Add(HeaderStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
+		return target.Write(header, []byte{})
+
 	case *model.Datum_HttpReq:
-		h.Add(HeaderDatumType, DatumTypeHTTPReq)
+		header.Add(HeaderDatumType, DatumTypeHTTPReq)
 		httpreq := datum.GetHttpReq()
 		for _, datumHeader := range httpreq.Headers {
-			h.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
+			header.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
 		methodString := strings.ToUpper(model.HTTPMethod_name[int32(httpreq.Method)])
 
-		h.Add(HeaderMethod, methodString)
+		header.Add(HeaderMethod, methodString)
 
 		blob := httpreq.Body
 		if blob != nil {
-			h.Add(HeaderContentType, blob.ContentType)
-
+			header.Add(HeaderContentType, blob.ContentType)
 		}
 
 		if blob != nil {
-			writeBlobHeaders(h, blob)
+			addBlobHeaders(header, blob)
 		}
 
-		_, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
+		return target.Write(header, []byte{})
 
-		return nil
 	case *model.Datum_HttpResp:
-		h.Add(HeaderDatumType, DatumTypeHTTPResp)
+		header.Add(HeaderDatumType, DatumTypeHTTPResp)
 		httpresp := datum.GetHttpResp()
 		for _, datumHeader := range httpresp.Headers {
-			h.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
+			header.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
 
-		h.Add(HeaderResultCode, fmt.Sprintf("%d", httpresp.StatusCode))
+		header.Add(HeaderResultCode, fmt.Sprintf("%d", httpresp.StatusCode))
 
 		blob := httpresp.Body
 		if blob != nil {
-			h.Add(HeaderContentType, blob.ContentType)
+			header.Add(HeaderContentType, blob.ContentType)
 
 		}
 
 		if blob != nil {
-			writeBlobHeaders(h, blob)
+			addBlobHeaders(header, blob)
 		}
 
-		_, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
+		return target.Write(header, []byte{})
 
 		return nil
 	case *model.Datum_State:
-		h.Add(HeaderDatumType, DatumTypeState)
+		header.Add(HeaderDatumType, DatumTypeState)
 		stateType := model.StateDatumType_name[int32(datum.GetState().Type)]
-		h.Add(HeaderStateType, stateType)
-		partWriter, err := writer.CreatePart(h)
-		if err != nil {
-			return err
-		}
+		header.Add(HeaderStateType, stateType)
 		// not part of protocol, but avoids problems with having an empty body
-		partWriter.Write([]byte(stateType))
+		return target.Write(header, []byte(stateType))
 
-		return nil
 	default:
 		return fmt.Errorf("unsupported datum type")
 
 	}
 }
-func writeBlobHeaders(h textproto.MIMEHeader, blob *model.BlobDatum) {
-	h.Add(HeaderContentType, blob.ContentType)
-	h.Add(HeaderBlobID, blob.BlobId)
-	h.Add(HeaderBlobLength, fmt.Sprintf("%d", blob.Length))
-}
-
-// WritePartFromDatum emits a datum to an HTTP part
-func WritePartFromDatum(datum *model.Datum, writer *multipart.Writer) error {
-	return writePartFromDatum(textproto.MIMEHeader{}, datum, writer)
+func addBlobHeaders(header textproto.MIMEHeader, blob *model.BlobDatum) {
+	header.Add(HeaderContentType, blob.ContentType)
+	header.Add(HeaderBlobID, blob.BlobId)
+	header.Add(HeaderBlobLength, fmt.Sprintf("%d", blob.Length))
 }
 
 // WritePartFromResult emits a result to an HTTP part
-func WritePartFromResult(result *model.CompletionResult, writer *multipart.Writer) error {
-	h := textproto.MIMEHeader{}
-	h.Add(HeaderResultStatus, getResultStatus(result))
-	return writePartFromDatum(h, result.Datum, writer)
-}
+func WriteResult(target WriteTarget, result *model.CompletionResult) error {
 
-func getResultStatus(result *model.CompletionResult) string {
-	if result.GetSuccessful() {
-		return ResultStatusSuccess
+	var status string
+	if result.Successful {
+		status = ResultStatusSuccess
+	} else {
+		status = ResultStatusFailure
 	}
-	return ResultStatusFailure
+
+	header := textproto.MIMEHeader{}
+	header.Add(HeaderResultStatus, status)
+	return writeDatumToTarget(target, header, result.Datum)
 }

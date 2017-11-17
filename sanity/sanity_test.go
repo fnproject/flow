@@ -15,6 +15,7 @@ import (
 	"time"
 	//	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/require"
+	"github.com/fnproject/flow/blobs"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -30,19 +31,16 @@ var testServer = NewTestServer()
 func TestSupply(t *testing.T) {
 	tc := NewCase("Supply")
 	tc.StartWithGraph("Creates node").
-		ThenPOST("/graph/:graphID/supply").WithHeader("content-type", "foo/bar").WithBodyString("foo").
+		ThenPOST("/graph/:graphID/supply").
+		With(validClosure).
 		ExpectStageCreated()
 
-	tc.StartWithGraph("Supply requires content type").
-		ThenPOST("/graph/:graphID/supply").WithBodyString("foo").
-		ExpectRequestErr(protocol.ErrMissingContentType)
+	StageAcceptsRawBlob(func(s string) *APIChain { return tc.StartWithGraph(s).ThenPOST("/graph/:graphID/supply") })
 
-	tc.StartWithGraph("Supply requires non-empty body ").
-		ThenPOST("/graph/:graphID/supply").WithHeader("content-type", "foo/bar").
-		ExpectServerErr(server.ErrMissingBody)
-
-	StageAcceptsMetadata(func(s string) *APICmd {
-		return tc.StartWithGraph(s).ThenPOST("/graph/:graphID/supply").WithHeader("content-type", "foo/bar").WithBodyString("foo")
+	StageAcceptsMetadata(func(s string) *APIChain {
+		return tc.StartWithGraph(s).
+			ThenPOST("/graph/:graphID/supply").
+			With(validClosure)
 	})
 
 	tc.Run(t, testServer)
@@ -51,19 +49,13 @@ func TestSupply(t *testing.T) {
 func TestCompletedValue(t *testing.T) {
 	tc := NewCase("Completed Value")
 
-	f := func(s string) *APICmd {
+	StageAcceptsAllBlobTypes(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/completedValue").
 			WithHeader("fnproject-resultstatus", "success")
-	}
+	})
 
-	StageAcceptsBlobType(f)
-	StageAcceptsErrorType(f)
-	StageAcceptsEmptyType(f)
-	StageAcceptsHTTPReqType(f)
-	StageAcceptsHTTPRespType(f)
-
-	StageAcceptsMetadata(func(s string) *APICmd {
+	StageAcceptsMetadata(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/completedValue").
 			WithHeader("fnproject-resultstatus", "success").
@@ -93,8 +85,8 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-			protocol.HeaderResultStatus: "baah",
-		}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
+		protocol.HeaderResultStatus: "baah",
+	}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
 
 	tc.StartWithGraph("Completes External Completion Successfully").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -104,10 +96,10 @@ func TestDirectCompletion(t *testing.T) {
 		WithHeaders(map[string]string{"fnproject-resultstatus": "success"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-			evt, ok := msg.(*model.StageCompletedEvent)
-			require.True(ctx, ok)
-			assert.True(ctx, evt.Result.Successful)
-		})
+		evt, ok := msg.(*model.StageCompletedEvent)
+		require.True(ctx, ok)
+		assert.True(ctx, evt.Result.Successful)
+	})
 
 	tc.StartWithGraph("Completes External Completion With Failure").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -117,10 +109,10 @@ func TestDirectCompletion(t *testing.T) {
 		WithHeaders(map[string]string{"fnproject-resultstatus": "failure"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-			evt, ok := msg.(*model.StageCompletedEvent)
-			require.True(ctx, ok)
-			assert.False(ctx, evt.Result.Successful)
-		})
+		evt, ok := msg.(*model.StageCompletedEvent)
+		require.True(ctx, ok)
+		assert.False(ctx, evt.Result.Successful)
+	})
 
 	tc.StartWithGraph("Conflicts on already completed stage ").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -131,15 +123,15 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-			"fnproject-resultstatus": "failure",
-		}).ExpectStatus(409)
+		"fnproject-resultstatus": "failure",
+	}).ExpectStatus(409)
 
-	StageAcceptsMetadata(func(s string) *APICmd {
+	StageAcceptsMetadata(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/externalCompletion")
 	})
 
-	f := func(s string) *APICmd {
+	f := func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/externalCompletion").
 			ExpectStageCreated().
@@ -147,11 +139,7 @@ func TestDirectCompletion(t *testing.T) {
 			WithHeaders(map[string]string{"fnproject-resultstatus": "success"})
 	}
 
-	StageAcceptsBlobType(f)
-	StageAcceptsErrorType(f)
-	StageAcceptsEmptyType(f)
-	StageAcceptsHTTPReqType(f)
-	StageAcceptsHTTPRespType(f)
+	StageAcceptsAllBlobTypes(f)
 
 	tc.Run(t, testServer)
 }
@@ -159,15 +147,10 @@ func TestDirectCompletion(t *testing.T) {
 func TestInvokeFunction(t *testing.T) {
 	tc := NewCase("Invoke Function")
 
-	tc.StartWithGraph("Works Without Body").
-		ThenPOST("/graph/:graphID/invokeFunction?functionId=fn/foo").
-		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"}).
-		ExpectStageCreated()
-
-	tc.StartWithGraph("Works With Body").
-		ThenPOST("/graph/:graphID/invokeFunction?functionId=fn/foo").
-		WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "POST", "fnproject-header-foo": "bar", "content-type": "text/plain"}).WithBodyString("input").
-		ExpectStageCreated()
+	StageAcceptsHTTPReqType(func(s string) *APIChain {
+		return tc.StartWithGraph(s).
+			ThenPOST("/graph/:graphID/invokeFunction?functionId=fn/foo")
+	})
 
 	tc.Run(t, testServer)
 
@@ -180,7 +163,7 @@ func TestInvokeFunction(t *testing.T) {
 		ThenPOST("/graph/:graphID/invokeFunction").
 		ExpectRequestErr(server.ErrInvalidFunctionID)
 
-	StageAcceptsMetadata(func(s string) *APICmd {
+	StageAcceptsMetadata(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/invokeFunction?functionId=fn/foo").
 			WithHeaders(map[string]string{"fnproject-datumtype": "httpreq", "fnproject-method": "GET", "fnproject-header-foo": "bar"})
@@ -208,7 +191,7 @@ func TestDelay(t *testing.T) {
 		ThenPOST("/graph/:graphID/delay?delayMs").
 		ExpectRequestErr(server.ErrMissingOrInvalidDelay)
 
-	StageAcceptsMetadata(func(s string) *APICmd {
+	StageAcceptsMetadata(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
 			ThenPOST("/graph/:graphID/delay?delayMs=5")
 	})
@@ -217,8 +200,7 @@ func TestDelay(t *testing.T) {
 }
 
 func NewTestServer() *server.Server {
-
-	blobStorage := persistence.NewInMemBlobStore()
+	blobStorage := blobs.NewInMemBlobStore()
 	persistenceProvider := persistence.NewInMemoryProvider(1000)
 	clusterSettings := &cluster.Settings{
 		NodeCount:  1,
@@ -233,115 +215,164 @@ func NewTestServer() *server.Server {
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(clusterManager, graphManager, blobStorage, ":8081", 1*time.Second, "")
+	s, err := server.New(clusterManager, graphManager,  ":8081", 1*time.Second, "")
 	if err != nil {
 		panic(err)
 	}
 	return s
 }
 
-func StageAcceptsBlobType(s func(string) *APICmd) {
-
-	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
-	s("Rejects missing content type").WithBodyString("str").WithHeader("fnproject-datumtype", "blob").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingContentType)
-	s("Accepts valid blob datum").WithBodyString("str").WithBlobDatum("content/type", "body").ExpectStageCreated()
-
-}
-
-func StageAcceptsErrorType(s func(string) *APICmd) {
-
-	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
-
-	s("Rejects missing error type").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype": "error",
-			"content-type":        "text/plain"}).
-		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingErrorType)
-
-	s("Rejects missing content type").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype": "error",
-			"fnproject-errortype": "error"}).
-		WithBodyString("body").ExpectRequestErr(protocol.ErrMissingContentType)
-
-	s("Rejects non-text content type").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype": "error",
-			"fnproject-errortype": "error",
-			"content-type":        "application/octet-stream"}).
-		WithBodyString("body").ExpectRequestErr(protocol.ErrInvalidContentType)
-
-	s("Accepts valid error datum").WithBodyString("str").WithErrorDatum(model.ErrorDatumType_name[int32(model.ErrorDatumType_invalid_stage_response)], "msg").ExpectStageCreated()
-	s("Accepts invalid error type ").WithBodyString("str").WithErrorDatum("XXX foo  Error", "msg").ExpectStageCreated()
+func validClosure(a *APIChain) {
+	a.WithHeaders(map[string]string{"Content-Type": "text/plain",
+		"Fnproject-BlobId": "BlobId",
+		"Fnproject-BlobLength": "100"})
 
 }
 
-func StageAcceptsEmptyType(s func(string) *APICmd) {
+func StageAcceptsRawBlob(s func(string) *APIChain) {
+	var requiredBlobHeaders = map[string]headerExpectation{
+		"Content-type":         {good: "text/plain", missingError: protocol.ErrMissingContentType},
+		"Fnproject-blobId":     {good: "blobId", missingError: protocol.ErrMissingBlobID},
+		"Fnproject-blobLength": {good: "100", missingError: protocol.ErrMissingBlobLength, bad: "foo", invalidError: protocol.ErrInvalidBlobLength}}
 
-	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
+	StageHonorsHeaderReqs("Raw Blob", s, requiredBlobHeaders)
+}
 
-	s("Accepts empty datum").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype": "empty",
-			"content-type":        "text/plain"}).
-		WithBodyString("body").ExpectStageCreated()
+func StageAcceptsAllBlobTypes(f func(s string) *APIChain) {
+	StageAcceptsBlobDatum(f)
+	StageAcceptsErrorDatum(f)
+	StageAcceptsEmptyType(f)
+	StageAcceptsHTTPReqType(f)
+	StageAcceptsHTTPRespType(f)
+}
+func StageAcceptsBlobDatum(s func(string) *APIChain) {
+	StageHonorsHeaderReqs("Blob Datum", s, map[string]headerExpectation{
+		"FnProject-datumtype":  {good: "blob", missingError: protocol.ErrMissingDatumType},
+		"Content-type":         {good: "text/plain", missingError: protocol.ErrMissingContentType},
+		"Fnproject-blobId":     {good: "blobId", missingError: protocol.ErrMissingBlobID},
+		"Fnproject-blobLength": {good: "100", missingError: protocol.ErrMissingBlobLength, bad: "foo", invalidError: protocol.ErrInvalidBlobLength},
+	})
 
 }
 
-func StageAcceptsHTTPReqType(s func(string) *APICmd) {
+func StageAcceptsErrorDatum(s func(string) *APIChain) {
 
-	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
-
-	s("Accepts httpreq datum").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype": "httpreq",
-			"fnproject-method":    "get",
-
-			"content-type": "text/plain"}).
-		WithBodyString("body").ExpectStageCreated()
+	StageHonorsHeaderReqs("Error Datum", s, map[string]headerExpectation{
+		"FnProject-datumtype": {good: "error", missingError: protocol.ErrMissingDatumType},
+		"Content-type":        {good: "text/plain", missingError: protocol.ErrMissingContentType, bad: "application/xml", invalidError: protocol.ErrInvalidContentType},
+		"Fnproject-errortype": {good: "error", missingError: protocol.ErrMissingErrorType},
+	})
 
 }
 
-func StageAcceptsHTTPRespType(s func(string) *APICmd) {
+func StageAcceptsEmptyType(s func(string) *APIChain) {
+	StageHonorsHeaderReqs("Empty Datum ", s, map[string]headerExpectation{
+		"FnProject-datumtype": {good: "empty", missingError: protocol.ErrMissingDatumType},
+	})
+}
 
-	s("Rejects missing datum type").WithBodyString("str").WithHeader("content-type", "content/type").WithBodyString("body").ExpectRequestErr(protocol.ErrMissingDatumType)
+func StageAcceptsHTTPReqType(s func(string) *APIChain) {
 
-	s("Accepts httpresp datum").
-		WithBodyString("str").
-		WithHeaders(map[string]string{
-			"fnproject-datumtype":  "httpresp",
-			"fnproject-resultcode": "100",
-			"content-type":         "text/plain"}).
-		WithBodyString("body").ExpectStageCreated()
+	StageHonorsHeaderReqs("HttpReq (No blob)", s, map[string]headerExpectation{
+		"FnProject-datumtype": {good: "httpreq", missingError: protocol.ErrMissingDatumType},
+		"Fnproject-Method":    {good: "POST", missingError: protocol.ErrMissingHTTPMethod, bad: "wibble", invalidError: protocol.ErrInvalidHTTPMethod},
+	})
+
+	StageHonorsHeaderReqs("HttpReq (with blob)", s, map[string]headerExpectation{
+		"FnProject-datumtype":  {good: "httpreq", missingError: protocol.ErrMissingDatumType},
+		"Fnproject-Method":     {good: "POST"},
+		"Fnproject-blobId":     {good: "blobId"},
+		"Content-type":         {good: "text/plain", missingError: protocol.ErrMissingContentType},
+		"Fnproject-blobLength": {good: "100", missingError: protocol.ErrMissingBlobLength, bad: "foo", invalidError: protocol.ErrInvalidBlobLength},
+	})
 
 }
 
-func StageAcceptsMetadata(s func(string) *APICmd) {
+func StageAcceptsHTTPRespType(s func(string) *APIChain) {
 
-	s("Works with no metadata ").
+	StageHonorsHeaderReqs("HttpResp (No blob)", s, map[string]headerExpectation{
+		"FnProject-datumtype":  {good: "httpresp", missingError: protocol.ErrMissingDatumType},
+		"Fnproject-resultcode": {good: "100", missingError: protocol.ErrMissingResultCode, bad: "wibble", invalidError: protocol.ErrInvalidResultCode},
+	})
+
+	StageHonorsHeaderReqs("HttpResp (with blob)", s, map[string]headerExpectation{
+		"FnProject-datumtype":  {good: "httpresp", missingError: protocol.ErrMissingDatumType},
+		"Fnproject-resultcode": {good: "100"},
+		"Fnproject-blobId":     {good: "blobId"},
+		"Content-type":         {good: "text/plain", missingError: protocol.ErrMissingContentType},
+		"Fnproject-blobLength": {good: "100", missingError: protocol.ErrMissingBlobLength, bad: "foo", invalidError: protocol.ErrInvalidBlobLength}})
+
+}
+
+func StageAcceptsMetadata(s func(string) *APIChain) {
+
+	s("Works with no metadata").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			assert.Equal(ctx, "", event.CodeLocation)
-			assert.Equal(ctx, "", event.CallerId)
-		})
+		assert.Empty(ctx, event.CodeLocation)
+		assert.Empty(ctx, event.CallerId)
+	})
 
-	s("Works with no metadata ").
+	s("Works with metadata").
 		WithHeader(protocol.HeaderCodeLocation, "code-loc").
 		WithHeader(protocol.HeaderCallerRef, "caller-id").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-			assert.Equal(ctx, "code-loc", event.CodeLocation)
-			assert.Equal(ctx, "caller-id", event.CallerId)
+		assert.Equal(ctx, "code-loc", event.CodeLocation)
+		assert.Equal(ctx, "caller-id", event.CallerId)
 
-		})
+	})
 
 }
 
-func emptyDatumInRequest(cmd *APICmd) {
+func emptyDatumInRequest(cmd *APIChain) {
 	cmd.WithHeader("fnproject-datumtype", "empty")
 }
+
+type headerExpectation struct {
+	good         string
+	bad          string
+	missingError error
+	invalidError error
+}
+
+// StageHonorsHeaderReqs determines if a call accepts and requires  specific headers it generates a case for each missing and invalid header described in the header expectations
+func StageHonorsHeaderReqs(caseName string, g func(s string) *APIChain, exectations map[string]headerExpectation) {
+
+	for h, he := range exectations {
+		if he.missingError != nil {
+			newHeaders := map[string]string{}
+			for oh, ve := range exectations {
+				if oh != h {
+					newHeaders[oh] = ve.good
+				}
+			}
+
+			g(caseName + ": Missing " + h + " should raise error").WithHeaders(newHeaders).ExpectRequestErr(he.missingError)
+
+		}
+
+		if he.invalidError != nil {
+			newHeaders := map[string]string{}
+			for oh, ve := range exectations {
+				if oh != h {
+					newHeaders[oh] = ve.good
+				} else {
+					newHeaders[oh] = ve.bad
+				}
+			}
+
+			g(caseName + ": Missing " + h + " should raise error").WithHeaders(newHeaders).ExpectRequestErr(he.invalidError)
+		}
+	}
+
+	goodHeaders := map[string]string{}
+	for h, he := range exectations {
+		goodHeaders[h] = he.good
+	}
+	g(caseName + " accepts good headers").WithHeaders(goodHeaders).ExpectStageCreated()
+}
+
+
+
+

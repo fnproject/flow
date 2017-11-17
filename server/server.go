@@ -7,14 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"fmt"
 	"net/url"
 
 	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/cluster"
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/protocol"
 	"github.com/fnproject/flow/query"
 
@@ -43,7 +41,7 @@ var log = logrus.WithField("logger", "server")
 
 func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
 
-	result, err := protocol.CompletionResultFromRequest(s.BlobStore, req)
+	result, err := protocol.CompletionResultFromRequest( req)
 	if err != nil {
 		return nil, err
 	}
@@ -105,12 +103,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 		}
 
-		body, err := c.GetRawData()
-		if err != nil {
-			renderError(ErrReadingInput, c)
-			return
-		}
-		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
+		blob, err := protocol.BlobFromRequest(c.Request)
 		if err != nil {
 			renderError(err, c)
 			return
@@ -142,7 +135,7 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 func renderError(err error, c *gin.Context) {
 	if gin.Mode() == gin.DebugMode {
-		log.WithError(err).Error("Error occurred in request")
+		log.WithError(err).Debug("Error occurred in request")
 	}
 	switch e := err.(type) {
 
@@ -201,12 +194,6 @@ func (s *Server) handleGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func resultStatus(result *model.CompletionResult) string {
-	if result.GetSuccessful() {
-		return "success"
-	}
-	return "failure"
-}
 
 func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param(paramGraphID)
@@ -259,88 +246,12 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	result := response.GetResult()
-	datum := result.GetDatum()
-	val := datum.GetVal()
+	err = protocol.WriteResult(protocol.NewResponseWriterTarget(c.Writer),result)
 
-	switch v := val.(type) {
-
-	// TODO: refactor this by adding a writer to a context in proto/write.go
-	case *model.Datum_Error:
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeError)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-		err := v.Error
-		c.Header(protocol.HeaderErrorType, model.ErrorDatumType_name[int32(err.GetType())])
-		c.String(http.StatusOK, err.GetMessage())
-		return
-	case *model.Datum_Empty:
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeEmpty)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-		c.Status(http.StatusOK)
-		return
-	case *model.Datum_Blob:
-		blob := v.Blob
-		blobData, err := s.BlobStore.ReadBlobData(blob)
-		if err != nil {
-			renderError(err, c)
-			return
-		}
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeBlob)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-
-		c.Data(http.StatusOK, blob.GetContentType(), blobData)
-		return
-	case *model.Datum_StageRef:
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeStageRef)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-		stageRef := v.StageRef
-		c.Header(protocol.HeaderStageRef, stageRef.StageRef)
-		c.Status(http.StatusOK)
-		return
-	case *model.Datum_HttpReq:
-		httpReq := v.HttpReq
-		var body []byte
-		if httpReq.Body != nil {
-			body, err = s.BlobStore.ReadBlobData(httpReq.Body)
-			if err != nil {
-				renderError(err, c)
-				return
-			}
-		}
-
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHTTPReq)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-		for _, header := range httpReq.Headers {
-			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
-		}
-		httpMethod := model.HTTPMethod_name[int32(httpReq.GetMethod())]
-		c.Header(protocol.HeaderMethod, httpMethod)
-		c.Data(http.StatusOK, httpReq.Body.GetContentType(), body)
-		return
-	case *model.Datum_HttpResp:
-		var body []byte
-		httpResp := v.HttpResp
-
-		if httpResp.Body != nil {
-			body, err = s.BlobStore.ReadBlobData(httpResp.Body)
-			if err != nil {
-				renderError(err, c)
-				return
-			}
-		}
-		c.Header(protocol.HeaderDatumType, protocol.DatumTypeHTTPResp)
-		c.Header(protocol.HeaderResultStatus, resultStatus(result))
-		for _, header := range httpResp.Headers {
-			c.Header(protocol.HeaderHeaderPrefix+header.GetKey(), header.GetValue())
-		}
-		statusCode := fmt.Sprintf("%d", httpResp.GetStatusCode())
-		c.Header(protocol.HeaderResultCode, statusCode)
-		c.Data(http.StatusOK, httpResp.Body.GetContentType(), body)
-		return
-	default:
-		log.Error("unrecognized datum type when getting graph stage")
-		c.Status(http.StatusInternalServerError)
-		return
+	if err !=nil {
+		log.WithError(err).Warn("Failed to write response to client ")
 	}
+
 }
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
@@ -415,23 +326,8 @@ func (s *Server) handleSupply(c *gin.Context) {
 		renderError(ErrInvalidGraphID, c)
 		return
 	}
-	ct := c.ContentType()
-	if ct == "" {
-		renderError(protocol.ErrMissingContentType, c)
-		return
-	}
 
-	body, err := c.GetRawData()
-	if err != nil {
-		renderError(err, c)
-		return
-	}
-	if len(body) == 0 {
-		renderError(ErrMissingBody, c)
-		return
-	}
-
-	blob, err := s.BlobStore.CreateBlob(ct, body)
+	blob, err := protocol.BlobFromRequest(c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
@@ -462,7 +358,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 		return
 	}
 
-	result, err := protocol.CompletionResultFromRequest(s.BlobStore, c.Request)
+	result, err := protocol.CompletionResultFromRequest( c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
@@ -552,7 +448,7 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 		return
 	}
 
-	datum, err := protocol.DatumFromRequest(s.BlobStore, c.Request)
+	datum, err := protocol.DatumFromRequest(c.Request)
 
 	if err != nil {
 		renderError(err, c)
@@ -582,26 +478,18 @@ func (s *Server) handleAddTerminationHook(c *gin.Context) {
 		return
 	}
 
-	body, err := c.GetRawData()
-	if err != nil {
-		renderError(ErrReadingInput, c)
-		return
-	}
-
-	blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
+	blob, err := protocol.BlobFromRequest(c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
 	}
-
-	codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
 
 	request := &model.AddChainedStageRequest{
 		GraphId:      graphID,
 		Closure:      blob,
 		Operation:    model.CompletionOperation_terminationHook,
 		Deps:         []string{},
-		CodeLocation: codeLoc,
+		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
 		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
@@ -670,7 +558,6 @@ type Server struct {
 	Engine         *gin.Engine
 	GraphManager   actor.GraphManager
 	apiURL         *url.URL
-	BlobStore      persistence.BlobStore
 	listen         string
 	requestTimeout time.Duration
 	promHandler    http.Handler
@@ -683,7 +570,7 @@ func newEngine(clusterManager *cluster.Manager) *gin.Engine {
 }
 
 // New creates a new server - params are injected dependencies
-func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore persistence.BlobStore, listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
+func New(clusterManager *cluster.Manager, manager actor.GraphManager,  listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
 
 	setTracer(listenAddress, zipkinURL)
 
@@ -691,7 +578,6 @@ func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore 
 		GraphManager:   manager,
 		Engine:         newEngine(clusterManager),
 		listen:         listenAddress,
-		BlobStore:      blobStore,
 		requestTimeout: maxRequestTimeout,
 		promHandler:    promhttp.Handler(),
 	}
@@ -699,11 +585,10 @@ func New(clusterManager *cluster.Manager, manager actor.GraphManager, blobStore 
 	s.Engine.GET("/ping", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
+
 	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
 
 	createGraphApi(s, manager)
-
-	createBlobApi(s)
 
 	return s, nil
 }
@@ -732,5 +617,31 @@ func graphCreateInterceptor(c *gin.Context) {
 		values := c.Request.URL.Query()
 		values.Add(queryParamGraphID, graphID)
 		c.Request.URL.RawQuery = values.Encode()
+	}
+}
+
+func createGraphApi(s *Server, manager actor.GraphManager) {
+	s.Engine.GET("/wss", func(c *gin.Context) {
+		query.WSSHandler(manager, c.Writer, c.Request)
+	})
+	graph := s.Engine.Group("/graph")
+	{
+		graph.POST("", s.handleCreateGraph)
+		graph.GET("/:graphId", s.handleGraphState)
+		graph.POST("/:graphId/supply", s.handleSupply)
+		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
+		graph.POST("/:graphId/completedValue", s.handleCompletedValue)
+		graph.POST("/:graphId/delay", s.handleDelay)
+		graph.POST("/:graphId/allOf", s.handleAllOf)
+		graph.POST("/:graphId/anyOf", s.handleAnyOf)
+		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
+		graph.POST("/:graphId/commit", s.handleCommit)
+		graph.POST("/:graphId/terminationHook", s.handleAddTerminationHook)
+
+		stage := graph.Group("/:graphId/stage")
+		{
+			stage.GET("/:stageId", s.handleGetGraphStage)
+			stage.POST("/:stageId/:operation", s.handleStageOperation)
+		}
 	}
 }

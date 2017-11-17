@@ -13,6 +13,7 @@ import (
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/flow/blobs"
 )
 
 const (
@@ -43,7 +44,7 @@ type actorManager struct {
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore persistence.BlobStore, fnURL string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
+func NewGraphManager(persistenceProvider persistence.ProviderState,blobStore blobs.Store, fnURL string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 

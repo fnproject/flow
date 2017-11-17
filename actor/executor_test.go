@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/textproto"
+	"github.com/fnproject/flow/blobs"
 )
 
 type MockClient struct {
@@ -33,7 +33,7 @@ func (mock *MockClient) Do(req *http.Request) (*http.Response, error) {
 
 func TestShouldInvokeStageNormally(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	// Note headers names have to be well-formed here.
 	resp := givenEncapsulatedResponse(200,
@@ -69,7 +69,7 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 
 func TestShouldHandleHttpStageError(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(nil, fmt.Errorf("error"))
 
@@ -82,7 +82,7 @@ func TestShouldHandleHttpStageError(t *testing.T) {
 
 func TestShouldHandleFnTimeout(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(504,
 		map[string][]string{
@@ -103,7 +103,7 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 
 func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(200,
 		map[string][]string{
@@ -124,7 +124,7 @@ func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
 
 func TestShouldHandleFailedStageResponse(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := givenEncapsulatedResponse(500,
 		map[string][]string{
@@ -144,7 +144,7 @@ func TestShouldHandleFailedStageResponse(t *testing.T) {
 
 func TestShouldInvokeFunctionNormally(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 201,
@@ -185,7 +185,7 @@ func TestShouldInvokeFunctionNormally(t *testing.T) {
 
 func TestShouldInvokeWithNoOutboundBody(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 201,
@@ -210,7 +210,7 @@ func TestShouldInvokeWithNoOutboundBody(t *testing.T) {
 
 func TestShouldHandleFunctionNetworkError(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(nil, fmt.Errorf("error"))
 
@@ -221,7 +221,7 @@ func TestShouldHandleFunctionNetworkError(t *testing.T) {
 
 func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 401,
@@ -243,7 +243,7 @@ func TestConvertNonSuccessfulCodeToFailedStatus(t *testing.T) {
 
 func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 	m := &MockClient{}
-	store := persistence.NewInMemBlobStore()
+	store := blobs.NewInMemBlobStore()
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -291,15 +291,15 @@ func givenEncapsulatedResponse(outerStatusCode int, outerHeaders http.Header, he
 	}
 }
 
-func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *model.FaasInvocationResponse {
+func givenValidInvokeStageRequest(store blobs.Store, m *MockClient) *model.FaasInvocationResponse {
 	exec := &graphExecutor{
 		blobStore: store,
 		client:    m,
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
-	closureBlob  := model.NewBlobBody("closure", 101, "arg1/type")
-	argBlob  := model.NewBlobBody("arg1", 101, "arg1/type")
+	closureBlob  := model.NewBlob("closure", 101, "arg1/type")
+	argBlob  := model.NewBlob("arg1", 101, "arg1/type")
 
 	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
 		GraphId:    "graph-id",
@@ -312,7 +312,7 @@ func givenValidInvokeStageRequest(store persistence.BlobStore, m *MockClient) *m
 	return result
 }
 
-func givenValidFunctionRequest(store persistence.BlobStore, m *MockClient, body *model.BlobDatum) *model.FaasInvocationResponse {
+func givenValidFunctionRequest(store blobs.Store, m *MockClient, body *model.BlobDatum) *model.FaasInvocationResponse {
 	exec := &graphExecutor{
 		blobStore: store,
 		client:    m,
@@ -353,8 +353,8 @@ func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType 
 	assert.Equal(t, errType, errorDatum.Type)
 }
 
-func getBlobData(t *testing.T, s persistence.BlobStore,blob *model.BlobDatum) []byte {
-	data, err := s.Read("graph-id",blob)
+func getBlobData(t *testing.T, s blobs.Store,blob *model.BlobDatum) []byte {
+	data, err := s.Read("graph-id",blob.BlobId)
 
 	require.NoError(t, err)
 	buf:= bytes.Buffer{}
@@ -364,9 +364,9 @@ func getBlobData(t *testing.T, s persistence.BlobStore,blob *model.BlobDatum) []
 	return buf.Bytes()
 }
 
-func createBlob(t *testing.T, store persistence.BlobStore,  contentType string, data []byte) *model.BlobDatum {
+func createBlob(t *testing.T, store blobs.Store,  contentType string, data []byte) *model.BlobDatum {
 
 	blob, err := store.Create("graph-id", contentType, bytes.NewReader(data))
 	require.NoError(t, err)
-	return blob
+	return model.BlobDatumFromBlobStoreBlob(blob)
 }

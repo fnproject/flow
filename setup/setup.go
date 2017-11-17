@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"github.com/fnproject/flow/blobs"
 )
 
 const (
@@ -99,7 +100,10 @@ func InitFromEnv() (*server.Server, error) {
 		return nil, err
 	}
 
-	srv, err := server.New(clusterManager, graphManager, blobStore, viper.GetString(envListen), viper.GetDuration(envRequestTimeout), viper.GetString(envZipkinURL))
+	srv, err := server.New(clusterManager, graphManager, viper.GetString(envListen), viper.GetDuration(envRequestTimeout), viper.GetString(envZipkinURL))
+
+	blobs.NewFromEngine(blobStore, srv.Engine)
+
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +111,7 @@ func InitFromEnv() (*server.Server, error) {
 	return srv, nil
 }
 
-func initStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, error) {
+func initStorageFromEnv() (persistence.ProviderState, blobs.Store, error) {
 	dbURLString := viper.GetString(envDBURL)
 	dbURL, err := url.Parse(dbURLString)
 	if err != nil {
@@ -121,7 +125,7 @@ func initStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 	}
 	if dbURL.Scheme == "inmem" {
 		log.Info("Using in-memory persistence")
-		return persistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
+		return persistence.NewInMemoryProvider(snapshotInterval), blobs.NewInMemBlobStore(), nil
 	}
 
 	dbConn, err := persistence.CreateDBConnection(dbURL)
@@ -134,7 +138,7 @@ func initStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 		return nil, nil, err
 	}
 
-	blobStore, err := persistence.NewSQLBlobStore(dbConn)
+	blobStore, err := blobs.NewSQLBlobStore(dbConn)
 
 	if err != nil {
 		return nil, nil, err

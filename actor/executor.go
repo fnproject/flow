@@ -12,9 +12,9 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/protocol"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/flow/blobs"
 )
 
 const fnCallIDHeader = "Fn_call_id"
@@ -22,7 +22,7 @@ const fnCallIDHeader = "Fn_call_id"
 type graphExecutor struct {
 	faasAddr  string
 	client    httpClient
-	blobStore persistence.BlobStore
+	blobStore blobs.Store
 	log       *logrus.Entry
 }
 
@@ -39,14 +39,14 @@ type ExecHandler interface {
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
-func NewExecutor(faasAddress string, blobStore persistence.BlobStore) actor.Actor {
+func NewExecutor(faasAddress string, blobStore blobs.Store) actor.Actor {
 	client := &http.Client{}
 	// TODO configure timeouts
 	client.Timeout = 300 * time.Second
 
 	return &graphExecutor{faasAddr: faasAddress,
-		log:       logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
-		client:    client,
+		log: logrus.WithField("logger", "executor_actor").WithField("faas_url", faasAddress),
+		client: client,
 		blobStore: blobStore,
 	}
 }
@@ -70,7 +70,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	partWriter := multipart.NewWriter(buf)
 
 	if msg.Closure != nil {
-		err := protocol.WritePartFromDatum(&model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
+		err := protocol.WriteDatum(protocol.NewMultipartTarget(partWriter), &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}})
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
@@ -78,7 +78,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		}
 	}
 	for _, result := range msg.Args {
-		err := protocol.WritePartFromResult( result, partWriter)
+		err := protocol.WriteResult(protocol.NewMultipartTarget(partWriter), result)
 		if err != nil {
 			exec.log.Error("Failed to create multipart body", err)
 			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
@@ -103,7 +103,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	callID := resp.Header.Get(fnCallIDHeader)
 
 	if !successfulResponse(resp) {
-		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
 			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callID}
@@ -111,13 +111,13 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callID)
 	}
 
-	result, err := protocol.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
+	result, err := protocol.CompletionResultFromEncapsulatedResponse(resp)
 	if err != nil {
-		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service", err)
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
 
 	}
-	stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
+	stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
 	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }
@@ -137,7 +137,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 
 	if datum.Body != nil {
 		var err error
-		bodyReader, err = exec.blobStore.Read(msg.GraphId,datum.Body)
+		bodyReader, err = exec.blobStore.Read(msg.GraphId, datum.Body.BlobId)
 		if err != nil {
 			return invokeFailed(msg, "Failed to read data for invocation", "")
 		}
@@ -192,7 +192,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		}
 	}
 
-	blob, err := exec.blobStore.Create(msg.GraphId,contentType, resp.Body)
+	blob, err := exec.blobStore.Create(msg.GraphId, contentType, resp.Body)
 	if err != nil {
 		return invokeFailed(msg, "Failed to persist HTTP response data", callID)
 	}
@@ -201,7 +201,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		Val: &model.Datum_HttpResp{
 			HttpResp: &model.HTTPRespDatum{
 				Headers:    headers,
-				Body:       blob,
+				Body:       model.BlobDatumFromBlobStoreBlob(blob),
 				StatusCode: uint32(resp.StatusCode)}}}
 
 	result := &model.CompletionResult{Successful: successfulResponse(resp), Datum: resultDatum}

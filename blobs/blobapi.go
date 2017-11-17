@@ -6,21 +6,23 @@ import (
 
 const headerContentType = "Content-Type"
 
-type BlobServer struct {
+// Server encapsulates the blob server
+type Server struct {
 	store  Store
 	Engine *gin.Engine
 }
 
-func NewFromEngine(store Store, engine *gin.Engine) *BlobServer {
-	server := &BlobServer{
+// NewFromEngine creates a new blob service from an existing gin engine
+func NewFromEngine(store Store, engine *gin.Engine) *Server {
+	server := &Server{
 		store:  store,
 		Engine: engine,
 	}
-	createBlobApi(server)
+	createBlobAPI(server)
 	return server
 }
 
-func (s *BlobServer) createBlob(c *gin.Context) {
+func (s *Server) createBlob(c *gin.Context) {
 
 	contentType := c.GetHeader(headerContentType)
 
@@ -33,15 +35,15 @@ func (s *BlobServer) createBlob(c *gin.Context) {
 
 }
 
-func (s *BlobServer) getBlob(c *gin.Context) {
+func (s *Server) getBlob(c *gin.Context) {
 
 }
 
-func (s *BlobServer) headBlob(c *gin.Context) {
+func (s *Server) headBlob(c *gin.Context) {
 
 }
 
-func createBlobApi(s *BlobServer) {
+func createBlobAPI(s *Server) {
 
 	blobs := s.Engine.Group("/blobs")
 	{

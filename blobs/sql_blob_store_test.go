@@ -1,15 +1,13 @@
 package blobs
 
 import (
-	"github.com/jmoiron/sqlx"
+	"bytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"bytes"
-	"os"
-	"fmt"
-	"path"
-	"database/sql"
+	// needed to use sqlite in tests
+	"github.com/fnproject/flow/persistence"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {
@@ -33,9 +31,12 @@ func TestShouldRetrieveStoredBlob(t *testing.T) {
 	blob, err := store.Create("graph", "test/type", bytes.NewReader(data))
 	require.NoError(t, err)
 
-	newData, err := store.Read("graph", blob.ID)
+	dataReader, err := store.Read("graph", blob.ID)
+	buf := bytes.Buffer{}
+	buf.ReadFrom(dataReader)
+
 	assert.NoError(t, err)
-	assert.Equal(t, data, newData)
+	assert.Equal(t, data, buf.Bytes())
 
 }
 
@@ -54,40 +55,23 @@ func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), blob.Length)
 
-	data, err := store.Read("graph", blob.ID)
+	dataReader, err := store.Read("graph", blob.ID)
+	buf := bytes.Buffer{}
+	buf.ReadFrom(dataReader)
+
 	assert.NoError(t, err)
-	assert.Empty(t, data)
+	assert.Empty(t, buf.Bytes())
 }
 
 func givenEmptyBlobStore() Store {
-
-	db := setupDb()
+	persistence.ResetTestDB()
+	db, err := persistence.CreateDBConnection(persistence.TestDBURL())
+	if err != nil {
+		panic(err)
+	}
 	store, err := NewSQLBlobStore(db)
 	if err != nil {
 		panic(err)
 	}
 	return store
 }
-
-func setupDb() *sqlx.DB {
-	os.RemoveAll(dbPath)
-
-	dir := dbPath
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		panic(err)
-	}
-
-	sqldb, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		panic(err)
-	}
-
-	sqlxDb := sqlx.NewDb(sqldb, "sqlite")
-	return sqlxDb
-}
-
-var tmpDir = path.Clean(os.TempDir())
-var dbPath = fmt.Sprintf("%s/flow_test", tmpDir)
-var dbFile = fmt.Sprintf("%s/blobs.db", dbPath)
-

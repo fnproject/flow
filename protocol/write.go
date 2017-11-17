@@ -33,7 +33,7 @@ type httpTarget struct {
 	writer http.ResponseWriter
 }
 
-// NewMultipartTaget creates a write target based on a multipart string
+// NewMultipartTarget creates a write target based on a multipart string
 func NewMultipartTarget(writer *multipart.Writer) WriteTarget {
 	return &partTarget{
 		writer: writer,
@@ -60,7 +60,9 @@ func (t *httpTarget) Write(header textproto.MIMEHeader, body []byte) error {
 	}
 	return nil
 }
-func WriteDatum(target WriteTarget, datum *model.Datum, ) error {
+
+// WriteDatum emits a datum to the specified target
+func WriteDatum(target WriteTarget, datum *model.Datum) error {
 	return writeDatumToTarget(target, textproto.MIMEHeader{}, datum)
 }
 
@@ -93,15 +95,15 @@ func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *
 
 	case *model.Datum_HttpReq:
 		header.Add(HeaderDatumType, DatumTypeHTTPReq)
-		httpreq := datum.GetHttpReq()
-		for _, datumHeader := range httpreq.Headers {
+		httpReq := datum.GetHttpReq()
+		for _, datumHeader := range httpReq.Headers {
 			header.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
-		methodString := strings.ToUpper(model.HTTPMethod_name[int32(httpreq.Method)])
+		methodString := strings.ToUpper(model.HTTPMethod_name[int32(httpReq.Method)])
 
 		header.Add(HeaderMethod, methodString)
 
-		blob := httpreq.Body
+		blob := httpReq.Body
 		if blob != nil {
 			header.Add(HeaderContentType, blob.ContentType)
 		}
@@ -114,14 +116,14 @@ func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *
 
 	case *model.Datum_HttpResp:
 		header.Add(HeaderDatumType, DatumTypeHTTPResp)
-		httpresp := datum.GetHttpResp()
-		for _, datumHeader := range httpresp.Headers {
+		httpResp := datum.GetHttpResp()
+		for _, datumHeader := range httpResp.Headers {
 			header.Add(fmt.Sprintf("%s%s", HeaderHeaderPrefix, datumHeader.Key), datumHeader.Value)
 		}
 
-		header.Add(HeaderResultCode, fmt.Sprintf("%d", httpresp.StatusCode))
+		header.Add(HeaderResultCode, fmt.Sprintf("%d", httpResp.StatusCode))
 
-		blob := httpresp.Body
+		blob := httpResp.Body
 		if blob != nil {
 			header.Add(HeaderContentType, blob.ContentType)
 
@@ -132,8 +134,6 @@ func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *
 		}
 
 		return target.Write(header, []byte{})
-
-		return nil
 	case *model.Datum_State:
 		header.Add(HeaderDatumType, DatumTypeState)
 		stateType := model.StateDatumType_name[int32(datum.GetState().Type)]
@@ -146,13 +146,14 @@ func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *
 
 	}
 }
+
 func addBlobHeaders(header textproto.MIMEHeader, blob *model.BlobDatum) {
 	header.Add(HeaderContentType, blob.ContentType)
 	header.Add(HeaderBlobID, blob.BlobId)
 	header.Add(HeaderBlobLength, fmt.Sprintf("%d", blob.Length))
 }
 
-// WritePartFromResult emits a result to an HTTP part
+// WriteResult emits a result to an HTTP part
 func WriteResult(target WriteTarget, result *model.CompletionResult) error {
 
 	var status string

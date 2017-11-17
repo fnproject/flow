@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 	//	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/require"
 	"github.com/fnproject/flow/blobs"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGraphCreation(t *testing.T) {
@@ -85,8 +85,8 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-		protocol.HeaderResultStatus: "baah",
-	}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
+			protocol.HeaderResultStatus: "baah",
+		}).ExpectRequestErr(protocol.ErrInvalidResultStatus)
 
 	tc.StartWithGraph("Completes External Completion Successfully").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -96,10 +96,10 @@ func TestDirectCompletion(t *testing.T) {
 		WithHeaders(map[string]string{"fnproject-resultstatus": "success"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-		evt, ok := msg.(*model.StageCompletedEvent)
-		require.True(ctx, ok)
-		assert.True(ctx, evt.Result.Successful)
-	})
+			evt, ok := msg.(*model.StageCompletedEvent)
+			require.True(ctx, ok)
+			assert.True(ctx, evt.Result.Successful)
+		})
 
 	tc.StartWithGraph("Completes External Completion With Failure").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -109,10 +109,10 @@ func TestDirectCompletion(t *testing.T) {
 		WithHeaders(map[string]string{"fnproject-resultstatus": "failure"}).
 		ExpectStatus(200).
 		ExpectLastStageEvent(func(ctx *testCtx, msg model.Event) {
-		evt, ok := msg.(*model.StageCompletedEvent)
-		require.True(ctx, ok)
-		assert.False(ctx, evt.Result.Successful)
-	})
+			evt, ok := msg.(*model.StageCompletedEvent)
+			require.True(ctx, ok)
+			assert.False(ctx, evt.Result.Successful)
+		})
 
 	tc.StartWithGraph("Conflicts on already completed stage ").
 		ThenPOST("/graph/:graphID/externalCompletion").
@@ -123,8 +123,8 @@ func TestDirectCompletion(t *testing.T) {
 		ThenPOST("/graph/:graphID/stage/:stageID/complete").
 		With(emptyDatumInRequest).
 		WithHeaders(map[string]string{
-		"fnproject-resultstatus": "failure",
-	}).ExpectStatus(409)
+			"fnproject-resultstatus": "failure",
+		}).ExpectStatus(409)
 
 	StageAcceptsMetadata(func(s string) *APIChain {
 		return tc.StartWithGraph(s).
@@ -215,7 +215,7 @@ func NewTestServer() *server.Server {
 	if err != nil {
 		panic(err)
 	}
-	s, err := server.New(clusterManager, graphManager,  ":8081", 1*time.Second, "")
+	s, err := server.New(clusterManager, graphManager, ":8081", 1*time.Second, "")
 	if err != nil {
 		panic(err)
 	}
@@ -224,7 +224,7 @@ func NewTestServer() *server.Server {
 
 func validClosure(a *APIChain) {
 	a.WithHeaders(map[string]string{"Content-Type": "text/plain",
-		"Fnproject-BlobId": "BlobId",
+		"Fnproject-BlobId":     "BlobId",
 		"Fnproject-BlobLength": "100"})
 
 }
@@ -295,7 +295,7 @@ func StageAcceptsHTTPRespType(s func(string) *APIChain) {
 		"Fnproject-resultcode": {good: "100", missingError: protocol.ErrMissingResultCode, bad: "wibble", invalidError: protocol.ErrInvalidResultCode},
 	})
 
-	StageHonorsHeaderReqs("HttpResp (with blob)", s, map[string]headerExpectation{
+	StageHonorsHeaderReqs("HTTPResp (with blob)", s, map[string]headerExpectation{
 		"FnProject-datumtype":  {good: "httpresp", missingError: protocol.ErrMissingDatumType},
 		"Fnproject-resultcode": {good: "100"},
 		"Fnproject-blobId":     {good: "blobId"},
@@ -309,19 +309,19 @@ func StageAcceptsMetadata(s func(string) *APIChain) {
 	s("Works with no metadata").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-		assert.Empty(ctx, event.CodeLocation)
-		assert.Empty(ctx, event.CallerId)
-	})
+			assert.Empty(ctx, event.CodeLocation)
+			assert.Empty(ctx, event.CallerId)
+		})
 
 	s("Works with metadata").
 		WithHeader(protocol.HeaderCodeLocation, "code-loc").
 		WithHeader(protocol.HeaderCallerRef, "caller-id").
 		ExpectStageCreated().
 		ExpectLastStageAddedEvent(func(ctx *testCtx, event *model.StageAddedEvent) {
-		assert.Equal(ctx, "code-loc", event.CodeLocation)
-		assert.Equal(ctx, "caller-id", event.CallerId)
+			assert.Equal(ctx, "code-loc", event.CodeLocation)
+			assert.Equal(ctx, "caller-id", event.CallerId)
 
-	})
+		})
 
 }
 
@@ -372,7 +372,3 @@ func StageHonorsHeaderReqs(caseName string, g func(s string) *APIChain, exectati
 	}
 	g(caseName + " accepts good headers").WithHeaders(goodHeaders).ExpectStageCreated()
 }
-
-
-
-

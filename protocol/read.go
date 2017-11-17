@@ -25,7 +25,7 @@ func DatumFromRequest(req *http.Request) (*model.Datum, error) {
 
 // BlobFromRequest reads only a blob from the incoming request
 func BlobFromRequest(req *http.Request) (*model.BlobDatum, error) {
-	return readBlob(textproto.MIMEHeader(req.Header), false)
+	return readBlob(textproto.MIMEHeader(req.Header))
 }
 
 // CompletionResultFromRequest reads a Datum and completion result from an incoming request
@@ -92,7 +92,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 	switch datumType {
 	case DatumTypeBlob:
 
-		body, err := readBlob(header, false)
+		body, err := readBlob(header)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 		var blob *model.BlobDatum
 		if header.Get(HeaderBlobID) != "" {
 			var err error
-			blob, err = readBlob(header, true)
+			blob, err = readBlob(header)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +194,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 		var blob *model.BlobDatum
 		if header.Get(HeaderBlobID) != "" {
 			var err error
-			blob, err = readBlob(header, true)
+			blob, err = readBlob(header)
 			if err != nil {
 				return nil, err
 			}
@@ -207,14 +207,14 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 	}
 }
 
-func readBlob(header textproto.MIMEHeader, allowNil bool) (*model.BlobDatum, error) {
+func readBlob(header textproto.MIMEHeader) (*model.BlobDatum, error) {
 
 	contentType := header.Get(HeaderContentType)
 	if "" == contentType {
 		return nil, ErrMissingContentType
 	}
-	blobId := header.Get(HeaderBlobID)
-	if "" == blobId {
+	blobID := header.Get(HeaderBlobID)
+	if "" == blobID {
 		return nil, ErrMissingBlobID
 	}
 
@@ -229,7 +229,7 @@ func readBlob(header textproto.MIMEHeader, allowNil bool) (*model.BlobDatum, err
 
 	}
 
-	blob := model.NewBlob(blobId, blobLengthInt, contentType)
+	blob := model.NewBlob(blobID, blobLengthInt, contentType)
 	if err != nil {
 		return nil, err
 	}

@@ -41,7 +41,7 @@ var log = logrus.WithField("logger", "server")
 
 func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
 
-	result, err := protocol.CompletionResultFromRequest( req)
+	result, err := protocol.CompletionResultFromRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,6 @@ func (s *Server) handleGraphState(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-
 func (s *Server) handleGetGraphStage(c *gin.Context) {
 	graphID := c.Param(paramGraphID)
 	stageID := c.Param(paramStageID)
@@ -246,9 +245,9 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	result := response.GetResult()
-	err = protocol.WriteResult(protocol.NewResponseWriterTarget(c.Writer),result)
+	err = protocol.WriteResult(protocol.NewResponseWriterTarget(c.Writer), result)
 
-	if err !=nil {
+	if err != nil {
 		log.WithError(err).Warn("Failed to write response to client ")
 	}
 
@@ -358,7 +357,7 @@ func (s *Server) handleCompletedValue(c *gin.Context) {
 		return
 	}
 
-	result, err := protocol.CompletionResultFromRequest( c.Request)
+	result, err := protocol.CompletionResultFromRequest(c.Request)
 	if err != nil {
 		renderError(err, c)
 		return
@@ -552,7 +551,6 @@ func setTracer(ownURL string, zipkinURL string) {
 	logrus.WithFields(logrus.Fields{"url": zipkinHTTPEndpoint}).Info("started tracer")
 }
 
-
 // Server is the flow service root
 type Server struct {
 	Engine         *gin.Engine
@@ -570,7 +568,7 @@ func newEngine(clusterManager *cluster.Manager) *gin.Engine {
 }
 
 // New creates a new server - params are injected dependencies
-func New(clusterManager *cluster.Manager, manager actor.GraphManager,  listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
+func New(clusterManager *cluster.Manager, manager actor.GraphManager, listenAddress string, maxRequestTimeout time.Duration, zipkinURL string) (*Server, error) {
 
 	setTracer(listenAddress, zipkinURL)
 
@@ -588,11 +586,10 @@ func New(clusterManager *cluster.Manager, manager actor.GraphManager,  listenAdd
 
 	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
 
-	createGraphApi(s, manager)
+	createGraphAPI(s, manager)
 
 	return s, nil
 }
-
 
 // Run starts the server
 func (s *Server) Run() {
@@ -620,7 +617,7 @@ func graphCreateInterceptor(c *gin.Context) {
 	}
 }
 
-func createGraphApi(s *Server, manager actor.GraphManager) {
+func createGraphAPI(s *Server, manager actor.GraphManager) {
 	s.Engine.GET("/wss", func(c *gin.Context) {
 		query.WSSHandler(manager, c.Writer, c.Request)
 	})

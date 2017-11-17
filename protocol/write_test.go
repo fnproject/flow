@@ -247,19 +247,19 @@ func (m *mimeProto) writeDatum(datum *model.Datum) (textproto.MIMEHeader, string
 	return headers, body
 }
 
-type mockHttpResponseWriter struct {
+type mockHTTPResponseWriter struct {
 	buf    bytes.Buffer
 	header http.Header
 }
 
-func (m *mockHttpResponseWriter) Header() http.Header {
+func (m *mockHTTPResponseWriter) Header() http.Header {
 	return http.Header(m.header)
 }
 
-func (m *mockHttpResponseWriter) Write(data []byte) (int, error) {
+func (m *mockHTTPResponseWriter) Write(data []byte) (int, error) {
 	return m.buf.Write(data)
 }
-func (m *mockHttpResponseWriter) WriteHeader(status int) {
+func (m *mockHTTPResponseWriter) WriteHeader(status int) {
 	panic("Unsupported receiver")
 }
 
@@ -268,7 +268,7 @@ func (m *httpProto) name() string {
 }
 
 func (m *httpProto) writeResult(result *model.CompletionResult) (textproto.MIMEHeader, string) {
-	mock := &mockHttpResponseWriter{header: http.Header{}}
+	mock := &mockHTTPResponseWriter{header: http.Header{}}
 
 	err := WriteResult(NewResponseWriterTarget(mock), result)
 
@@ -281,7 +281,7 @@ func (m *httpProto) writeResult(result *model.CompletionResult) (textproto.MIMEH
 }
 
 func (m *httpProto) writeDatum(result *model.Datum) (textproto.MIMEHeader, string) {
-	mock := &mockHttpResponseWriter{header: http.Header{}}
+	mock := &mockHTTPResponseWriter{header: http.Header{}}
 
 	err := WriteDatum(NewResponseWriterTarget(mock), result)
 

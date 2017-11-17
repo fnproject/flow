@@ -1,9 +1,9 @@
 package model
 
 import (
+	"github.com/fnproject/flow/blobs"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/fnproject/flow/blobs"
 )
 
 // This contains mixins that add operations and types to the protobuf messages

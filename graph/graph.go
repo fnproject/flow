@@ -246,7 +246,7 @@ func (graph *CompletionGraph) handleStageCompleted(event *model.StageCompletedEv
 // handleInvokeComplete is signaled when an invocation (or function call) associated with a stage is completed
 // This may signal completion of the stage (in which case a Complete Event is raised)
 func (graph *CompletionGraph) handleInvokeComplete(event *model.FaasInvocationCompletedEvent) {
-	log.WithField("fn_call_id",event.CallId).WithField("stage_id", event.StageId).Info("Completing stage with faas response")
+	log.WithField("fn_call_id", event.CallId).WithField("stage_id", event.StageId).Info("Completing stage with faas response")
 	stage := graph.stages[event.StageId]
 	stage.handleResult(graph, event.Result)
 }

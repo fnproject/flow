@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/viper"
 
 	"fmt"
+	"github.com/fnproject/flow/blobs"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"github.com/fnproject/flow/blobs"
 )
 
 const (

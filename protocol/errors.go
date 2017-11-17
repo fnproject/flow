@@ -55,7 +55,7 @@ var (
 		message: "Unsupported content type for datum",
 	}
 
-	// ErrMissingContentType  - no content type in datum
+	// ErrMissingBlobID  - no blob ID header
 	ErrMissingBlobID = &BadProtoMessage{
 		message: "Missing " + HeaderBlobID + " header ",
 	}

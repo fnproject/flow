@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/fnproject/flow/blobs"
 	"github.com/fnproject/flow/model"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/textproto"
-	"github.com/fnproject/flow/blobs"
 )
 
 type MockClient struct {
@@ -44,6 +44,8 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 			"Content-Type":           {"response/type"},
 			"Fnproject-Resultstatus": {"success"},
 			"Fnproject-Datumtype":    {"blob"},
+			"FnProject-BlobId":       {"blobID"},
+			"FnProject-BlobLength":   {"100"},
 		},
 		[]byte("ResultBytes"))
 
@@ -57,7 +59,6 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	require.NotNil(t, result.Result.GetDatum().GetBlob())
 	blob := result.Result.GetDatum().GetBlob()
 	assert.Equal(t, "response/type", blob.ContentType)
-	assert.Equal(t, []byte("ResultBytes"), getBlobData(t, store, blob))
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "POST", outbound.Method)
@@ -298,16 +299,14 @@ func givenValidInvokeStageRequest(store blobs.Store, m *MockClient) *model.FaasI
 		faasAddr:  "http://faasaddr",
 		log:       testlog.WithField("Test", "logger"),
 	}
-	closureBlob  := model.NewBlob("closure", 101, "arg1/type")
-	argBlob  := model.NewBlob("arg1", 101, "arg1/type")
 
 	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
 		GraphId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
 		Operation:  model.CompletionOperation_thenApply,
-		Closure:    closureBlob,
-		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(argBlob)), model.NewEmptyResult()},
+		Closure:    model.NewBlob("closure", uint64(200), "content/type"),
+		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(model.NewBlob("arg1", uint64(200), "content/type"))), model.NewEmptyResult()},
 	})
 	return result
 }
@@ -353,18 +352,18 @@ func hasErrorResult(t *testing.T, result *model.FaasInvocationResponse, errType 
 	assert.Equal(t, errType, errorDatum.Type)
 }
 
-func getBlobData(t *testing.T, s blobs.Store,blob *model.BlobDatum) []byte {
-	data, err := s.Read("graph-id",blob.BlobId)
+func getBlobData(t *testing.T, s blobs.Store, blob *model.BlobDatum) []byte {
+	data, err := s.Read("graph-id", blob.BlobId)
 
 	require.NoError(t, err)
-	buf:= bytes.Buffer{}
-	_ , err = buf.ReadFrom(data)
+	buf := bytes.Buffer{}
+	_, err = buf.ReadFrom(data)
 
-	require.NoError(t,err)
+	require.NoError(t, err)
 	return buf.Bytes()
 }
 
-func createBlob(t *testing.T, store blobs.Store,  contentType string, data []byte) *model.BlobDatum {
+func createBlob(t *testing.T, store blobs.Store, contentType string, data []byte) *model.BlobDatum {
 
 	blob, err := store.Create("graph-id", contentType, bytes.NewReader(data))
 	require.NoError(t, err)

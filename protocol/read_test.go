@@ -408,7 +408,7 @@ func emptyHeaders() textproto.MIMEHeader {
 	return textproto.MIMEHeader(make(map[string][]string))
 }
 
-func createEmptyPart(headers textproto.MIMEHeader, ) *multipart.Part {
+func createEmptyPart(headers textproto.MIMEHeader) *multipart.Part {
 	wbuf := new(bytes.Buffer)
 	w := multipart.NewWriter(wbuf)
 	_, err := w.CreatePart(headers)

@@ -1,12 +1,12 @@
 package blobs
 
 import (
+	"bytes"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
-	"io"
-	"bytes"
 	"github.com/sirupsen/logrus"
+	"io"
 )
 
 type sqlBlobStore struct {
@@ -26,7 +26,7 @@ func NewSQLBlobStore(db *sqlx.DB) (Store, error) {
 }
 
 // Create implements BlobStore - this buffers the blob to send to the DB
-func (s *sqlBlobStore) Create(graphID string, contentType string, input io.Reader) (*Blob, error) {
+func (s *sqlBlobStore) Create(prefix string, contentType string, input io.Reader) (*Blob, error) {
 	id, err := uuid.NewRandom()
 
 	if err != nil {
@@ -46,7 +46,7 @@ func (s *sqlBlobStore) Create(graphID string, contentType string, input io.Reade
 
 	span := opentracing.StartSpan("sql_create_blob")
 	defer span.Finish()
-	_, err = s.db.Exec("INSERT INTO blobs(blob_id,blob_data) VALUES(?,?)", idString, data)
+	_, err = s.db.Exec("INSERT INTO blobs(prefix,blob_id,blob_data) VALUES(?,?,?)", prefix, idString, data)
 	if err != nil {
 		log.WithField("content_type", contentType).WithField("blob_length", len(data)).WithError(err).Errorf("Error inserting blob into db")
 		return nil, err

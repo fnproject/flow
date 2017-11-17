@@ -27,7 +27,7 @@ type testCtx struct {
 	t            *testing.T
 	graphID      string
 	stageID      string
-	lastResponse *HttpResp
+	lastResponse *HTTPResp
 	server       *server.Server
 }
 
@@ -52,17 +52,17 @@ func NewCase(narrative string) *TestCase {
 	return &TestCase{narrative: narrative}
 }
 
-// HttpResp wraps an httpResponse with a buffered body
-type HttpResp struct {
+// HTTPResp wraps an httpResponse with a buffered body
+type HTTPResp struct {
 	resp *http.Response
 	body []byte
 }
 
-func (r *HttpResp) String() string {
+func (r *HTTPResp) String() string {
 	return fmt.Sprintf("code:%d  h: %v  body: %s", r.resp.StatusCode, r.resp.Header, string(r.body))
 }
 
-type resultFunc func(ctx *testCtx, response *HttpResp)
+type resultFunc func(ctx *testCtx, response *HTTPResp)
 
 type resultAction struct {
 	narrative string
@@ -120,7 +120,7 @@ func (c *APIChain) Expect(fn resultFunc, msg string, args ...interface{}) *APICh
 
 // ExpectStatus creates an HTTP code expectation
 func (c *APIChain) ExpectStatus(status int) *APIChain {
-	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		assert.Equal(ctx, status, resp.resp.StatusCode, "Http status should be %d", status)
 	}, "status matches %d", status)
 }
@@ -128,26 +128,26 @@ func (c *APIChain) ExpectStatus(status int) *APIChain {
 // ExpectGraphCreated - verifies that the server reported a graph was created
 func (c *APIChain) ExpectGraphCreated() *APIChain {
 	return c.ExpectStatus(200).
-		Expect(func(ctx *testCtx, resp *HttpResp) {
-		flowIDHeader := resp.resp.Header.Get("Fnproject-FlowId")
-		require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.resp.Header)
-		ctx.graphID = flowIDHeader
-	}, "Graph was created")
+		Expect(func(ctx *testCtx, resp *HTTPResp) {
+			flowIDHeader := resp.resp.Header.Get("Fnproject-FlowId")
+			require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.resp.Header)
+			ctx.graphID = flowIDHeader
+		}, "Graph was created")
 }
 
 // ExpectStageCreated verifies that the server reported that  a stage was created
 func (c *APIChain) ExpectStageCreated() *APIChain {
 	return c.ExpectStatus(200).
-		Expect(func(ctx *testCtx, resp *HttpResp) {
-		stage := resp.resp.Header.Get("Fnproject-StageId")
-		require.NotEmpty(ctx, stage, "StageID not in header")
-		ctx.stageID = stage
-	}, "Stage was created")
+		Expect(func(ctx *testCtx, resp *HTTPResp) {
+			stage := resp.resp.Header.Get("Fnproject-StageId")
+			require.NotEmpty(ctx, stage, "StageID not in header")
+			ctx.stageID = stage
+		}, "Stage was created")
 }
 
 // ExpectLastStageAddedEvent  adds an expectation on the last StageAddedEvent
 func (c *APIChain) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAddedEvent)) *APIChain {
-	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		var lastStageAddedEvent *model.StageAddedEvent
 
 		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
@@ -167,7 +167,7 @@ func (c *APIChain) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAdd
 
 // ExpectLastStageEvent  adds an expectation on the last StageMessage (of any type)
 func (c *APIChain) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APIChain {
-	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		var lastStageEvent model.Event
 
 		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
@@ -187,7 +187,7 @@ func (c *APIChain) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APICh
 
 // ExpectRequestErr expects an request error matching a given error case
 func (c *APIChain) ExpectRequestErr(serverErr error) *APIChain {
-	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		assert.Equal(ctx, 400, resp.resp.StatusCode)
 		assert.Equal(ctx, "text/plain", resp.resp.Header.Get("content-type"))
 		assert.Equal(ctx, serverErr.Error(), string(resp.body), "Error body did not match")
@@ -196,7 +196,7 @@ func (c *APIChain) ExpectRequestErr(serverErr error) *APIChain {
 
 // ExpectServerErr expects a server-side error matching a given error
 func (c *APIChain) ExpectServerErr(serverErr *server.Error) *APIChain {
-	return c.Expect(func(ctx *testCtx, resp *HttpResp) {
+	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		assert.Equal(ctx, serverErr.HTTPStatus, resp.resp.StatusCode)
 		assert.Equal(ctx, "text/plain", resp.resp.Header.Get("content-type"))
 		assert.Equal(ctx, serverErr.Message, string(resp.body), "Error body did not match")
@@ -284,7 +284,7 @@ func (c *APIChain) run(ctx testCtx, s *server.Server) {
 	_, err := buf.ReadFrom(resp.Body)
 	require.NoError(ctx.t, err)
 
-	nuCtx.lastResponse = &HttpResp{resp: resp.Result(), body: buf.Bytes()}
+	nuCtx.lastResponse = &HTTPResp{resp: resp.Result(), body: buf.Bytes()}
 
 	for _, check := range c.expect {
 		nuCtx = nuCtx.PushNarrative(check.narrative)

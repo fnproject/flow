@@ -1,11 +1,11 @@
 package blobs
 
 import (
-	"sync"
-	"fmt"
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
+	"sync"
 )
 
 type inMemBlobStore struct {
@@ -23,7 +23,7 @@ func NewInMemBlobStore() Store {
 func (s *inMemBlobStore) Read(graphID string, blobID string) (io.Reader, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	blob, ok := s.blobs[graphID+"-"+blobID]
+	blob, ok := s.blobs[blobID]
 
 	if !ok {
 		return nil, fmt.Errorf("blob %s not found", blobID)

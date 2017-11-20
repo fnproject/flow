@@ -86,7 +86,7 @@ func invokeWithResult(stage *CompletionStage, listener CompletionEventListener, 
 	listener.OnExecuteStage(stage, results)
 }
 
-// invokeWithResultOrError triggers invoking the closure with a pair consisting of the  (result,<emtpy>) if the result is successful, or (<empty>,error) if the result is an error
+// invokeWithResultOrError triggers invoking the closure with a pair consisting of the  (result,<empty>) if the result is successful, or (<empty>,error) if the result is an error
 // this can only be used with single-valued result
 func invokeWithResultOrError(stage *CompletionStage, listener CompletionEventListener, results []*model.CompletionResult) {
 	if len(results) != 1 {

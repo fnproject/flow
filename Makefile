@@ -34,6 +34,10 @@ run: build
 fmt: $(GOFILES)
 	gofmt -w -s $(GOFILES)
 
+spell: $(GOFILES)
+	misspell $(GOFILES)
+
+
 myday: test lint vet
 
 COMPLETER_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))

@@ -110,7 +110,7 @@ func (graph *CompletionGraph) IsCompleted() bool {
 }
 
 // HandleCompleted closes the graph for modifications
-// this should only be called once an OnComplete event has been emmitted by the graph
+// this should only be called once an OnComplete event has been emitted by the graph
 func (graph *CompletionGraph) handleCompleted() {
 	graph.log.Info("completing graph")
 	graph.state = StateCompleted

@@ -55,7 +55,7 @@ func (r *RawDependency) GetID() string {
 	return r.ID
 }
 
-// GetResult gets the result (or nil if no result) of teh graph
+// GetResult gets the result (or nil if no result) of the graph
 func (r *RawDependency) GetResult() *model.CompletionResult {
 	return r.result
 }
@@ -85,7 +85,7 @@ func (stage *CompletionStage) GetID() string {
 	return stage.ID
 }
 
-// GetResult gets the result (or nil if no result) of teh graph
+// GetResult gets the result (or nil if no result) of the graph
 func (stage *CompletionStage) GetResult() *model.CompletionResult {
 	return stage.result
 }

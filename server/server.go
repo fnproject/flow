@@ -74,11 +74,6 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		renderError(ErrInvalidStageID, c)
 		return
 	}
-	body, err := c.GetRawData()
-	if err != nil {
-		renderError(ErrReadingInput, c)
-		return
-	}
 
 	switch operation {
 
@@ -113,6 +108,11 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 
 		}
 
+		body, err := c.GetRawData()
+		if err != nil {
+			renderError(ErrReadingInput, c)
+			return
+		}
 		blob, err := s.BlobStore.CreateBlob(c.ContentType(), body)
 		if err != nil {
 			renderError(err, c)

@@ -34,13 +34,13 @@ func CompletionResultFromRequest(store persistence.BlobStore, req *http.Request)
 	resultStatusHeader := req.Header.Get(HeaderResultStatus)
 	var success bool
 	if resultStatusHeader == "" {
-		success = true
-	} else {
-		success, err = statusFromHeader(resultStatusHeader)
-		if err != nil {
-			return nil, err
-		}
+		return nil, ErrMissingResultStatus
 	}
+	success, err = statusFromHeader(resultStatusHeader)
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.CompletionResult{
 		Successful: success,
 		Datum:      datum,
@@ -54,7 +54,7 @@ func statusFromHeader(statusString string) (bool, error) {
 	case ResultStatusFailure:
 		return false, nil
 	default:
-		return false, fmt.Errorf("Invalid result status header %s: \"%s\" ", HeaderResultStatus, statusString)
+		return false, ErrInvalidResultStatus
 	}
 }
 

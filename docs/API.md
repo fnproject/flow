@@ -408,9 +408,8 @@ We'll swagger this up at some point
 | /graph/${graph_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this flow's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
 | /graph/${graph_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this flow's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
 | /graph/${graph_id}/externalCompletion						| POST 			| Adds a root stage to this flow's graph that can be completed or failed externally via an HTTP post to `/graph/${graph_id}/stage/${stage_id}/complete` or `/graph/${graph_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
-| /graph/${graph_id}/stage/${stage_id}						| GET 			| | datum | Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
-| /graph/${graph_id}/stage/${stage_id}/complete				| POST 			| Completes an `externalCompletion` stage successfully with the value provided in the HTTP request body. Analogous to CompletableFuture's `complete`.|
-| /graph/${graph_id}/stage/${stage_id}/fail					| POST 			| Completes an `externalCompletion` stage exceptionally with the error provided in the HTTP request body. Analogous to CompletableFuture's `completeExceptionally`.|
+| /graph/${graph_id}/stage/${stage_id}						| GET 			| Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
+| /graph/${graph_id}/stage/${stage_id}/complete				| POST 			| Completes a pending  stage  with a specified datum.  Analogous to CompletableFuture's `complete` and `completeExceptionally`. |
 | /graph/${graph_id}/stage/${stage_id}/acceptEither?other=${other_stage}			| POST 	 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#acceptEither-java.util.concurrent.CompletionStage-java.util.function.Consumer-). |
 | /graph/${graph_id}/stage/${stage_id}/applyToEither?other=${other_stage}		| POST  | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#applyToEither-java.util.concurrent.CompletionStage-java.util.function.Function-). |
 | /graph/${graph_id}/stage/${stage_id}/thenAcceptBoth?other=${other_stage}		| POST 		 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAcceptBoth-java.util.concurrent.CompletionStage-java.util.function.BiConsumer-). |
@@ -547,6 +546,5 @@ Custom-Header: SomeOtherValue
 |allOf|when all of the parent stages completes|complete with null/void|complete with error|Completes on trigger - see execution strategies|
 |anyOf|when any of the parent stages completes|complete with parent result|complete with error|Completes on trigger - see execution strategies|
 |value|immediately|complete with literal value|complete with error|Completes on trigger - see execution strategies|
-|externally completable|externally via http callback|complete with external value provided in http request|complete with error|Completes on trigger - see execution strategies|
 |delay|externally by timer|complete with null/void once timer elapses|complete with error|Completes on trigger - see execution strategies|
 

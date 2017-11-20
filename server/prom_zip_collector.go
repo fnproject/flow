@@ -22,11 +22,19 @@ type PrometheusCollector struct {
 	// In this map, the key is the name of a tracing span,
 	// and the corresponding value is an array containing the label keys that were specified when the HistogramVec metric was created
 	registeredLabelKeysMap map[string][]string
+
+	// In this map, the key is the name of a tracing span,
+	// and the corresponding value is a SummaryVec metric which is useful to compute the quantiles of the duration of spans
+	summaryVecMap map[string]*prometheus.SummaryVec
 }
 
 // NewPrometheusCollector returns a new PrometheusCollector
 func NewPrometheusCollector() (zipkintracer.Collector, error) {
-	pc := &PrometheusCollector{make(map[string]*prometheus.HistogramVec), make(map[string][]string)}
+	pc := &PrometheusCollector{
+		make(map[string]*prometheus.HistogramVec),
+	make(map[string][]string),
+		make(map[string]*prometheus.SummaryVec),
+	}
 	return pc, nil
 }
 
@@ -38,28 +46,39 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 	labelKeysFromSpan, labelValuesFromSpan := getLabels(span)
 
 	// get the HistogramVec for this span name
-	histogramVec, found := pc.histogramVecMap[span.GetName()]
+	expectedLabelKeys, found := pc.registeredLabelKeysMap[span.GetName()]
 	if !found {
 		// create a new HistogramVec
-		histogramVec = prometheus.NewHistogramVec(
+		histogramVec := prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name: "fn_span_" + span.GetName() + "_duration_seconds",
+				Name: "flow_span_" + span.GetName() + "_duration_secs_histogram",
 				Help: "Span " + span.GetName() + " duration, by span name",
 			},
 			labelKeysFromSpan,
 		)
+		// create a new SummaryVec
+		summaryVec := prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name: "flow_span_" + span.GetName() + "_duration_secs_summary",
+				Help: "Span " + span.GetName() + " duration, by span name",
+				Objectives: map[float64]float64 {0.5: 0.01, 0.9: 0.01, 0.99: 0.001},
+			},
+			labelKeysFromSpan,
+		)
 		pc.histogramVecMap[span.GetName()] = histogramVec
-		pc.registeredLabelKeysMap[span.GetName()] = labelKeysFromSpan
 		prometheus.MustRegister(histogramVec)
+		pc.summaryVecMap[span.GetName()] = summaryVec
+		prometheus.MustRegister(summaryVec)
+		pc.registeredLabelKeysMap[span.GetName()] = labelKeysFromSpan
 		labelValuesToUse = labelValuesFromSpan
 	} else {
-		// found an existing HistogramVec
+		// found an existing span name
 		// need to be careful here, since we must supply the same label keys as when we first created the metric
 		// otherwise we will get a "inconsistent label cardinality" panic
 		// that's why we saved the original label keys in the registeredLabelKeysMap map
 		// so we can use that to construct a map of label key/value pairs to set on the metric
 		labelValuesToUse = make(map[string]string)
-		for _, thisRegisteredLabelKey := range pc.registeredLabelKeysMap[span.GetName()] {
+		for _, thisRegisteredLabelKey := range expectedLabelKeys {
 			if value, found := labelValuesFromSpan[thisRegisteredLabelKey]; found {
 				labelValuesToUse[thisRegisteredLabelKey] = value
 			} else {
@@ -69,7 +88,8 @@ func (pc PrometheusCollector) Collect(span *zipkincore.Span) error {
 	}
 
 	// now report the metric value
-	histogramVec.With(labelValuesToUse).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
+	pc.histogramVecMap[span.GetName()].With(labelValuesToUse).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
+	pc.summaryVecMap[span.GetName()].With(labelValuesToUse).Observe((time.Duration(span.GetDuration()) * time.Microsecond).Seconds())
 
 	return nil
 }

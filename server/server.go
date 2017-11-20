@@ -60,6 +60,10 @@ func (s *Server) completeWithResult(graphID string, stageID string, req *http.Re
 }
 
 func (s *Server) handleStageOperation(c *gin.Context) {
+	operation := c.Param(paramOperation)
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "stage:" + operation)
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -70,7 +74,6 @@ func (s *Server) handleStageOperation(c *gin.Context) {
 		renderError(ErrInvalidStageID, c)
 		return
 	}
-	operation := c.Param(paramOperation)
 
 	switch operation {
 
@@ -159,6 +162,9 @@ func renderError(err error, c *gin.Context) {
 }
 
 func (s *Server) handleCreateGraph(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:create")
+	defer span.Finish()
 	log.Info("Creating graph")
 	functionID := c.Query(queryParamFunctionID)
 	graphID := c.Query(queryParamGraphID)
@@ -184,6 +190,9 @@ func (s *Server) handleCreateGraph(c *gin.Context) {
 }
 
 func (s *Server) handleGraphState(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:get")
+	defer span.Finish()
 
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
@@ -209,6 +218,9 @@ func resultStatus(result *model.CompletionResult) string {
 }
 
 func (s *Server) handleGetGraphStage(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "stage:get")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	stageID := c.Param(paramStageID)
 
@@ -344,6 +356,9 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 }
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:externalCompletion")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -402,14 +417,23 @@ func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
 }
 
 func (s *Server) handleAllOf(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:allOf")
+	defer span.Finish()
 	s.allOrAnyOf(c, model.CompletionOperation_allOf)
 }
 
 func (s *Server) handleAnyOf(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:anyOf")
+	defer span.Finish()
 	s.allOrAnyOf(c, model.CompletionOperation_anyOf)
 }
 
 func (s *Server) handleSupply(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:supply")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -456,6 +480,9 @@ func (s *Server) handleSupply(c *gin.Context) {
 }
 
 func (s *Server) handleCompletedValue(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:completedValue")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -489,6 +516,10 @@ func (s *Server) addStage(request model.AddStageCommand) (*model.AddStageRespons
 }
 
 func (s *Server) handleCommit(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:commit")
+	defer span.Finish()
+
 	graphID := c.Param(paramGraphID)
 	request := model.CommitGraphRequest{GraphId: graphID}
 
@@ -503,6 +534,9 @@ func (s *Server) handleCommit(c *gin.Context) {
 }
 
 func (s *Server) handleDelay(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:delay")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -535,6 +569,9 @@ func (s *Server) handleDelay(c *gin.Context) {
 }
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:invokeFunction")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -576,6 +613,9 @@ func (s *Server) handleInvokeFunction(c *gin.Context) {
 }
 
 func (s *Server) handleAddTerminationHook(c *gin.Context) {
+	span := opentracing.StartSpan("api")
+	span.SetTag("fn_operation", "graph:addTerminationHook")
+	defer span.Finish()
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)

@@ -10,7 +10,19 @@ import (
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	activeGraphsMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "flow_concurrent_active_graphs",
+		Help: "Currently active graphs.",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(activeGraphsMetric)
+}
 
 type graphSupervisor struct {
 	executor            *actor.PID
@@ -42,11 +54,13 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 func (s *graphSupervisor) handleActiveGraph(graphID string) {
 	s.log.WithField("graph_id", graphID).Debug("Adding active graph")
 	s.activeGraphs[graphID] = true
+	activeGraphsMetric.Set(float64(len(s.activeGraphs)))
 }
 
 func (s *graphSupervisor) handleInactiveGraph(graphID string) {
 	s.log.WithField("graph_id", graphID).Debug("Removing inactive graph")
 	delete(s.activeGraphs, graphID)
+	activeGraphsMetric.Set(float64(len(s.activeGraphs)))
 }
 
 func (s *graphSupervisor) receiveCommand(context actor.Context) {

@@ -433,7 +433,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 			return model.NewInvalidDelayError(msg.GraphId, msg.DelayMs)
 		}
 
-	case *model.AddChainedStageRequest:
+	case *model.AddStageRequest:
 		if valid := graph.validateStages(msg.Deps); !valid {
 			return model.NewInvalidStageDependenciesError(msg.GraphId)
 		}
@@ -444,7 +444,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
 		}
 
-	case *model.GetStageResultRequest:
+	case *model.AwaitStageResultRequest:
 		if valid := graph.validateStages(append(make([]string, 0), msg.StageId)); !valid {
 			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
 		}

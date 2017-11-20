@@ -3,15 +3,13 @@ package query
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/AsynkronIT/protoactor-go/eventstream"
-	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	"context"
 )
 
 type subscribeGraph struct {
@@ -29,18 +27,41 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 	}
 
 	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
-	sub, err := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
+
+	req := &model.StreamRequest{
+		Query: &model.StreamRequest_Graph{
+			Graph: &model.StreamGraph{
+				GraphId: sg.GraphID,
+			},
+		},
+	}
+
+	client, err := l.manager.StreamEvents(context.Background(), req)
 	if err != nil {
 		return err
 	}
-	l.subscriptions[sg.GraphID] = sub
+	go func() {
+		for {
+			msg, err := client.Recv()
+			if err != nil {
+				return
+			}
+			msg.GetVal()
+
+			// TODO: send to graph
+		}
+	}()
+
+	//sub, err := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
+
+	l.subscriptions[sg.GraphID] = client
 	return nil
 }
 
 func (sg *unSubscribeGraph) Action(l *wsWorker) error {
 	if sub, ok := l.subscriptions[sg.GraphID]; ok {
 		delete(l.subscriptions, sg.GraphID)
-		l.manager.UnsubscribeStream(sub)
+		sub.CloseSend()
 	}
 	return nil
 }
@@ -78,9 +99,9 @@ type wsCommandHandler interface {
 
 type wsWorker struct {
 	conn          *websocket.Conn
-	subscriptions map[string]*eventstream.Subscription
+	subscriptions map[string]model.FlowService_StreamEventsClient
 	marshaller    jsonpb.Marshaler
-	manager       actor.GraphManager
+	manager       model.FlowServiceClient
 }
 
 type rawEventMsg struct {
@@ -111,21 +132,27 @@ func (l *wsWorker) Run() {
 	defer l.Close()
 	defer l.conn.Close()
 
-	lifecycleEventPred := func(event *persistence.StreamEvent) bool {
-		if !strings.HasPrefix(event.ActorName, "supervisor") {
-			return false
-		}
-		switch event.Event.(type) {
-		case *model.GraphCreatedEvent:
-			return true
-		case *model.GraphCompletedEvent:
-			return true
-		}
-		return false
-	}
+	//lifecycleEventPred := func(event *persistence.StreamEvent) bool {
+	//	if !strings.HasPrefix(event.ActorName, "supervisor") {
+	//		return false
+	//	}
+	//	switch event.Event.(type) {
+	//	case *model.GraphCreatedEvent:
+	//		return true
+	//	case *model.GraphCompletedEvent:
+	//		return true
+	//	}
+	//	return false
+	//}
 
 	subscriptionID := "_all"
-	sub := l.manager.StreamNewEvents(lifecycleEventPred, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, subscriptionID) })
+
+	sub, err := l.manager.StreamEvents(context.Background(), &model.StreamRequest{Query: &model.StreamRequest_Lifecycle{}})
+
+	// TODO send back lifecycle events.
+	if err != nil {
+		return
+	}
 
 	l.subscriptions[subscriptionID] = sub
 
@@ -156,13 +183,13 @@ func (l *wsWorker) Run() {
 func (l *wsWorker) Close() {
 	for id, s := range l.subscriptions {
 		log.Debugf("Unsubscribing %v from stream %s", l.conn.RemoteAddr(), id)
-		l.manager.UnsubscribeStream(s)
+		s.CloseSend()
 	}
 }
 
-func newWorker(conn *websocket.Conn, manager actor.GraphManager) *wsWorker {
+func newWorker(conn *websocket.Conn, manager model.FlowServiceClient) *wsWorker {
 	return &wsWorker{conn: conn,
-		subscriptions: make(map[string]*eventstream.Subscription),
-		marshaller:    jsonpb.Marshaler{EmitDefaults: true, OrigName: true},
-		manager:       manager}
+		subscriptions: make(map[string]model.FlowService_StreamEventsClient),
+		marshaller: jsonpb.Marshaler{EmitDefaults: true, OrigName: true},
+		manager: manager}
 }

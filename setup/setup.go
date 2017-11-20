@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	envFnAPIURL         = "API_URL"
-	envDBURL            = "DB_URL"
-	envLogLevel         = "LOG_LEVEL"
-	envListen           = "LISTEN"
+	envFnAPIURL = "API_URL"
+	envDBURL    = "DB_URL"
+	envLogLevel = "LOG_LEVEL"
+	envListen   = "LISTEN"
+
 	envSnapshotInterval = "SNAPSHOT_INTERVAL"
 	envRequestTimeout   = "REQUEST_TIMEOUT"
 
@@ -39,7 +40,7 @@ const (
 var log = logrus.New().WithField("logger", "setup")
 
 // InitFromEnv sets up a whole  flow service from env/config
-func InitFromEnv() (*server.Server, error) {
+func InitFromEnv() (*server.Server, *server.InternalServer, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
@@ -52,13 +53,14 @@ func InitFromEnv() (*server.Server, error) {
 	viper.SetDefault(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
 	viper.SetDefault(envLogLevel, "debug")
 	viper.SetDefault(envListen, fmt.Sprintf(":8081"))
+
 	viper.SetDefault(envSnapshotInterval, "1000")
 	viper.SetDefault(envRequestTimeout, "60000ms")
 	viper.SetDefault(envClusterNodeCount, "1")
 	viper.SetDefault(envClusterShardCount, "1")
 	viper.SetDefault(envClusterNodePrefix, "node-")
 	viper.SetDefault(envClusterNodeID, "0")
-	viper.SetDefault(envClusterNodePort, "8081")
+	viper.SetDefault(envClusterNodePort, "19081")
 	viper.AutomaticEnv()
 
 	logLevel, err := logrus.ParseLevel(viper.GetString(envLogLevel))
@@ -74,7 +76,7 @@ func InitFromEnv() (*server.Server, error) {
 
 	provider, blobStore, err := initStorageFromEnv()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	nodeCount := viper.GetInt(envClusterNodeCount)
@@ -95,20 +97,23 @@ func InitFromEnv() (*server.Server, error) {
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
 	shards := clusterManager.LocalShards()
-	graphManager, err := actor.NewGraphManager(provider, blobStore, viper.GetString(envFnAPIURL), shardExtractor, shards)
+
+	localGraphManager, err := actor.NewGraphManager(provider, blobStore, viper.GetString(envFnAPIURL), shardExtractor, shards)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	localServer, err := server.NewInternalFlowService(localGraphManager, ":"+viper.GetString(envClusterNodePort))
+	if err != nil {
+		return nil, nil, err
 	}
 
-	srv, err := server.New(clusterManager, graphManager, viper.GetString(envListen), viper.GetDuration(envRequestTimeout), viper.GetString(envZipkinURL))
-
-	blobs.NewFromEngine(blobStore, srv.Engine)
+	apiServer, err := server.NewAPIServer(clusterManager, viper.GetString(envListen), viper.GetString(envZipkinURL))
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return srv, nil
+	return apiServer, localServer, nil
 }
 
 func initStorageFromEnv() (persistence.ProviderState, blobs.Store, error) {

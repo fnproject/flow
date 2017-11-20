@@ -64,8 +64,6 @@ func (m *InvalidGraphOperation) Error() string {
 type GraphMessage interface {
 	proto.Message
 	GetGraphId() string
-	SetGraphId(string)
-
 }
 
 // StageMessage is any message that belongs exclusively a stage (and hence a graph)
@@ -73,9 +71,7 @@ type GraphMessage interface {
 type StageMessage interface {
 	proto.Message
 	GetGraphId() string
-	SetGraphId(string)
 	GetStageId() string
-	SetStageId(string)
 }
 
 // Event is the base interface for all things that may be persisted to the Journal
@@ -98,15 +94,15 @@ type AddStageCommand interface {
 	GetCallerId() string
 }
 
-// GetOperation for AddStageCommand.GetOperation
-func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
-	return CompletionOperation_externalCompletion
-}
-
-// GetDependencyCount for AddStageCommand.GetDependencyCount
-func (m *AddExternalCompletionStageRequest) GetDependencyCount() int {
-	return 0
-}
+//// GetOperation for AddStageCommand.GetOperation
+//func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
+//	return CompletionOperation_externalCompletion
+//}
+//
+//// GetDependencyCount for AddStageCommand.GetDependencyCount
+//func (m *AddExternalCompletionStageRequest) GetDependencyCount() int {
+//	return 0
+//}
 
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddCompletedValueStageRequest) GetOperation() CompletionOperation {
@@ -129,7 +125,7 @@ func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 }
 
 // GetDependencyCount for AddStageCommand.GetDependencyCount
-func (m *AddChainedStageRequest) GetDependencyCount() int {
+func (m *AddStageRequest) GetDependencyCount() int {
 	return len(m.Deps)
 }
 

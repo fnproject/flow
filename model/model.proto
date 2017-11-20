@@ -310,16 +310,17 @@ message InvokeStageRequest {
 
 message GraphEvent {
     uint64 seq = 1;
+    string graph_id = 2;
     oneof val {
-        GraphCreatedEvent graph_created = 2;
-        GraphTerminatingEvent graph_termianting = 3;
-        GraphCompletedEvent graph_completed = 4;
-        DelayScheduledEvent delay_scheduled = 5;
-        StageAddedEvent stage_added = 6;
-        StageCompletedEvent stage_completed = 7;
-        StageComposedEvent stage_composed = 8;
-        FaasInvocationStartedEvent faas_invocation_started = 9;
-        FaasInvocationCompletedEvent faas_invocation_completed = 10;
+        GraphCreatedEvent graph_created = 10;
+        GraphTerminatingEvent graph_termianting = 11;
+        GraphCompletedEvent graph_completed = 12;
+        DelayScheduledEvent delay_scheduled = 13;
+        StageAddedEvent stage_added = 14;
+        StageCompletedEvent stage_completed = 15;
+        StageComposedEvent stage_composed = 16;
+        FaasInvocationStartedEvent faas_invocation_started = 17;
+        FaasInvocationCompletedEvent faas_invocation_completed = 18;
     }
 
 }

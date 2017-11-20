@@ -204,16 +204,16 @@ func (m *actorManager) forwardRequest(req interface{}, ctx context.Context) (int
 
 func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowService_StreamEventsServer) error {
 	// TODO Hook up streams
-	switch q := req.GetQuery().(type) {
-	case model.StreamRequest_Lifecycle:
-		{
-
-		}
-	case model.StreamRequest_Graph:
-		{
-
-		}
-	}
+	//switch q := req.GetQuery().(type) {
+	//case *model.StreamRequest_Lifecycle:
+	//	{
+	//
+	//	}
+	//case *model.StreamRequest_Graph:
+	//	{
+	//
+	//	}
+	// }
 	return nil
 }
 

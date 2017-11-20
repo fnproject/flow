@@ -20,6 +20,7 @@ func NewFromEngine(store Store, engine *gin.Engine) *Server {
 	}
 	createBlobAPI(server)
 	return server
+
 }
 
 func (s *Server) createBlob(c *gin.Context) {

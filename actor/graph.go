@@ -136,7 +136,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Get graph state")
 		context.Respond(g.createExternalState())
 
-	case *model.AddChainedStageRequest:
+	case *model.AddStageRequest:
 		g.log.Debug("Adding chained stage")
 		stageID := g.graph.NextStageID()
 
@@ -191,18 +191,18 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.scheduleDelay(delayEvent)
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
-	case *model.AddExternalCompletionStageRequest:
-		g.log.Debug("Adding external completion stage")
-		stageID := g.graph.NextStageID()
-
-		g.persistAndUpdateGraph(&model.StageAddedEvent{
-			StageId:      stageID,
-			Op:           msg.GetOperation(),
-			Ts:           currentTimestamp(),
-			CodeLocation: msg.CodeLocation,
-			CallerId:     msg.CallerId,
-		})
-		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
+	//case *model.AddExternalCompletionStageRequest:
+	//	g.log.Debug("Adding external completion stage")
+	//	stageID := g.graph.NextStageID()
+	//
+	//	g.persistAndUpdateGraph(&model.StageAddedEvent{
+	//		StageId:      stageID,
+	//		Op:           msg.GetOperation(),
+	//		Ts:           currentTimestamp(),
+	//		CodeLocation: msg.CodeLocation,
+	//		CallerId:     msg.CallerId,
+	//	})
+	//	context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
@@ -260,7 +260,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		context.SetReceiveTimeout(completionTimeout)
 		context.Respond(response)
 
-	case *model.GetStageResultRequest:
+	case *model.AwaitStageResultRequest:
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Retrieving stage result")
 		stage := g.graph.GetStage(msg.StageId)
 		context.AwaitFuture(stage.WhenComplete(), func(result interface{}, err error) {
@@ -268,7 +268,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 				context.Respond(model.NewAwaitStageError(msg.GraphId, msg.StageId))
 				return
 			}
-			response := &model.GetStageResultResponse{
+			response := &model.AwaitStageResultResponse{
 				GraphId: msg.GraphId,
 				StageId: msg.StageId,
 				Result:  result.(*model.CompletionResult),

@@ -1,17 +1,15 @@
 package cluster
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-
 	"github.com/fnproject/flow/sharding"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
+	"github.com/fnproject/flow/model"
+	"google.golang.org/grpc"
+	"time"
 )
 
 var log = logrus.WithField("logger", "cluster")
@@ -24,12 +22,11 @@ type Settings struct {
 	NodePort   int
 }
 
-func (s *Settings) nodeAddress(i int) (*url.URL, error) {
-	nodeURL, err := url.Parse(fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort))
-	if err != nil {
-		return nil, err
+func (s *Settings) nodeAddress(i int) string {
+	if i == s.NodeID {
+		return fmt.Sprintf("http://localhost:%d", s.NodePort)
 	}
-	return nodeURL, nil
+	return fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort)
 }
 
 func (s *Settings) nodeName(index int) string {
@@ -41,21 +38,25 @@ type Manager struct {
 	settings  *Settings
 	extractor sharding.ShardExtractor
 	// node -> proxy
-	reverseProxies map[string]*httputil.ReverseProxy
+	reverseProxies map[string]model.FlowServiceClient
 }
 
 // NewManager creates a new cluster manager
 func NewManager(settings *Settings, extractor sharding.ShardExtractor) *Manager {
-	proxies := make(map[string]*httputil.ReverseProxy, settings.NodeCount)
+	proxies := make(map[string]model.FlowServiceClient, settings.NodeCount)
 	for i := 0; i < settings.NodeCount; i++ {
 		nodeName := settings.nodeName(i)
-		nodeURL, err := settings.nodeAddress(i)
+		address:= settings.nodeAddress(i)
 
+		log.WithField("address",address).WithField("node_idx",i).Debug("connecting to shard")
+		conn, err := grpc.Dial(address, grpc.WithInsecure(),grpc.WithBackoffConfig(grpc.BackoffConfig{MaxDelay:500 * time.Millisecond}))
 		if err != nil {
-			panic("Failed to generate proxy URL " + err.Error())
+			panic(err.Error())
 		}
-		p := httputil.NewSingleHostReverseProxy(nodeURL)
-		proxies[nodeName] = p
+		log.WithField("address",address).WithField("node_idx",i).Debug("connected to shard")
+
+		proxies[nodeName] = model.NewFlowServiceClient(conn)
+
 	}
 	log.Info(fmt.Sprintf("Created shard proxy with settings: %+v", settings))
 	return &Manager{settings: settings, extractor: extractor, reverseProxies: proxies}
@@ -72,13 +73,13 @@ func (m *Manager) LocalShards() (shards []int) {
 	return
 }
 
-func (m *Manager) forward(writer http.ResponseWriter, req *http.Request, node string) error {
-	proxy, ok := m.reverseProxies[node]
-	if !ok {
-		return fmt.Errorf("missing proxy for node %s", node)
+func (m *Manager) GetClient(graphID string) (model.FlowServiceClient, error) {
+	idx, err := m.resolveNode(graphID)
+	if err != nil {
+		return nil, err
 	}
-	proxy.ServeHTTP(writer, req)
-	return nil
+
+	return m.reverseProxies[ m.settings.nodeName(idx)], nil
 }
 
 func (m *Manager) resolveNode(graphID string) (int, error) {
@@ -118,29 +119,30 @@ func extractGraphID(c *gin.Context) string {
 	return c.Param("graphId")
 }
 
-// ProxyHandler is a gin middleware that sends API requests targeted at other nodes to them directly
-func (m *Manager) ProxyHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		forward, node := m.shouldForward(c)
-		if !forward {
-			log.Debug("Processing request locally")
-			return
-		}
-		graphID := extractGraphID(c)
-		log.WithField("graph_id", graphID).
-			WithField("proxy_node", node).
-			WithField("proxy_url", c.Request.URL.String()).
-			Debug("Proxying graph request")
-
-		if err := m.forward(c.Writer, c.Request, node); err != nil {
-			// TODO should we retry if this fails? buffer requests while upstream is unavailable?
-			log.WithField("graph_id", graphID).
-				WithField("proxy_node", node).
-				WithField("proxy_url", c.Request.URL.String()).
-				Warn("Failed to proxy graph request")
-			c.AbortWithError(502, errors.New("failed to proxy graph request"))
-			return
-		}
-		c.Abort()
-	}
-}
+//
+//// ProxyHandler is a gin middleware that sends API requests targeted at other nodes to them directly
+//func (m *Manager) ProxyHandler() gin.HandlerFunc {
+//	return func(c *gin.Context) {
+//		forward, node := m.shouldForward(c)
+//		if !forward {
+//			log.Debug("Processing request locally")
+//			return
+//		}
+//		graphID := extractGraphID(c)
+//		log.WithField("graph_id", graphID).
+//			WithField("proxy_node", node).
+//			WithField("proxy_url", c.Request.URL.String()).
+//			Debug("Proxying graph request")
+//
+//		if err := m.forward(c.Writer, c.Request, node); err != nil {
+//			// TODO should we retry if this fails? buffer requests while upstream is unavailable?
+//			log.WithField("graph_id", graphID).
+//				WithField("proxy_node", node).
+//				WithField("proxy_url", c.Request.URL.String()).
+//				Warn("Failed to proxy graph request")
+//			c.AbortWithError(502, errors.New("failed to proxy graph request"))
+//			return
+//		}
+//		c.Abort()
+//	}
+//}

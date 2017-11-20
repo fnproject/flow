@@ -3,10 +3,10 @@ package query
 import (
 	"net/http"
 
-	"github.com/fnproject/flow/actor"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/fnproject/flow/model"
 )
 
 var log = logrus.WithField("logger", "query")
@@ -20,7 +20,7 @@ var wsupgrader = websocket.Upgrader{
 }
 
 // WSSHandler returns a gin handler function for websocket queries
-func WSSHandler(manager actor.GraphManager, w gin.ResponseWriter, r *http.Request) {
+func WSSHandler(manager model.FlowServiceClient, w gin.ResponseWriter, r *http.Request) {
 	conn, err := wsupgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Debugf("Failed to set websocket upgrade: %+v", err)

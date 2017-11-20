@@ -9,6 +9,7 @@ import (
 
 	"net/url"
 
+	go_proto_validators "github.com/mwitkow/go-proto-validators"
 	protoactor "github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/flow/actor"
 	"github.com/fnproject/flow/cluster"
@@ -22,6 +23,7 @@ import (
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -33,103 +35,100 @@ const (
 	paramStageID   = "stageId"
 	paramOperation = "operation"
 
-	queryParamGraphID    = "graphId"
-	queryParamFunctionID = "functionId"
+	queryParamGraphID = "graphId"
 )
 
 var log = logrus.WithField("logger", "server")
 
-func (s *Server) completeWithResult(graphID string, stageID string, req *http.Request) (*model.CompleteStageExternallyResponse, error) {
-
-	result, err := protocol.CompletionResultFromRequest(req)
+// extractRequests does some default processing based on the type of the request
+func extractRequest(c *gin.Context, msg proto.Message) error {
+	err := c.MustBindWith(msg, &JSONPBBinding{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	request := model.CompleteStageExternallyRequest{
-		GraphId: graphID,
-		StageId: stageID,
-		Result:  result,
+	graphMessage, ok := msg.(model.GraphMessage)
+
+	if ok {
+		graphID := c.Param(paramGraphID)
+		if !validGraphID(graphID) {
+			renderError(ErrInvalidGraphID, c)
+			return err
+		}
+
+		graphMessage.SetGraphId(graphID)
 	}
 
-	response, err := s.GraphManager.CompleteStageExternally(&request, s.requestTimeout)
+	stageMessage, ok := msg.(model.StageMessage)
 
-	return response, err
+	if ok {
+		graphID := c.Param(paramGraphID)
+		if !validGraphID(graphID) {
+			renderError(ErrInvalidGraphID, c)
+			return err
+		}
+
+		stageID := c.Param(paramStageID)
+		if !validStageID(graphID) {
+			renderError(ErrInvalidDepStageID, c)
+			return err
+		}
+
+		stageMessage.SetGraphId(graphID)
+		stageMessage.SetStageId(stageID)
+	}
+
+	v, ok := msg.(go_proto_validators.Validator)
+
+	if ok {
+		err = v.Validate()
+		if err != nil {
+			renderError(&Error{HTTPStatus: 400, Message: err.Error()}, c)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleStageOperation(c *gin.Context) {
-	graphID := c.Param(paramGraphID)
-	if !validGraphID(graphID) {
-		renderError(ErrInvalidGraphID, c)
-		return
-	}
-	stageID := c.Param(paramStageID)
-	if !validStageID(graphID) {
-		renderError(ErrInvalidStageID, c)
-		return
-	}
+
 	operation := c.Param(paramOperation)
 
 	switch operation {
 
 	case "complete":
-		response, err := s.completeWithResult(graphID, stageID, c.Request)
+		request := &model.CompleteStageExternallyRequest{}
+
+		err := extractRequest(c, request)
+		if err != nil {
+			return
+		}
+
+		response, err := s.GraphManager.CompleteStageExternally(request, s.requestTimeout)
 		if err != nil {
 			renderError(err, c)
 			return
 		}
-		c.Header(protocol.HeaderStageRef, response.StageId)
 		if response.Successful {
-			c.Status(http.StatusOK)
+			c.Render(http.StatusOK, &JSONPBRender{Msg: response})
 		} else {
 			c.String(http.StatusConflict, "Stage is already completed")
 		}
 
 	default:
-		other := c.Query("other")
-		cids := []string{stageID}
-		if other != "" {
-			if !validStageID(other) {
-				renderError(ErrInvalidDepStageID, c)
-				return
-			}
-			cids = append(cids, other)
-		}
-
-		completionOperation, found := model.CompletionOperation_value[operation]
-		if !found {
-			renderError(ErrUnrecognisedCompletionOperation, c)
-			return
-
-		}
-
-		blob, err := protocol.BlobFromRequest(c.Request)
+		request := &model.AddChainedStageRequest{}
+		err := extractRequest(c, request)
 		if err != nil {
-			renderError(err, c)
 			return
 		}
 
-		codeLoc := c.GetHeader(protocol.HeaderCodeLocation)
-
-		// TODO: enforce valid content type
-		// TODO: generic error handling
-		request := &model.AddChainedStageRequest{
-			GraphId:      graphID,
-			Deps:         cids,
-			Operation:    model.CompletionOperation(completionOperation),
-			Closure:      blob,
-			CodeLocation: codeLoc,
-			CallerId:     c.GetHeader(protocol.HeaderCallerRef),
-		}
 		response, err := s.addStage(request)
 
 		if err != nil {
 			renderError(err, c)
 			return
 		}
-
-		c.Header(protocol.HeaderStageRef, response.StageId)
-		c.Status(http.StatusOK)
+		c.Render(http.StatusOK, &JSONPBRender{Msg: response})
 	}
 }
 
@@ -153,59 +152,53 @@ func renderError(err error, c *gin.Context) {
 
 func (s *Server) handleCreateGraph(c *gin.Context) {
 	log.Info("Creating graph")
-	functionID := c.Query(queryParamFunctionID)
-	graphID := c.Query(queryParamGraphID)
+	req := &model.CreateGraphRequest{}
 
-	if !validFunctionID(functionID, false) {
-		log.WithField("function_id", functionID).Info("Invalid function iD ")
+	err := extractRequest(c, req)
+	if err != nil {
+		return
+	}
+
+	if !validFunctionID(req.FunctionId, false) {
+		log.WithField("function_id", req.FunctionId).Info("Invalid function iD ")
 		renderError(ErrInvalidFunctionID, c)
 		return
 	}
-	if !validGraphID(graphID) {
-		renderError(ErrInvalidGraphID, c)
-		return
-	}
 
-	req := &model.CreateGraphRequest{FunctionId: functionID, GraphId: graphID}
 	result, err := s.GraphManager.CreateGraph(req, s.requestTimeout)
 	if err != nil {
 		renderError(err, c)
 		return
 	}
-	c.Header(protocol.HeaderFlowID, result.GraphId)
-	c.Status(http.StatusOK)
+
+	c.Render(http.StatusOK, &JSONPBRender{Msg: result})
 }
 
 func (s *Server) handleGraphState(c *gin.Context) {
 
-	graphID := c.Param(paramGraphID)
-	if !validGraphID(graphID) {
-		renderError(ErrInvalidGraphID, c)
-		return
-	}
+	request := &model.GetGraphStateRequest{}
+	err := extractRequest(c, request)
 
-	request := &model.GetGraphStateRequest{GraphId: graphID}
 	resp, err := s.GraphManager.GetGraphState(request, s.requestTimeout)
 
 	if err != nil {
 		renderError(err, c)
 		return
 	}
-	c.JSON(http.StatusOK, resp)
+	c.Render(http.StatusOK, &JSONPBRender{Msg: resp})
 }
 
 func (s *Server) handleGetGraphStage(c *gin.Context) {
-	graphID := c.Param(paramGraphID)
-	stageID := c.Param(paramStageID)
+
+	request := &model.AwaitStageResultRequest{}
+
+	extractRequest(c, request)
 
 	timeout := maxRequestTimeout
 
-	if timeoutMs := c.Query("timeoutMs"); timeoutMs != "" {
-		userTimeout, err := time.ParseDuration(timeoutMs + "ms")
-		if err != nil {
-			renderError(ErrInvalidGetTimeout, c)
-			return
-		}
+	if request.TimeoutMs != 0 {
+		userTimeout := time.Duration(request.TimeoutMs * 1000)
+
 		userTimeoutInt := int64(userTimeout)
 		if userTimeoutInt == 0 {
 			// block "indefinitely"
@@ -218,21 +211,9 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 		}
 	}
 
-	if !validGraphID(graphID) {
-		renderError(ErrInvalidGraphID, c)
-		return
-	}
-	if !validStageID(stageID) {
-		renderError(ErrInvalidStageID, c)
-		return
-	}
+	request.TimeoutMs = uint64(timeout / 1000)
 
-	request := model.GetStageResultRequest{
-		GraphId: graphID,
-		StageId: stageID,
-	}
-
-	response, err := s.GraphManager.GetStageResult(&request, timeout)
+	response, err := s.GraphManager.AwaitStageResult(request, timeout)
 
 	if err == protoactor.ErrTimeout {
 		c.Data(http.StatusRequestTimeout, "text/plain", []byte("stage not completed"))
@@ -245,34 +226,26 @@ func (s *Server) handleGetGraphStage(c *gin.Context) {
 	}
 
 	result := response.GetResult()
-	err = protocol.WriteResult(protocol.NewResponseWriterTarget(c.Writer), result)
+	// TODO? render result or response?
+	c.Render(http.StatusOK,&JSONPBRender{Msg:result})
 
-	if err != nil {
-		log.WithError(err).Warn("Failed to write response to client ")
-	}
 
 }
 
 func (s *Server) handleExternalCompletion(c *gin.Context) {
-	graphID := c.Param(paramGraphID)
-	if !validGraphID(graphID) {
-		renderError(ErrInvalidGraphID, c)
+	request := &model.AddExternalCompletionStageRequest{}
+
+	err := extractRequest(c, request)
+	if err != nil {
 		return
-	}
-	request := &model.AddExternalCompletionStageRequest{
-		GraphId:      graphID,
-		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
-		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
 	}
 
 	response, err := s.addStage(request)
-
 	if err != nil {
 		renderError(err, c)
 		return
 	}
-	c.Header(protocol.HeaderStageRef, response.StageId)
-	c.Status(http.StatusOK)
+	c.Render(http.StatusOK, &JSONPBRender{Msg: response})
 }
 
 func (s *Server) allOrAnyOf(c *gin.Context, op model.CompletionOperation) {
@@ -417,7 +390,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 
 	request := &model.AddDelayStageRequest{GraphId: graphID, DelayMs: delay,
 		CodeLocation: c.GetHeader(protocol.HeaderCodeLocation),
-		CallerId:     c.GetHeader(protocol.HeaderCallerRef),
+		CallerId: c.GetHeader(protocol.HeaderCallerRef),
 	}
 	response, err := s.addStage(request)
 
@@ -430,6 +403,7 @@ func (s *Server) handleDelay(c *gin.Context) {
 }
 
 func (s *Server) handleInvokeFunction(c *gin.Context) {
+
 	graphID := c.Param(paramGraphID)
 	if !validGraphID(graphID) {
 		renderError(ErrInvalidGraphID, c)
@@ -601,10 +575,11 @@ func (s *Server) Run() {
 // context handler that intercepts graph create requests, injecting a UUID parameter prior
 // to forwarding to the appropriate node in the cluster
 func graphCreateInterceptor(c *gin.Context) {
+	// TODO need to prevent clients from defining new graph IDs
 	if c.Request.URL.Path == "/graph" && len(c.Query(queryParamGraphID)) == 0 {
 		UUID, err := uuid.NewRandom()
 		if err != nil {
-			c.AbortWithError(500, errors.New("Failed to generate UUID for new graph"))
+			c.AbortWithError(500, errors.New("failed to generate UUID for new graph"))
 			return
 		}
 		graphID := UUID.String()
@@ -617,28 +592,26 @@ func graphCreateInterceptor(c *gin.Context) {
 	}
 }
 
+func (s *Server) handleAddStage(c *gin.Context){
+
+}
+
 func createGraphAPI(s *Server, manager actor.GraphManager) {
 	s.Engine.GET("/wss", func(c *gin.Context) {
 		query.WSSHandler(manager, c.Writer, c.Request)
 	})
 	graph := s.Engine.Group("/graph")
 	{
-		graph.POST("", s.handleCreateGraph)
-		graph.GET("/:graphId", s.handleGraphState)
-		graph.POST("/:graphId/supply", s.handleSupply)
-		graph.POST("/:graphId/invokeFunction", s.handleInvokeFunction)
-		graph.POST("/:graphId/completedValue", s.handleCompletedValue)
-		graph.POST("/:graphId/delay", s.handleDelay)
-		graph.POST("/:graphId/allOf", s.handleAllOf)
-		graph.POST("/:graphId/anyOf", s.handleAnyOf)
-		graph.POST("/:graphId/externalCompletion", s.handleExternalCompletion)
-		graph.POST("/:graphId/commit", s.handleCommit)
-		graph.POST("/:graphId/terminationHook", s.handleAddTerminationHook)
+		graph.POST("/create", s.handleCreateGraph)
+		graph.POST("/getGraph", s.handleGraphState)
+		graph.POST("/getStage", s.handleGetGraphStage)
+		graph.POST("/addStage", s.handleAddStage)
+		graph.POST("/completeStage", s.handleCompleteStage)
+		graph.POST("/addInvoke", s.handleInvokeFunction)
+		graph.POST("/addCompletedValue", s.handleCompletedValue)
+		graph.POST("/addDelay", s.handleDelay)
+		graph.POST("/commit", s.handleCommit)
 
-		stage := graph.Group("/:graphId/stage")
-		{
-			stage.GET("/:stageId", s.handleGetGraphStage)
-			stage.POST("/:stageId/:operation", s.handleStageOperation)
-		}
+
 	}
 }

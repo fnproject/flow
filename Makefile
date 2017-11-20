@@ -23,7 +23,9 @@ test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
-	protoc  --proto_path=$(@D) --go_out=$(@D) $<
+	# protoc  --proto_path=$(@D) --proto_path=./vendor --go_out=$(@D) 	--govalidators_out=$(@D) $<
+	protoc  --proto_path=$(@D) --proto_path=./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+      --go_out=plugins=grpc:$(@D)   --grpc-gateway_out=logtostderr=true:$(@D) --govalidators_out=$(@D) $<
 
 build: $(GOFILES)
 	go build -o flow-service

@@ -85,3 +85,7 @@ import:
 - package: github.com/go-sql-driver/mysql
   version: 1.3.0
 - package: github.com/mwitkow/go-proto-validators
+- package: github.com/grpc-ecosystem/grpc-gateway
+  version: v1.3
+  subpackages:
+  - third_party/googleapis

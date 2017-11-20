@@ -306,7 +306,7 @@ func (c *TestCase) Call(description string, method string, path string) *APIChai
 
 // StartWithGraph creates a new test tree with an graph
 func (c *TestCase) StartWithGraph(description string) *APIChain {
-	return c.Call(description, http.MethodPost, "/graph?functionId=testapp/fn").ExpectGraphCreated()
+	return c.Call(description, http.MethodPost, "/graph").WithBodyString("{}").ExpectGraphCreated()
 }
 
 // Run runs an whole test tree.

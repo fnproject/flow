@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"time"
-
 	"github.com/fnproject/flow/sharding"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -14,25 +12,13 @@ import (
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
+	"context"
+	"time"
 )
 
 const (
 	supervisorBaseName = "supervisor"
 )
-
-// GraphManager encapsulates all graph operations
-type GraphManager interface {
-	CreateGraph(*model.CreateGraphRequest, time.Duration) (*model.CreateGraphResponse, error)
-	AddStage(model.AddStageCommand, time.Duration) (*model.AddStageResponse, error)
-	GetStageResult(*model.GetStageResultRequest, time.Duration) (*model.GetStageResultResponse, error)
-	CompleteStageExternally(*model.CompleteStageExternallyRequest, time.Duration) (*model.CompleteStageExternallyResponse, error)
-	Commit(*model.CommitGraphRequest, time.Duration) (*model.GraphRequestProcessedResponse, error)
-	GetGraphState(*model.GetGraphStateRequest, time.Duration) (*model.GetGraphStateResponse, error)
-	StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription
-	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error)
-	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error
-	UnsubscribeStream(sub *eventstream.Subscription)
-}
 
 type actorManager struct {
 	log                 *logrus.Entry
@@ -44,7 +30,7 @@ type actorManager struct {
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
-func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore blobs.Store, fnURL string, shardExtractor sharding.ShardExtractor, shards []int) (GraphManager, error) {
+func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore blobs.Store, fnURL string, shardExtractor sharding.ShardExtractor, shards []int) (model.FlowServiceServer, error) {
 
 	log := logrus.WithField("logger", "graphmanager_actor")
 
@@ -97,13 +83,9 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 	}, nil
 }
 
-func (m *actorManager) QueryJournal(graphID string, eventIndex int, fn func(idx int, evt interface{})) {
-	m.persistenceProvider.GetStreamingState().GetEvents(graphID, eventIndex, fn)
-}
-
-func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.Duration) (*model.CreateGraphResponse, error) {
+func (m *actorManager) CreateGraph(ctx context.Context, req *model.CreateGraphRequest) (*model.CreateGraphResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Creating graph")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e
 	}
@@ -111,17 +93,38 @@ func (m *actorManager) CreateGraph(req *model.CreateGraphRequest, timeout time.D
 	return r.(*model.CreateGraphResponse), e
 }
 
-func (m *actorManager) GetGraphState(req *model.GetGraphStateRequest, timeout time.Duration) (*model.GetGraphStateResponse, error) {
+func (m *actorManager) GetGraphState(ctx context.Context, req *model.GetGraphStateRequest) (*model.GetGraphStateResponse, error) {
 	m.log.Debug("Getting graph stage")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e
 	}
 	return r.(*model.GetGraphStateResponse), e
 }
-func (m *actorManager) AddStage(req model.AddStageCommand, timeout time.Duration) (*model.AddStageResponse, error) {
+
+func (m *actorManager) AddInvokeFunction(ctx context.Context, req *model.AddInvokeFunctionStageRequest) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
+	if e != nil {
+		return nil, e
+	}
+
+	return r.(*model.AddStageResponse), e
+}
+
+func (m *actorManager) AddDelay(ctx context.Context, req *model.AddDelayStageRequest) (*model.AddStageResponse, error) {
+	m.log.Debug("Adding stage")
+	r, e := m.forwardRequest(req, ctx)
+	if e != nil {
+		return nil, e
+	}
+
+	return r.(*model.AddStageResponse), e
+}
+
+func (m *actorManager) AddStage(ctx context.Context, req *model.AddStageRequest) (*model.AddStageResponse, error) {
+	m.log.Debug("Adding stage")
+	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e
 	}
@@ -130,25 +133,25 @@ func (m *actorManager) AddStage(req model.AddStageCommand, timeout time.Duration
 
 }
 
-func (m *actorManager) GetStageResult(req *model.GetStageResultRequest, timeout time.Duration) (*model.GetStageResultResponse, error) {
+func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Getting stage result")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e
 	}
 
-	return r.(*model.GetStageResultResponse), e
+	return r.(*model.AwaitStageResultResponse), e
 }
 
-func (m *actorManager) CompleteStageExternally(req *model.CompleteStageExternallyRequest, timeout time.Duration) (*model.CompleteStageExternallyResponse, error) {
+func (m *actorManager) CompleteStageExternally(ctx context.Context, req *model.CompleteStageExternallyRequest) (*model.CompleteStageExternallyResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Completing stage externally")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
 	return r.(*model.CompleteStageExternallyResponse), e
 }
 
-func (m *actorManager) Commit(req *model.CommitGraphRequest, timeout time.Duration) (*model.GraphRequestProcessedResponse, error) {
+func (m *actorManager) Commit(ctx context.Context, req *model.CommitGraphRequest) (*model.GraphRequestProcessedResponse, error) {
 	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Committing graph")
-	r, e := m.forwardRequest(req, timeout)
+	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e
 	}
@@ -180,13 +183,13 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	return pid, nil
 }
 
-func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (interface{}, error) {
+func (m *actorManager) forwardRequest(req interface{}, ctx context.Context) (interface{}, error) {
 	supervisor, err := m.lookupSupervisor(req)
 	if err != nil {
 		return nil, err
 	}
-
-	future := supervisor.RequestFuture(req, timeout)
+	// TODO: timeouts from context
+	future := supervisor.RequestFuture(req, 5*time.Second)
 	r, err := future.Result()
 	if err != nil {
 		return nil, err
@@ -199,8 +202,24 @@ func (m *actorManager) forwardRequest(req interface{}, timeout time.Duration) (i
 	return r, nil
 }
 
+func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowService_StreamEventsServer) error {
+	// TODO Hook up streams
+	switch q := req.GetQuery().(type) {
+	case model.StreamRequest_Lifecycle:
+		{
+
+		}
+	case model.StreamRequest_Graph:
+		{
+
+		}
+	}
+	return nil
+}
+
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
+
 }
 
 func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error) {

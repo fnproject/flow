@@ -64,6 +64,8 @@ func (m *InvalidGraphOperation) Error() string {
 type GraphMessage interface {
 	proto.Message
 	GetGraphId() string
+	SetGraphId(string)
+
 }
 
 // StageMessage is any message that belongs exclusively a stage (and hence a graph)
@@ -71,7 +73,9 @@ type GraphMessage interface {
 type StageMessage interface {
 	proto.Message
 	GetGraphId() string
+	SetGraphId(string)
 	GetStageId() string
+	SetStageId(string)
 }
 
 // Event is the base interface for all things that may be persisted to the Journal

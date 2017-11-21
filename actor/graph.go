@@ -166,7 +166,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
 			StageId: stageID,
-			Result:  msg.Result,
+			Result:  msg.Value,
 			Ts:      currentTimestamp(),
 		})
 		context.Respond(&model.AddStageResponse{GraphId: msg.GraphId, StageId: stageID})

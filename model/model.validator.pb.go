@@ -235,12 +235,12 @@ func (this *AddCompletedValueStageRequest) Validate() error {
 	if this.GraphId == "" {
 		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
 	}
-	if nil == this.Result {
-		return go_proto_validators.FieldError("Result", fmt.Errorf("message must exist"))
+	if nil == this.Value {
+		return go_proto_validators.FieldError("Value", fmt.Errorf("message must exist"))
 	}
-	if this.Result != nil {
-		if err := go_proto_validators.CallValidatorIfExists(this.Result); err != nil {
-			return go_proto_validators.FieldError("Result", err)
+	if this.Value != nil {
+		if err := go_proto_validators.CallValidatorIfExists(this.Value); err != nil {
+			return go_proto_validators.FieldError("Value", err)
 		}
 	}
 	return nil
@@ -310,11 +310,11 @@ func (this *DeactivateGraphRequest) Validate() error {
 	return nil
 }
 
-var _regex_CreateGraphRequest_FunctionId = regexp.MustCompile("^(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+var _regex_CreateGraphRequest_FunctionId = regexp.MustCompile("^([a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
 
 func (this *CreateGraphRequest) Validate() error {
 	if !_regex_CreateGraphRequest_FunctionId.MatchString(this.FunctionId) {
-		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`function id must be an absolute function of form /app/fn/route`))
+		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`function id must be an absolute function of form "app/route"`))
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ The following sections define the request/response protocol for the lifetime of 
 
 The function creates a new flow by POST am empty request to the `/v1/flow/create` endpoint with a function ID  of the current function. 
  
-The function ID is the qualified path of the function in Fn starting with a leading slash followed by the app name and route. 
+The function ID is the qualified path of the function in Fn, containing the app name and route. 
 
 
 ```
@@ -39,7 +39,7 @@ POST /v1/flow/create HTTP/1.1
 Content-type: application/json 
 
 {
-   "function_id" : "/myapp/myroute",
+   "function_id" : "myapp/myroute",
 }
 
 ```
@@ -108,7 +108,8 @@ Content-type: application/json
 
 (`code_location` is optional and is used for information purposes) 
 
-The flow service returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new `stage_id"  in the body: 
+ 
 ```
 HTTP/1.1 200 OK
 Content-type: application/json 
@@ -140,7 +141,7 @@ Content-type: application/json
 
 ```
 
-or an `thenCompbine` stage that blocks until two stages are complete and passes both results to a closure 
+or an `thenCombine` stage that blocks until two stages are complete and passes both results to a closure 
 ```
 POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
 Content-type: application/json 
@@ -174,52 +175,89 @@ Content-type: application/json
 
 ### Runtime requests a function invocation via the flow service
 
-Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
+`invoke` creates a stage that immediately executes a call to another function in Fn and contains the target `function_id`, the  function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
 POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
 Content-type: application/json 
 
 {
-    "function_id" :"/otherapp/fn",
-    
-    "arg": { 
+    "function_id" :"otherapp/fn",
+    "arg": {
           "body" : {
             "blob_id": "my_blob_id",
-            "blob_length": 100, 
+            "blob_length": 100,
             "content_type": "application/java-serialized-object"
            },
-           
-           
+           "method": "post",
+           "headers": [ { "key":"accept","value":"*/*"}]
     },
     "code_location" : "com.myfn.MyClass#invokeFunction:123"
 }
 ```
 
-Again the flow service returns a new `StageID` in the `FnProject-StageID` header. 
+Again the flow service returns a new stage ID in the body: 
+ 
 ```
 HTTP/1.1 200 OK
-FnProject-StageID: 3
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
+```
+
+The `body` field is optional (in which case no HTTP body will be passed to the target function): 
+
+
+
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+Content-type: application/json 
+
+{
+    "function_id" :"otherapp/fn",
+    "arg": {       
+           "method": "get",
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
 ```
 
 ### Runtime creates a completed future on the flow service 
 
-The function pushes a Result value to /graph/<graph-id>/completedValue containing a Datum request and and including an optional  `FnProject-ResultStatus` to indicate whether the value should trigger successfully or with an error. If `FnProject-ResultStatus` is ommitted then the value is assumed to be successful. 
+Clients can create stages that are already completed using the `value` operation 
+
 
 ```
-POST /graph/flow-abcd-12344/completedValue
-FnProject-DatumType: blob
-FnProject-ResultStatus: success 
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/value
+
 Content-Type: application/json
 
-...request body...
+
+{
+    "value" : {
+         "successful": true, 
+         "datum": {
+              "blob": { 
+                          "blob_id": "my_blob_id",
+                          "blob_length": 100, 
+                          "content_type": "application/java-serialized-object"
+                 }
+            }
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
 ```
 
-The flow service returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new stage response: 
+
 ```
 HTTP/1.1 200 OK
-FnProject-StageID: 3
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
 ```
+
 
 
 ### Flow service Invokes a Continuation

@@ -93,7 +93,7 @@ message StateDatum {
 
 // Datum encapusulates all possible values that may be associated with a stage in the flow graph
 message Datum {
-    oneof val {
+    oneof val  {
         EmptyDatum empty = 1;
         BlobDatum blob = 2;
         ErrorDatum error = 3;
@@ -138,6 +138,7 @@ message AddStageRequest {
     repeated string deps = 4;
     string code_location = 5;
     string caller_id = 6;
+
 }
 
 // CompleteStageExternallyRequest marks an existing stage as complete with a specific value
@@ -154,7 +155,7 @@ message CompleteStageExternallyRequest {
 // AddCompletedValueStageRequest creates a new stage with a specific value
 message AddCompletedValueStageRequest {
     string graph_id = 1 [(validator.field) = {string_not_empty : true}];
-    CompletionResult result = 2 [(validator.field) = {msg_exists : true}];
+    CompletionResult value = 2 [(validator.field) = {msg_exists : true}];
     string code_location = 3;
     string caller_id = 4;
 }
@@ -211,7 +212,7 @@ message DeactivateGraphRequest {
 }
 
 message CreateGraphRequest {
-    string function_id = 1 [(validator.field) = {regex : "^(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"function id must be an absolute function of form /app/fn/route"}];
+    string function_id = 1 [(validator.field) = {regex : "^([a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"function id must be an absolute function of form \"app/route\""}];
 
     string graph_id = 2;
     // TODO add this
@@ -442,6 +443,14 @@ service FlowService {
             body: "*"
         };
     };
+
+    rpc AddValueStage (AddCompletedValueStageRequest) returns (AddStageResponse) {
+        option (google.api.http) = {
+            post: "/v1/flow/{graph_id}/value",
+            body: "*"
+        };
+    };
+
 
     rpc AddInvokeFunction (AddInvokeFunctionStageRequest) returns (AddStageResponse) {
         option (google.api.http) = {

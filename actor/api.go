@@ -124,7 +124,17 @@ func (m *actorManager) AddDelay(ctx context.Context, req *model.AddDelayStageReq
 }
 
 func (m *actorManager) AddStage(ctx context.Context, req *model.AddStageRequest) (*model.AddStageResponse, error) {
-	m.log.Debug("Adding stage")
+	r, e := m.forwardRequest(req, ctx)
+	if e != nil {
+		return nil, e
+	}
+
+	return r.(*model.AddStageResponse), e
+
+}
+
+
+func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddCompletedValueStageRequest) (*model.AddStageResponse, error) {
 	r, e := m.forwardRequest(req, ctx)
 	if e != nil {
 		return nil, e

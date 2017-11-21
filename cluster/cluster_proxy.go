@@ -37,6 +37,16 @@ func (c *clusterProxy) AddStage(ctx context.Context, r *model.AddStageRequest) (
 	return client.AddStage(ctx, r)
 }
 
+func (c *clusterProxy) AddValueStage(ctx context.Context, r *model.AddCompletedValueStageRequest) (*model.AddStageResponse, error) {
+	client, err := c.manager.GetClient(r.GraphId)
+	if err != nil {
+		return nil, err
+	}
+	return client.AddValueStage(ctx,r)
+
+}
+
+
 func (c *clusterProxy) AddInvokeFunction(ctx context.Context, r *model.AddInvokeFunctionStageRequest) (*model.AddStageResponse, error) {
 	client, err := c.manager.GetClient(r.GraphId)
 	if err != nil {

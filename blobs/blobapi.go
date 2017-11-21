@@ -2,6 +2,7 @@ package blobs
 
 import (
 	"github.com/gin-gonic/gin"
+	"io"
 )
 
 const headerContentType = "Content-Type"
@@ -32,11 +33,31 @@ func (s *Server) createBlob(c *gin.Context) {
 	}
 	prefix := c.Param("prefix")
 
-	s.store.Create(prefix, contentType, c.Request.Body)
+	blob, err := s.store.Create(prefix, contentType, c.Request.Body)
+
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
+	c.JSON(200, blob)
 
 }
 
 func (s *Server) getBlob(c *gin.Context) {
+
+	prefix := c.Param("prefix")
+	blobID := c.Param("blobId")
+
+	r, err := s.store.Read(prefix, blobID)
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
+
+	_, err = io.Copy(c.Writer, r)
+	if err != nil {
+		log.Error("Error writing response")
+	}
 
 }
 

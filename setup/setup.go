@@ -40,7 +40,7 @@ const (
 var log = logrus.New().WithField("logger", "setup")
 
 // InitFromEnv sets up a whole  flow service from env/config
-func InitFromEnv() (*server.Server, *server.InternalServer, error) {
+func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
@@ -76,7 +76,7 @@ func InitFromEnv() (*server.Server, *server.InternalServer, error) {
 
 	provider, blobStore, err := initStorageFromEnv()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil,err
 	}
 
 	nodeCount := viper.GetInt(envClusterNodeCount)
@@ -100,20 +100,22 @@ func InitFromEnv() (*server.Server, *server.InternalServer, error) {
 
 	localGraphManager, err := actor.NewGraphManager(provider, blobStore, viper.GetString(envFnAPIURL), shardExtractor, shards)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil,nil, err
 	}
 	localServer, err := server.NewInternalFlowService(localGraphManager, ":"+viper.GetString(envClusterNodePort))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil,nil, err
 	}
 
 	apiServer, err := server.NewAPIServer(clusterManager, viper.GetString(envListen), viper.GetString(envZipkinURL))
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil,nil, err
 	}
 
-	return apiServer, localServer, nil
+	blobServer := blobs.NewFromEngine(blobStore,apiServer.Engine)
+
+	return apiServer, localServer, blobServer,nil
 }
 
 func initStorageFromEnv() (persistence.ProviderState, blobs.Store, error) {

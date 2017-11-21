@@ -13,7 +13,7 @@ var log = logrus.WithField("logger", "main")
 
 func main() {
 
-	apiServer, internalServer, err := setup.InitFromEnv()
+	apiServer, internalServer,_, err := setup.InitFromEnv()
 	if err != nil {
 		log.WithError(err).Errorf("Failed to set up service")
 		os.Exit(1)

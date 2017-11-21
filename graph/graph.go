@@ -10,6 +10,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/fnproject/flow/model"
 	"github.com/sirupsen/logrus"
+	"github.com/opentracing/opentracing-go"
+	"github.com/golang/protobuf/ptypes"
 )
 
 var log = logrus.WithField("logger", "graph")
@@ -61,6 +63,8 @@ type CompletionGraph struct {
 	// This is completed with the termination state
 	terminationRoot      *RawDependency
 	terminationChainHead *CompletionStage
+	// Non-persisted start time. It is reconstructed upon rematerialization based on events.
+	startTime     time.Time
 }
 
 // New Creates a new graph
@@ -73,6 +77,7 @@ func New(id string, functionID string, listener CompletionEventListener) *Comple
 		log:             log.WithFields(logrus.Fields{"flow_id": id, "function_id": functionID}),
 		state:           StateInitial,
 		terminationRoot: &RawDependency{ID: "_termination"},
+		startTime:       time.Now(),
 	}
 }
 
@@ -114,6 +119,8 @@ func (graph *CompletionGraph) IsCompleted() bool {
 func (graph *CompletionGraph) handleCompleted() {
 	graph.log.Info("completing graph")
 	graph.state = StateCompleted
+	span := opentracing.StartSpan("graph_completion", opentracing.StartTime(graph.startTime))
+	span.Finish()
 }
 
 // handleTerminating completes the termination stage with a specified state,
@@ -353,6 +360,10 @@ func (graph *CompletionGraph) checkForExecutionFinished() {
 
 // UpdateWithEvent updates this graph's state acGetGraphStateRequestcording to the received event
 func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool) {
+	eventTime, err := ptypes.Timestamp(event.GetTs())
+	if err != nil && eventTime.Before(graph.startTime) {
+		graph.startTime = eventTime
+	}
 	switch e := event.(type) {
 	case *model.GraphCommittedEvent:
 		graph.handleCommitted()

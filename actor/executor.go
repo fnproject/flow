@@ -15,9 +15,22 @@ import (
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/protocol"
 	"github.com/sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const fnCallIDHeader = "Fn_call_id"
+
+var (
+	activeFnCallsMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "flow_concurrent_active_fn_calls",
+		Help: "Current number of fn calls waiting for a response.",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(activeFnCallsMetric)
+	activeFnCallsMetric.Set(0.0)
+}
 
 type graphExecutor struct {
 	faasAddr  string
@@ -92,6 +105,8 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
 	req.Header.Set(protocol.HeaderFlowID, msg.FlowId)
 	req.Header.Set(protocol.HeaderStageRef, msg.StageId)
+	activeFnCallsMetric.Inc()
+	defer activeFnCallsMetric.Dec()
 	resp, err := exec.client.Do(req)
 
 	if err != nil {
@@ -160,6 +175,8 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		req.Header.Add(header.Key, header.Value)
 	}
 
+	activeFnCallsMetric.Inc()
+	defer activeFnCallsMetric.Dec()
 	resp, err := exec.client.Do(req)
 
 	if err != nil {

@@ -20,7 +20,11 @@ func NewFnTracer(t opentracing.Tracer) opentracing.Tracer {
 // StartSpan implements opentracing.Tracer
 // Override StartSpan to wrap the returned Span in a FnSpan
 func (fnt FnTracer) StartSpan(operationName string, opts ...opentracing.StartSpanOption) opentracing.Span {
-	return NewFnSpan(fnt.Tracer.StartSpan(operationName, opts...))
+	canonicalName := operationName
+	canonicalName = strings.Replace(operationName, "/", "_", -1)
+	canonicalName = strings.Replace(canonicalName, ".", "_", -1)
+	canonicalName = strings.Replace(canonicalName, ":", "_", -1)
+	return NewFnSpan(fnt.Tracer.StartSpan(canonicalName, opts...))
 }
 
 // FnSpan is a custom Span that wraps another span

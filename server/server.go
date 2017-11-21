@@ -16,7 +16,6 @@ import (
 	"strings"
 	"net"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
@@ -109,10 +108,10 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 	gRPCServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_opentracing.UnaryServerInterceptor(),
+			unaryMetricsInterceptor(),
 			grpc_validator.UnaryServerInterceptor())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_opentracing.StreamServerInterceptor(),
+			streamMetricsInterceptor(),
 			grpc_validator.StreamServerInterceptor())))
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)

@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
 )

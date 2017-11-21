@@ -50,6 +50,5 @@ func createBlobAPI(s *Server) {
 	{
 		blobs.POST("/:prefix", s.createBlob)
 		blobs.GET("/:prefix/:blobId", s.getBlob)
-		blobs.HEAD("/:prefix/:blobId", s.headBlob)
 	}
 }

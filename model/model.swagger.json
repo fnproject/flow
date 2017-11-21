@@ -1,0 +1,916 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "model.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/flow/create": {
+      "post": {
+        "operationId": "CreateGraph",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelCreateGraphResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCreateGraphRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/stream": {
+      "get": {
+        "operationId": "StreamEvents",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/modelGraphEvent"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph.graph_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "graph.from_seq",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}": {
+      "get": {
+        "operationId": "GetGraphState",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelGetGraphStateResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/commit": {
+      "post": {
+        "operationId": "Commit",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelGraphRequestProcessedResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCommitGraphRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/delay": {
+      "post": {
+        "operationId": "AddDelay",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelAddStageResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelAddDelayStageRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/invoke": {
+      "post": {
+        "operationId": "AddInvokeFunction",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelAddStageResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelAddInvokeFunctionStageRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/stage": {
+      "post": {
+        "operationId": "AddStage",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelAddStageResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelAddStageRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/stages/{stage_id}/await": {
+      "get": {
+        "operationId": "AwaitStageResult",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelAwaitStageResultResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "stage_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "timeout_ms",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/flow/{graph_id}/stages/{stage_id}/complete": {
+      "post": {
+        "operationId": "CompleteStageExternally",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/modelCompleteStageExternallyResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "graph_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "stage_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/modelCompleteStageExternallyRequest"
+            }
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GetGraphStateResponseStageRepresentation": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "modelAddDelayStageRequest": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "delay_ms": {
+          "type": "string",
+          "format": "int64"
+        },
+        "code_location": {
+          "type": "string"
+        },
+        "caller_id": {
+          "type": "string"
+        }
+      },
+      "title": "AddDelayStageRequest creates a delay stage"
+    },
+    "modelAddInvokeFunctionStageRequest": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "function_id": {
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/definitions/modelHTTPReqDatum"
+        },
+        "code_location": {
+          "type": "string"
+        },
+        "caller_id": {
+          "type": "string"
+        }
+      },
+      "title": "AddInvokeFunctionStageRequest adds a function invocation"
+    },
+    "modelAddStageRequest": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "operation": {
+          "$ref": "#/definitions/modelCompletionOperation"
+        },
+        "closure": {
+          "$ref": "#/definitions/modelBlobDatum"
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code_location": {
+          "type": "string"
+        },
+        "caller_id": {
+          "type": "string"
+        }
+      },
+      "title": "AddStageRequest adds a new stage with dependenencies to the graph"
+    },
+    "modelAddStageResponse": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "stage_id": {
+          "type": "string"
+        }
+      },
+      "title": "AddStageResponse returns the stage ID of the created stage"
+    },
+    "modelAwaitStageResultResponse": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "stage_id": {
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/definitions/modelCompletionResult"
+        }
+      }
+    },
+    "modelBlobDatum": {
+      "type": "object",
+      "properties": {
+        "blob_id": {
+          "type": "string"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string",
+          "format": "uint64"
+        }
+      },
+      "title": "BlobDatum holds a reference to a blob the associated blob store"
+    },
+    "modelCommitGraphRequest": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelCompleteStageExternallyRequest": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "stage_id": {
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/definitions/modelCompletionResult"
+        },
+        "code_location": {
+          "type": "string"
+        },
+        "caller_id": {
+          "type": "string"
+        }
+      },
+      "title": "CompleteStageExternallyRequest marks an existing stage as complete with a specific value"
+    },
+    "modelCompleteStageExternallyResponse": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "stage_id": {
+          "type": "string"
+        },
+        "successful": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "modelCompletionOperation": {
+      "type": "string",
+      "enum": [
+        "unknown_operation",
+        "acceptEither",
+        "applyToEither",
+        "thenAcceptBoth",
+        "thenApply",
+        "thenRun",
+        "thenAccept",
+        "thenCompose",
+        "thenCombine",
+        "whenComplete",
+        "handle",
+        "supply",
+        "invokeFunction",
+        "completedValue",
+        "delay",
+        "allOf",
+        "anyOf",
+        "externalCompletion",
+        "exceptionally",
+        "terminationHook",
+        "exceptionallyCompose"
+      ],
+      "default": "unknown_operation",
+      "title": "CompletionOperation describes the type and behaviour of a stage of the graph"
+    },
+    "modelCompletionResult": {
+      "type": "object",
+      "properties": {
+        "successful": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "datum": {
+          "$ref": "#/definitions/modelDatum"
+        }
+      },
+      "title": "CompletinonResult holds a value Datum and a result status (successful/failed)"
+    },
+    "modelCreateGraphRequest": {
+      "type": "object",
+      "properties": {
+        "function_id": {
+          "type": "string"
+        },
+        "graph_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelCreateGraphResponse": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelDatum": {
+      "type": "object",
+      "properties": {
+        "empty": {
+          "$ref": "#/definitions/modelEmptyDatum"
+        },
+        "blob": {
+          "$ref": "#/definitions/modelBlobDatum"
+        },
+        "error": {
+          "$ref": "#/definitions/modelErrorDatum"
+        },
+        "stage_ref": {
+          "$ref": "#/definitions/modelStageRefDatum"
+        },
+        "http_req": {
+          "$ref": "#/definitions/modelHTTPReqDatum"
+        },
+        "http_resp": {
+          "$ref": "#/definitions/modelHTTPRespDatum"
+        },
+        "state": {
+          "$ref": "#/definitions/modelStateDatum"
+        }
+      },
+      "title": "Datum encapusulates all possible values that may be associated with a stage in the flow graph"
+    },
+    "modelDelayScheduledEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "time_ms": {
+          "type": "string",
+          "format": "int64"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "A delay has started - this marks the relative start of an event when a delay node is recovered"
+    },
+    "modelEmptyDatum": {
+      "type": "object",
+      "title": "EmptyDatum represents a null or empty value"
+    },
+    "modelErrorDatum": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/modelErrorDatumType"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "ErrorDatum represents an error that has occured within a flow graph, the type indicates the cause of the error and the message is informational"
+    },
+    "modelErrorDatumType": {
+      "type": "string",
+      "enum": [
+        "unknown_error",
+        "stage_timeout",
+        "stage_failed",
+        "function_timeout",
+        "function_invoke_failed",
+        "stage_lost",
+        "invalid_stage_response"
+      ],
+      "default": "unknown_error",
+      "title": "ErrorDatumType defines an internal error code generated within a flow"
+    },
+    "modelFaasInvocationCompletedEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/definitions/modelCompletionResult"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "call_id": {
+          "type": "string"
+        }
+      },
+      "title": "A call to the FaaS completed"
+    },
+    "modelFaasInvocationStartedEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "function_id": {
+          "type": "string"
+        }
+      },
+      "title": "A call to the FaaS has started"
+    },
+    "modelGetGraphStateResponse": {
+      "type": "object",
+      "properties": {
+        "stages": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/GetGraphStateResponseStageRepresentation"
+          }
+        },
+        "function_id": {
+          "type": "string"
+        },
+        "graph_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelGraphCompletedEvent": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "function_id": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "Graph is complete  and will no longer change"
+    },
+    "modelGraphCreatedEvent": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "function_id": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "Graph created"
+    },
+    "modelGraphEvent": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "graph_id": {
+          "type": "string"
+        },
+        "graph_created": {
+          "$ref": "#/definitions/modelGraphCreatedEvent"
+        },
+        "graph_termianting": {
+          "$ref": "#/definitions/modelGraphTerminatingEvent"
+        },
+        "graph_completed": {
+          "$ref": "#/definitions/modelGraphCompletedEvent"
+        },
+        "delay_scheduled": {
+          "$ref": "#/definitions/modelDelayScheduledEvent"
+        },
+        "stage_added": {
+          "$ref": "#/definitions/modelStageAddedEvent"
+        },
+        "stage_completed": {
+          "$ref": "#/definitions/modelStageCompletedEvent"
+        },
+        "stage_composed": {
+          "$ref": "#/definitions/modelStageComposedEvent"
+        },
+        "faas_invocation_started": {
+          "$ref": "#/definitions/modelFaasInvocationStartedEvent"
+        },
+        "faas_invocation_completed": {
+          "$ref": "#/definitions/modelFaasInvocationCompletedEvent"
+        }
+      }
+    },
+    "modelGraphRequestProcessedResponse": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelGraphTerminatingEvent": {
+      "type": "object",
+      "properties": {
+        "graph_id": {
+          "type": "string"
+        },
+        "function_id": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/modelStateDatumType"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "Graph termination has started - no more changes can be made to this graph\nthis will be fillowed by a completion event when any termination hooks have run"
+    },
+    "modelHTTPHeader": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "title": "HTTPHeader wraps a single header key/value"
+    },
+    "modelHTTPMethod": {
+      "type": "string",
+      "enum": [
+        "unknown_method",
+        "get",
+        "head",
+        "post",
+        "put",
+        "delete",
+        "options",
+        "patch"
+      ],
+      "default": "unknown_method",
+      "title": "HTTPMethod defines a specific HTTP method"
+    },
+    "modelHTTPReqDatum": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "#/definitions/modelBlobDatum"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelHTTPHeader"
+          }
+        },
+        "method": {
+          "$ref": "#/definitions/modelHTTPMethod"
+        }
+      },
+      "title": "HTTPReqDatum describes an outgoing or incoming HTTP Request, it wraps the headers, method and optional body"
+    },
+    "modelHTTPRespDatum": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "#/definitions/modelBlobDatum"
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/modelHTTPHeader"
+          }
+        },
+        "status_code": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "HTTPRespDatum wraps an outgoing or incoming HTTP REQUEST, it wraps the headers, status code and optinoal body"
+    },
+    "modelStageAddedEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/definitions/modelCompletionOperation"
+        },
+        "closure": {
+          "$ref": "#/definitions/modelBlobDatum"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "code_location": {
+          "type": "string"
+        },
+        "caller_id": {
+          "type": "string"
+        }
+      },
+      "title": "A stage was added to the graph"
+    },
+    "modelStageCompletedEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/definitions/modelCompletionResult"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "A stage completed  - downstream stages may be triggered"
+    },
+    "modelStageComposedEvent": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "type": "string"
+        },
+        "composed_stage_id": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "A stage was composed into  stage_id  - stage_id will compelete with the saem result as composed_stage_id"
+    },
+    "modelStageRefDatum": {
+      "type": "object",
+      "properties": {
+        "stage_ref": {
+          "type": "string"
+        }
+      },
+      "title": "StageRefDatum represents a reference to another stage in the graph"
+    },
+    "modelStateDatum": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/modelStateDatumType"
+        }
+      },
+      "title": "StateDatum wraps a description of the state of the graph in a datum"
+    },
+    "modelStateDatumType": {
+      "type": "string",
+      "enum": [
+        "unknown_state",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "killed"
+      ],
+      "default": "unknown_state",
+      "title": "StateDatumType describes the state of a stage or graph"
+    }
+  }
+}

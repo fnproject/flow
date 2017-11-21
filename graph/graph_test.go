@@ -235,7 +235,7 @@ func TestShouldRejectUnknownOperationStage(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_unknown_operation,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -265,7 +265,7 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -279,7 +279,7 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -292,7 +292,7 @@ func TestShouldRejectStageWithUnknownDependency(t *testing.T) {
 	m := &MockedListener{}
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -330,7 +330,7 @@ func TestShouldPreventAddingStageToTerminatingGraph(t *testing.T) {
 	g := New("graph", "function", m)
 
 	g.state = StateTerminating
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_supply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -346,7 +346,7 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	g := New("graph", "function", m)
 
 	g.state = StateCompleted
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Operation: model.CompletionOperation_supply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
@@ -370,7 +370,7 @@ func TestShouldPreventAddingOverMaxTerminationHooksToGraph(t *testing.T) {
 		g.UpdateWithEvent(ev, false)
 	}
 
-	cmd := &model.AddChainedStageRequest{
+	cmd := &model.AddStageRequest{
 		GraphId:   "graph",
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Operation: model.CompletionOperation_terminationHook,

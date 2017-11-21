@@ -43,6 +43,7 @@ jobs:
            go get -u github.com/mwitkow/go-proto-validators
            go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
            go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+           go get -u github.com/jteeuwen/go-bindata/...
            go get -u github.com/golang/lint/golint
       # update Docker
       - run: |

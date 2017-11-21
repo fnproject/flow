@@ -60,6 +60,7 @@ It has these top-level messages:
 */
 package model
 
+import regexp "regexp"
 import fmt "fmt"
 import go_proto_validators "github.com/mwitkow/go-proto-validators"
 import proto "github.com/golang/protobuf/proto"
@@ -85,9 +86,21 @@ func (this *CompletionResult) Validate() error {
 	return nil
 }
 func (this *BlobDatum) Validate() error {
+	if this.BlobId == "" {
+		return go_proto_validators.FieldError("BlobId", fmt.Errorf(`value '%v' must not be an empty string`, this.BlobId))
+	}
+	if this.ContentType == "" {
+		return go_proto_validators.FieldError("ContentType", fmt.Errorf(`value '%v' must not be an empty string`, this.ContentType))
+	}
 	return nil
 }
 func (this *HTTPHeader) Validate() error {
+	if this.Key == "" {
+		return go_proto_validators.FieldError("Key", fmt.Errorf(`value '%v' must not be an empty string`, this.Key))
+	}
+	if this.Value == "" {
+		return go_proto_validators.FieldError("Value", fmt.Errorf(`value '%v' must not be an empty string`, this.Value))
+	}
 	return nil
 }
 func (this *HTTPReqDatum) Validate() error {
@@ -118,12 +131,18 @@ func (this *HTTPRespDatum) Validate() error {
 			}
 		}
 	}
+	if !(this.StatusCode > 0) {
+		return go_proto_validators.FieldError("StatusCode", fmt.Errorf(`value '%v' must be greater than '0'`, this.StatusCode))
+	}
 	return nil
 }
 func (this *EmptyDatum) Validate() error {
 	return nil
 }
 func (this *StageRefDatum) Validate() error {
+	if this.StageRef == "" {
+		return go_proto_validators.FieldError("StageRef", fmt.Errorf(`value '%v' must not be an empty string`, this.StageRef))
+	}
 	return nil
 }
 func (this *ErrorDatum) Validate() error {
@@ -185,6 +204,9 @@ func (this *Datum) Validate() error {
 	return nil
 }
 func (this *AddStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
 	if this.Closure != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.Closure); err != nil {
 			return go_proto_validators.FieldError("Closure", err)
@@ -193,6 +215,15 @@ func (this *AddStageRequest) Validate() error {
 	return nil
 }
 func (this *CompleteStageExternallyRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
+	if nil == this.Result {
+		return go_proto_validators.FieldError("Result", fmt.Errorf("message must exist"))
+	}
 	if this.Result != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.Result); err != nil {
 			return go_proto_validators.FieldError("Result", err)
@@ -201,6 +232,9 @@ func (this *CompleteStageExternallyRequest) Validate() error {
 	return nil
 }
 func (this *AddCompletedValueStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
 	if nil == this.Result {
 		return go_proto_validators.FieldError("Result", fmt.Errorf("message must exist"))
 	}
@@ -212,9 +246,24 @@ func (this *AddCompletedValueStageRequest) Validate() error {
 	return nil
 }
 func (this *AddDelayStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if !(this.DelayMs > -1) {
+		return go_proto_validators.FieldError("DelayMs", fmt.Errorf(`value '%v' must be greater than '-1'`, this.DelayMs))
+	}
 	return nil
 }
+
+var _regex_AddInvokeFunctionStageRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+
 func (this *AddInvokeFunctionStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if !_regex_AddInvokeFunctionStageRequest_FunctionId.MatchString(this.FunctionId) {
+		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`value '%v' must be a string conforming to regex "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"`, this.FunctionId))
+	}
 	if nil == this.Arg {
 		return go_proto_validators.FieldError("Arg", fmt.Errorf("message must exist"))
 	}
@@ -229,12 +278,21 @@ func (this *AddStageResponse) Validate() error {
 	return nil
 }
 func (this *CommitGraphRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
 	return nil
 }
 func (this *GraphRequestProcessedResponse) Validate() error {
 	return nil
 }
 func (this *CompleteDelayStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
 	if this.Result != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.Result); err != nil {
 			return go_proto_validators.FieldError("Result", err)
@@ -246,9 +304,18 @@ func (this *CompleteStageExternallyResponse) Validate() error {
 	return nil
 }
 func (this *DeactivateGraphRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
 	return nil
 }
+
+var _regex_CreateGraphRequest_FunctionId = regexp.MustCompile("^(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+
 func (this *CreateGraphRequest) Validate() error {
+	if !_regex_CreateGraphRequest_FunctionId.MatchString(this.FunctionId) {
+		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`function id must be an absolute function of form /app/fn/route`))
+	}
 	return nil
 }
 func (this *CreateGraphResponse) Validate() error {
@@ -263,6 +330,9 @@ func (this *FaasInvocationResponse) Validate() error {
 	return nil
 }
 func (this *GetGraphStateRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
 	return nil
 }
 func (this *GetGraphStateResponse) Validate() error {
@@ -312,6 +382,12 @@ func (this *ListGraphsResponse) Validate() error {
 	return nil
 }
 func (this *AwaitStageResultRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
 	return nil
 }
 func (this *AwaitStageResultResponse) Validate() error {
@@ -328,7 +404,19 @@ func (this *InvalidGraphOperation) Validate() error {
 func (this *InvalidStageOperation) Validate() error {
 	return nil
 }
+
+var _regex_InvokeFunctionRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+
 func (this *InvokeFunctionRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
+	if !_regex_InvokeFunctionRequest_FunctionId.MatchString(this.FunctionId) {
+		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`invalid function id`))
+	}
 	if nil == this.Arg {
 		return go_proto_validators.FieldError("Arg", fmt.Errorf("message must exist"))
 	}
@@ -339,7 +427,19 @@ func (this *InvokeFunctionRequest) Validate() error {
 	}
 	return nil
 }
+
+var _regex_InvokeStageRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
+
 func (this *InvokeStageRequest) Validate() error {
+	if this.GraphId == "" {
+		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
+	if !_regex_InvokeStageRequest_FunctionId.MatchString(this.FunctionId) {
+		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`value '%v' must be a string conforming to regex "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"`, this.FunctionId))
+	}
 	for _, item := range this.Args {
 		if item != nil {
 			if err := go_proto_validators.CallValidatorIfExists(item); err != nil {

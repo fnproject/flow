@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"strings"
 	"net"
-
+	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 )
 
 const (
@@ -105,7 +105,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 	setTracer(restListen, zipkinURL)
 
-	gRPCServer := grpc.NewServer()
+	gRPCServer := grpc.NewServer(grpc.UnaryInterceptor(grpc_validator.UnaryServerInterceptor()), grpc.StreamInterceptor(grpc_validator.StreamServerInterceptor()))
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 
@@ -134,7 +134,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	})
 
 	gwmux := runtime.NewServeMux()
-	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(),   gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
+	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
 
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
 		log.Info("Serving HTTP ")

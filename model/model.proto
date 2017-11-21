@@ -4,24 +4,27 @@ package model;
 import "google/protobuf/timestamp.proto";
 import "github.com/mwitkow/go-proto-validators/validator.proto";
 import "google/api/annotations.proto";
-// Common
 
-
+// CompletinonResult holds a value Datum and a result status (successful/failed)
 message CompletionResult {
-    bool successful = 1 [(validator.field) = {msg_exists : true}];
+    bool successful = 1;
     Datum datum = 2 [(validator.field) = {msg_exists : true}];
 }
 
+// BlobDatum holds a reference to a blob the associated blob store
 message BlobDatum {
-    string blob_id = 1 [(validator.field) = {msg_exists : true}];
-    string content_type = 2 [(validator.field) = {msg_exists : true}];
+    string blob_id = 1 [(validator.field) = {string_not_empty : true}];
+    string content_type = 2 [(validator.field) = {string_not_empty : true}];
     uint64 length = 3 [(validator.field) = {msg_exists : true}];
 }
 
+// HTTPHeader wraps a single header key/value
 message HTTPHeader {
-    string key = 1 [(validator.field) = {msg_exists : true}];
-    string value = 2 [(validator.field) = {msg_exists : true}];
+    string key = 1 [(validator.field) = {string_not_empty : true}];
+    string value = 2 [(validator.field) = {string_not_empty : true}];
 }
+
+// HTTPMethod defines a specific HTTP method
 enum HTTPMethod {
     unknown_method = 0;
     get = 1;
@@ -33,18 +36,21 @@ enum HTTPMethod {
     patch = 6;
 }
 
+// HTTPReqDatum describes an outgoing or incoming HTTP Request, it wraps the headers, method and optional body
 message HTTPReqDatum {
     BlobDatum body = 1;
     repeated HTTPHeader headers = 3;
     HTTPMethod method = 4 [(validator.field) = {msg_exists : true}];
 }
 
+// HTTPRespDatum wraps an outgoing or incoming HTTP REQUEST, it wraps the headers, status code and optinoal body
 message HTTPRespDatum {
     BlobDatum body = 1;
     repeated HTTPHeader headers = 3;
-    uint32 status_code = 4 [(validator.field) = {msg_exists : true}];
+    uint32 status_code = 4 [(validator.field) = {int_gt : 0}];
 }
 
+// ErrorDatumType defines an internal error code generated within a flow
 enum ErrorDatumType {
     unknown_error = 0;
     stage_timeout = 1;
@@ -55,20 +61,22 @@ enum ErrorDatumType {
     invalid_stage_response = 6;
 }
 
-
+// EmptyDatum represents a null or empty value
 message EmptyDatum {
 
 }
-
+// StageRefDatum represents a reference to another stage in the graph
 message StageRefDatum {
-    string stage_ref = 1 [(validator.field) = {msg_exists : true}];
+    string stage_ref = 1 [(validator.field) = {string_not_empty : true}];
 }
 
+// ErrorDatum represents an error that has occured within a flow graph, the type indicates the cause of the error and the message is informational
 message ErrorDatum {
     ErrorDatumType type = 1 [(validator.field) = {msg_exists : true}];
     string message = 2;
 }
 
+// StateDatumType describes the state of a stage or graph
 enum StateDatumType {
     unknown_state = 0;
     succeeded = 1;
@@ -77,10 +85,13 @@ enum StateDatumType {
     killed = 4;
 }
 
+
+// StateDatum wraps a description of the state of the graph in a datum
 message StateDatum {
     StateDatumType type = 1 [(validator.field) = {msg_exists : true}];
 }
 
+// Datum encapusulates all possible values that may be associated with a stage in the flow graph
 message Datum {
     oneof val {
         EmptyDatum empty = 1;
@@ -93,6 +104,7 @@ message Datum {
     }
 }
 
+// CompletionOperation describes the type and behaviour of a stage of the graph
 enum CompletionOperation {
     unknown_operation = 0;
     acceptEither = 1;
@@ -118,9 +130,9 @@ enum CompletionOperation {
 
 }
 
-// Commands
+// AddStageRequest adds a new stage with dependenencies to the graph
 message AddStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
     CompletionOperation operation = 2 [(validator.field) = {msg_exists : true}];
     BlobDatum closure = 3;
     repeated string deps = 4;
@@ -128,56 +140,62 @@ message AddStageRequest {
     string caller_id = 6;
 }
 
+// CompleteStageExternallyRequest marks an existing stage as complete with a specific value
 message CompleteStageExternallyRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string stage_id = 2 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
     CompletionResult result = 3 [(validator.field) = {msg_exists : true}];
     string code_location = 4;
     string caller_id = 5;
 }
 
 
+
+// AddCompletedValueStageRequest creates a new stage with a specific value
 message AddCompletedValueStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
     CompletionResult result = 2 [(validator.field) = {msg_exists : true}];
     string code_location = 3;
     string caller_id = 4;
 }
 
+
+// AddDelayStageRequest creates a delay stage
 message AddDelayStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    int64 delay_ms = 2 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    int64 delay_ms = 2 [(validator.field) = {int_gt : -1}];
     string code_location = 3;
     string caller_id = 4;
 }
 
 
+// AddInvokeFunctionStageRequest adds a function invocation
 message AddInvokeFunctionStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string function_id = 2 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string function_id = 2 [(validator.field) = {regex : "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"}];
     HTTPReqDatum arg = 3 [(validator.field) = {msg_exists : true}];
     string code_location = 4;
     string caller_id = 5;
 }
 
 
+// AddStageResponse returns the stage ID of the created stage
 message AddStageResponse {
     string graph_id = 1;
     string stage_id = 2;
 }
 
 message CommitGraphRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
 }
 
 message GraphRequestProcessedResponse {
     string graph_id = 1;
 }
 
-
 message CompleteDelayStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string stage_id = 2 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
     CompletionResult result = 3;
 }
 
@@ -189,11 +207,11 @@ message CompleteStageExternallyResponse {
 }
 
 message DeactivateGraphRequest {
-    string graph_id = 1;
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
 }
 
 message CreateGraphRequest {
-    string function_id = 1 [(validator.field) = {msg_exists : true}];
+    string function_id = 1 [(validator.field) = {regex : "^(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"function id must be an absolute function of form /app/fn/route"}];
     string graph_id = 2;
 
 }
@@ -213,7 +231,7 @@ message FaasInvocationResponse {
 
 
 message GetGraphStateRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
 }
 
 message GetGraphStateResponse {
@@ -265,8 +283,8 @@ message ListGraphsResponse {
 }
 
 message AwaitStageResultRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string stage_id = 2 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
     uint64 timeout_ms = 3;
 }
 
@@ -290,20 +308,20 @@ message InvalidStageOperation {
 
 // Invoke commands
 message InvokeFunctionRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string stage_id = 2 [(validator.field) = {msg_exists : true}];
-    string function_id = 3 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
+    string function_id = 3 [(validator.field) = {regex : "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"invalid function id"}];
     HTTPReqDatum arg = 4 [(validator.field) = {msg_exists : true}];
 }
 
 message InvokeStageRequest {
-    string graph_id = 1 [(validator.field) = {msg_exists : true}];
-    string stage_id = 2 [(validator.field) = {msg_exists : true}];
-    string function_id = 3 [(validator.field) = {msg_exists : true}];
+    string graph_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
+    string function_id = 3 [(validator.field) = {regex : "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"}];
     CompletionOperation operation = 4 [(validator.field) = {msg_exists : true}];
     repeated CompletionResult args = 5;
     BlobDatum closure = 6 [(validator.field) = {msg_exists : true}];
-    bool exceptional = 7 [(validator.field) = {msg_exists : true}];
+    bool exceptional = 7 ;
 }
 
 // Events

@@ -13,6 +13,9 @@ dep-up:
 
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
+bindata:  model/model.swagger.json
+	go-bindata -o  model/swagger_file.go -pkg model model/model.swagger.json
+
 vet: $(GOFILES)
 	go vet $(GOPACKAGES)
 
@@ -25,9 +28,10 @@ test: protos $(shell find . -name *.go)
 %.pb.go: %.proto
 	# protoc  --proto_path=$(@D) --proto_path=./vendor --go_out=$(@D) 	--govalidators_out=$(@D) $<
 	protoc  --proto_path=$(@D) --proto_path=./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-      --go_out=plugins=grpc:$(@D)   --grpc-gateway_out=logtostderr=true:$(@D) --govalidators_out=$(@D) $<
+      --go_out=plugins=grpc:$(@D) --govalidators_out=$(@D)  --grpc-gateway_out=logtostderr=true:$(@D)    --swagger_out=logtostderr=true:$(@D) $<
 
-build: $(GOFILES)
+
+build: $(GOFILES) bindata protos
 	go build -o flow-service
 
 run: build

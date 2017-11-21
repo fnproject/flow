@@ -12,7 +12,8 @@ import (
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
-	"context"
+	"golang.org/x/net/context"
+
 	"time"
 )
 

@@ -73,7 +73,7 @@ Which returns a blob description:
 
 ```
 HTTP/1.1 200 OK 
-Content-type: applicat/json 
+Content-type: application/json 
 
 { 
    "blob_id" : "adsadas",

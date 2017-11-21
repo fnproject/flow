@@ -67,47 +67,79 @@ The following sections define the request/response protocol for the lifetime of 
 
 ### Runtime Creates a Flow (Function->Flow Service)
 
-The function creates a new flow by POST am empty request to the `/graph` endpoint with a function ID  of the current function.
-
+The function creates a new flow by a POST request to the `/graph` endpoint with JSON body containing the function ID  of the current function.
 
 ```
-POST /graph?functionId=${fn_id} HTTP/1.1
-Content-length: 0
+POST /graph HTTP/1.1
+Content-type: application/json
 
+{"function_id": "${fn_id}"}
 
 ```
 
 The flow service returns with an empty response containing the new flow ID in the FnProject-FlowID header:
 
 ```
-HTTP/1.1 200 OK 
-FnProject-FlowID: flow-abcd-12344
-``` 
+HTTP/1.1 200 OK
+Content-type: application/json
+
+{"graph_id": "flow-abcd-12344"}
+```
 
 ### Runtime creates a stage in the graph
 
-HTTP POST requests to the Flow Service Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
-
-For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
+The closure is serialized, and written to the Blob service
 
 ```
-POST /graph/flow-abcd-12344/supply HTTP/1.1
-FnProject-DatumType: blob
+POST /blobs/flow-abcd-12344 HTTP/1.1
 Content-type: application/java-serialized-object
 Content-length: 100
-FnProject-CodeLocation: com.example.fn.HelloFunction.handleRequest(HelloFunction.java:11)
 
 ...serialized lambda...
 ```
-The FnProject-CodeLocation is an opaque string.
 
-The flow service returns a new `StageID` in the `FnProject-StageID` header. 
+which returns an ID for the blob
+
 ```
 HTTP/1.1 200 OK
-FnProject-StageID: 1
+Content-type: application/json
+
+"blob_id": "flow-abcd-12344-blob-5678",
+
 ```
 
-### Runtime requests a function invocation via the flow service 
+that can then be used in a POST request to the Flow API
+
+```
+POST /flow/flow-abcd-12344-blob-5678/addStage
+Content-type: application/json
+
+{
+ "operation": "supply",
+ "closure": {
+			 "blob_id": "flow-abcd-12344-blob-5678",
+			 "content-type": "application/java-serialized-object",
+			 "length": 100
+			 }
+}
+```
+
+The Flow service then returns a response containing the stage ID
+
+```
+HTTP/1.1 200 OK
+Content-type: application/json
+
+{"graph_id": "flow-abcd-12344-blob-5678",
+ "stage_id": "0"
+}
+```
+
+~~HTTP POST requests to the Flow Service Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.~~
+
+~~For example, the runtime POSTs a *closure*  to one of the stage operations (see API below):~~
+
+### Runtime requests a function invocation via the flow service
 
 Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
 

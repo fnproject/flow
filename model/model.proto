@@ -212,7 +212,11 @@ message DeactivateGraphRequest {
 
 message CreateGraphRequest {
     string function_id = 1 [(validator.field) = {regex : "^(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"function id must be an absolute function of form /app/fn/route"}];
+
     string graph_id = 2;
+    // TODO add this
+//    string call_id =3 [(validator.field) = {string_not_empty : true}];
+
 
 }
 

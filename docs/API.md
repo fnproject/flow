@@ -23,134 +23,177 @@ Completion stages consist of the following :
   * A *stage result* : this corresponds to the (successful or failed) value associated with stage once it has completed - this value is used to trigger downstream stages.  
   
 
-
-
-## Datum Types
-
-The protocol assigns semantic meaning to byte streams which must fall into one of the following types: 
-
-```
-FnProject-DatumType: blob
-FnProject-DatumType: empty
-FnProject-DatumType: error
-FnProject-DatumType: stageref
-FnProject-DatumType: httpreq
-FnProject-DatumType: httpresp
-FnProject-DatumType: state
-```
-
-When using _blob_ types, their media type must be defined by including the `Content-Type` header. For example, to transmit a serialized Java value the following headers must be included in the request/response:
-
-
-```
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-FnProject-BlobId: 123kl1j2l12
-```
-The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
-
-The _state_ datum represents the state of a flow, with the additional header `Fnproject-Statetype` taking on one of the values _succeeded_, _failed_, _cancelled_, or _killed_.
-
-The _empty_ datum type is used to signify a null/void type and has no body. 
-
-The _stageref_ type is used to return the stage ID of a composed stage reference (see below) and also has no body.
-
-Finally, the _httpreq_  and _httpresp__ types encapsulate an HTTP request or response (such as a function call or response). They include the body of the HTTP message and  any headers present in the original response by prefixing them with `FnProject-Header-`. HTTP requests must specify an HTTP Method  for the requested call via `FnProject-Method` Additionally, HTTP responses must include the header `FnProject-ResultCode` with the HTTP status code. The `Content-type` header is preserved as per a `blob` datum. 
-
-## Encapsulation due to `fn` contract
-
-When receiving a response from a function invocation, the HTTP response cannot have additional headers because of the `fn` contract. Therefore, HTTP responses from Fn Flow runtimes implementing this contract shall serialize the entire HTTP frame of their response, _including_ the initial `HTTP/1.1 ...` line, as the body of a wrapper HTTP frame which is handled by `fn`.
-
 ## Fn Flow Application Lifecycle
 
 The following sections define the request/response protocol for the lifetime of a Fn Flow application.
 
 ### Runtime Creates a Flow (Function->Flow Service)
 
-The function creates a new flow by a POST request to the `/graph` endpoint with JSON body containing the function ID  of the current function.
+The function creates a new flow by POST am empty request to the `/v1/flow/create` endpoint with a function ID  of the current function. 
+ 
+The function ID is the qualified path of the function in Fn starting with a leading slash followed by the app name and route. 
+
 
 ```
-POST /graph HTTP/1.1
-Content-type: application/json
+POST /v1/flow/create HTTP/1.1
+Content-type: application/json 
 
-{"function_id": "${fn_id}"}
+{
+   "function_id" : "/myapp/myroute",
+}
 
 ```
 
 The flow service returns with an empty response containing the new flow ID in the FnProject-FlowID header:
 
 ```
-HTTP/1.1 200 OK
-Content-type: application/json
+HTTP/1.1 200 OK 
+Content-type: application/json 
 
-{"graph_id": "flow-abcd-12344"}
-```
+{"graph_id":"1212b145-5695-4b57-97b8-54ffeda83210"}
+``` 
 
 ### Runtime creates a stage in the graph
+Stages can be added to a graph at any time and are executed as soon as their dependencies are satisified.
 
-The closure is serialized, and written to the Blob service
+#### Storing Blob data  
+
+The flow services does not directly handle content from functions (with the exception of HTTP headers, see below)
+
+Data must be persited by function invocations before being passed to flow services: 
 
 ```
 POST /blobs/flow-abcd-12344 HTTP/1.1
 Content-type: application/java-serialized-object
-Content-length: 100
 
 ...serialized lambda...
 ```
 
-which returns an ID for the blob
+Which returns a blob description: 
 
 ```
-HTTP/1.1 200 OK
-Content-type: application/json
+HTTP/1.1 200 OK 
+Content-type: applicat/json 
 
-"blob_id": "flow-abcd-12344-blob-5678",
-
+{ 
+   "blob_id" : "adsadas",
+   "blob_length": 21321, 
+   "content_type": "application/java-serialized-object"
+}
 ```
 
-that can then be used in a POST request to the Flow API
+Once a blob is stored you can pass it by reference into a stage as either a value or a closure. 
+
+
+#### Creating a stage 
+
+For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
 ```
-POST /flow/flow-abcd-12344-blob-5678/addStage
-Content-type: application/json
-
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
 {
- "operation": "supply",
- "closure": {
-			 "blob_id": "flow-abcd-12344-blob-5678",
-			 "content-type": "application/java-serialized-object",
-			 "length": 100
-			 }
+
+    "operation": "supply",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "blob_length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
 }
+
 ```
 
-The Flow service then returns a response containing the stage ID
+(`code_location` is optional and is used for information purposes) 
 
+The flow service returns a new `StageID` in the `FnProject-StageID` header. 
 ```
 HTTP/1.1 200 OK
-Content-type: application/json
+Content-type: application/json 
 
-{"graph_id": "flow-abcd-12344-blob-5678",
- "stage_id": "0"
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
+```
+
+#### Creating a stage with dependencies 
+Some stages take other stages as dependencies, and will execute when some or all of these dependencies succeed or fail
+
+
+e.g. to create a `thenApply`  stage that executes a closure after a preceding stage is compelte: 
+
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
+
+    "operation": "thenApply",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "blob_length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "deps" : ["1"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
+```
+
+or an `thenCompbine` stage that blocks until two stages are complete and passes both results to a closure 
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
+    "operation": "thenCombine",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "blob_length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "deps" : ["1","2","3"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
 }
 ```
 
-~~HTTP POST requests to the Flow Service Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.~~
+or an `allOf` stage that blocks until all other stages are complete but takes no closure: 
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
 
-~~For example, the runtime POSTs a *closure*  to one of the stage operations (see API below):~~
+    "operation": "allOf",
+    "deps" : ["1","2","3"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
+```
+ 
 
 ### Runtime requests a function invocation via the flow service
 
 Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
-POST /graph/flow-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
-FnProject-DatumType: httpreq
-FnProject-Method: POST
-FnProject-Header-CUSTOM-HEADER: user-12334
-Content-Type: application/json
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+Content-type: application/json 
 
-...request body...
+{
+    "function_id" :"/otherapp/fn",
+    
+    "arg": { 
+          "body" : {
+            "blob_id": "my_blob_id",
+            "blob_length": 100, 
+            "content_type": "application/java-serialized-object"
+           },
+           
+           
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
 ```
 
 Again the flow service returns a new `StageID` in the `FnProject-StageID` header. 

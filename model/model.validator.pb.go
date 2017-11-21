@@ -204,8 +204,8 @@ func (this *Datum) Validate() error {
 	return nil
 }
 func (this *AddStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.Closure != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.Closure); err != nil {
@@ -215,8 +215,8 @@ func (this *AddStageRequest) Validate() error {
 	return nil
 }
 func (this *CompleteStageExternallyRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
@@ -232,8 +232,8 @@ func (this *CompleteStageExternallyRequest) Validate() error {
 	return nil
 }
 func (this *AddCompletedValueStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if nil == this.Value {
 		return go_proto_validators.FieldError("Value", fmt.Errorf("message must exist"))
@@ -246,8 +246,8 @@ func (this *AddCompletedValueStageRequest) Validate() error {
 	return nil
 }
 func (this *AddDelayStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if !(this.DelayMs > -1) {
 		return go_proto_validators.FieldError("DelayMs", fmt.Errorf(`value '%v' must be greater than '-1'`, this.DelayMs))
@@ -258,8 +258,8 @@ func (this *AddDelayStageRequest) Validate() error {
 var _regex_AddInvokeFunctionStageRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
 
 func (this *AddInvokeFunctionStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if !_regex_AddInvokeFunctionStageRequest_FunctionId.MatchString(this.FunctionId) {
 		return go_proto_validators.FieldError("FunctionId", fmt.Errorf(`value '%v' must be a string conforming to regex "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"`, this.FunctionId))
@@ -278,8 +278,8 @@ func (this *AddStageResponse) Validate() error {
 	return nil
 }
 func (this *CommitGraphRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	return nil
 }
@@ -287,8 +287,8 @@ func (this *GraphRequestProcessedResponse) Validate() error {
 	return nil
 }
 func (this *CompleteDelayStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
@@ -304,8 +304,8 @@ func (this *CompleteStageExternallyResponse) Validate() error {
 	return nil
 }
 func (this *DeactivateGraphRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	return nil
 }
@@ -330,8 +330,8 @@ func (this *FaasInvocationResponse) Validate() error {
 	return nil
 }
 func (this *GetGraphStateRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	return nil
 }
@@ -382,8 +382,8 @@ func (this *ListGraphsResponse) Validate() error {
 	return nil
 }
 func (this *AwaitStageResultRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
@@ -408,8 +408,8 @@ func (this *InvalidStageOperation) Validate() error {
 var _regex_InvokeFunctionRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
 
 func (this *InvokeFunctionRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
@@ -431,8 +431,8 @@ func (this *InvokeFunctionRequest) Validate() error {
 var _regex_InvokeStageRequest_FunctionId = regexp.MustCompile("^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$")
 
 func (this *InvokeStageRequest) Validate() error {
-	if this.GraphId == "" {
-		return go_proto_validators.FieldError("GraphId", fmt.Errorf(`value '%v' must not be an empty string`, this.GraphId))
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))

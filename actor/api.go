@@ -85,8 +85,8 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 }
 
 func (m *actorManager) CreateGraph(ctx context.Context, req *model.CreateGraphRequest) (*model.CreateGraphResponse, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Creating graph")
-	r, e := m.forwardRequest(req, ctx)
+	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Creating graph")
+	r, e := m.forwardRequest( ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -96,7 +96,7 @@ func (m *actorManager) CreateGraph(ctx context.Context, req *model.CreateGraphRe
 
 func (m *actorManager) GetGraphState(ctx context.Context, req *model.GetGraphStateRequest) (*model.GetGraphStateResponse, error) {
 	m.log.Debug("Getting graph stage")
-	r, e := m.forwardRequest(req, ctx)
+	r, e := m.forwardRequest(ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -105,7 +105,7 @@ func (m *actorManager) GetGraphState(ctx context.Context, req *model.GetGraphSta
 
 func (m *actorManager) AddInvokeFunction(ctx context.Context, req *model.AddInvokeFunctionStageRequest) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")
-	r, e := m.forwardRequest(req, ctx)
+	r, e := m.forwardRequest(ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -115,7 +115,7 @@ func (m *actorManager) AddInvokeFunction(ctx context.Context, req *model.AddInvo
 
 func (m *actorManager) AddDelay(ctx context.Context, req *model.AddDelayStageRequest) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")
-	r, e := m.forwardRequest(req, ctx)
+	r, e := m.forwardRequest( ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -124,7 +124,7 @@ func (m *actorManager) AddDelay(ctx context.Context, req *model.AddDelayStageReq
 }
 
 func (m *actorManager) AddStage(ctx context.Context, req *model.AddStageRequest) (*model.AddStageResponse, error) {
-	r, e := m.forwardRequest(req, ctx)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -135,7 +135,7 @@ func (m *actorManager) AddStage(ctx context.Context, req *model.AddStageRequest)
 
 
 func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddCompletedValueStageRequest) (*model.AddStageResponse, error) {
-	r, e := m.forwardRequest(req, ctx)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -145,8 +145,8 @@ func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddComplete
 }
 
 func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Getting stage result")
-	r, e := m.forwardRequest(req, ctx)
+	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Getting stage result")
+	r, e := m.forwardRequest(ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -155,14 +155,14 @@ func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitSta
 }
 
 func (m *actorManager) CompleteStageExternally(ctx context.Context, req *model.CompleteStageExternallyRequest) (*model.CompleteStageExternallyResponse, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Completing stage externally")
-	r, e := m.forwardRequest(req, ctx)
+	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Completing stage externally")
+	r, e := m.forwardRequest(ctx,req)
 	return r.(*model.CompleteStageExternallyResponse), e
 }
 
 func (m *actorManager) Commit(ctx context.Context, req *model.CommitGraphRequest) (*model.GraphRequestProcessedResponse, error) {
-	m.log.WithFields(logrus.Fields{"graph_id": req.GraphId}).Debug("Committing graph")
-	r, e := m.forwardRequest(req, ctx)
+	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Committing graph")
+	r, e := m.forwardRequest(ctx,req)
 	if e != nil {
 		return nil, e
 	}
@@ -179,22 +179,22 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 		return nil, fmt.Errorf("Ignoring request of unknown type %v", reflect.TypeOf(req))
 	}
 
-	shardID, err := m.shardExtractor.ShardID(msg.GetGraphId())
+	shardID, err := m.shardExtractor.ShardID(msg.GetFlowId())
 	if err != nil {
-		m.log.Warnf("Failed to extract shard for graph %s: %v", msg.GetGraphId(), err)
-		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
+		m.log.Warnf("Failed to extract shard for graph %s: %v", msg.GetFlowId(), err)
+		return nil, model.NewGraphNotFoundError(msg.GetFlowId())
 	}
 
 	pid, ok := m.shardSupervisors[shardID]
 
 	if !ok {
 		m.log.Warnf("No local supervisor found for shard %d", shardID)
-		return nil, model.NewGraphNotFoundError(msg.GetGraphId())
+		return nil, model.NewGraphNotFoundError(msg.GetFlowId())
 	}
 	return pid, nil
 }
 
-func (m *actorManager) forwardRequest(req interface{}, ctx context.Context) (interface{}, error) {
+func (m *actorManager) forwardRequest(ctx context.Context, req interface{} ) (interface{}, error) {
 	supervisor, err := m.lookupSupervisor(req)
 	if err != nil {
 		return nil, err
@@ -233,16 +233,16 @@ func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn
 
 }
 
-func (m *actorManager) SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error) {
-	graphPath, err := m.graphActorPath(graphID)
+func (m *actorManager) SubscribeGraphEvents(flowID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error) {
+	graphPath, err := m.graphActorPath(flowID)
 	if err != nil {
 		return nil, err
 	}
 	return m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, fromIndex, fn), nil
 }
 
-func (m *actorManager) QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error {
-	graphPath, err := m.graphActorPath(graphID)
+func (m *actorManager) QueryGraphEvents(flowID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error {
+	graphPath, err := m.graphActorPath(flowID)
 	if err != nil {
 		return err
 	}
@@ -254,10 +254,10 @@ func (m *actorManager) UnsubscribeStream(sub *eventstream.Subscription) {
 	m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
 }
 
-func (m *actorManager) graphActorPath(graphID string) (string, error) {
-	shardID, err := m.shardExtractor.ShardID(graphID)
+func (m *actorManager) graphActorPath(flowID string) (string, error) {
+	shardID, err := m.shardExtractor.ShardID(flowID)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/%s", supervisorName(shardID), graphID), nil
+	return fmt.Sprintf("%s/%s", supervisorName(shardID), flowID), nil
 }

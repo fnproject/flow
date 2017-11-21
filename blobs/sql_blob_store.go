@@ -60,7 +60,7 @@ func (s *sqlBlobStore) Create(prefix string, contentType string, input io.Reader
 }
 
 // Read implements BlobStore - this buffers the blob before creating a reader
-func (s *sqlBlobStore) Read(graphID string, blobID string) (io.Reader, error) {
+func (s *sqlBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	span := opentracing.StartSpan("sql_read_blob_data")
 	defer span.Finish()
 	row := s.db.QueryRowx("SELECT blob_data FROM blobs where blob_id = ?", blobID)

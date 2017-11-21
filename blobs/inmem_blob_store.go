@@ -20,7 +20,7 @@ func NewInMemBlobStore() Store {
 }
 
 // Read implements BlobStore
-func (s *inMemBlobStore) Read(graphID string, blobID string) (io.Reader, error) {
+func (s *inMemBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	blob, ok := s.blobs[blobID]
@@ -33,7 +33,7 @@ func (s *inMemBlobStore) Read(graphID string, blobID string) (io.Reader, error) 
 }
 
 // Create implements BlobStore
-func (s *inMemBlobStore) Create(graphID string, contentType string, data io.Reader) (*Blob, error) {
+func (s *inMemBlobStore) Create(flowID string, contentType string, data io.Reader) (*Blob, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

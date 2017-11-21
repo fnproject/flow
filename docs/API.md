@@ -262,13 +262,16 @@ Content-type: application/json
 
 ### Flow service Invokes a Continuation
 
-A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null. HTTP multipart is used to frame the different elements of the request.
+The flow service invokes stages using the Fn API using a special JSON message. 
+
+FDKs implementing flow should detect incoming flow invocations (using the `Fnproject-FlowID` header ) and handle them as flow stages rather than Fn invocations 
 
 For example:
 
 ```
 POST /r/app/path HTTP/1.1
-Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
+Content-Type: application/json 
+
 FnProject-FlowID: flow-abcd-12344
 FnProject-StageID: 2
 Content-Length: 707419
@@ -513,30 +516,30 @@ We'll swagger this up at some point
 | Route														| HTTP Method  | Description |
 | ---      													| ---         	 | ---       |
 | /graph?functionId=${fn_id} 								| POST 			| Creates a new execution graph cloud for the given Fn Flow function. |
-| /graph/${graph_id}										| GET  			| Returns a JSON representation of the flow completion graph. |
-| /graph/${graph_id}/commit								    | POST 			| Signals that the flow entrypoint function has finished executing and the graph is now committed. |
-| /graph/${graph_id}/supply								    | POST 			| Adds a root stage to this flow's graph that asynchronously executes a Supplier closure. Analogous to CompletableFuture's `supplyAsync`. http datum |
-| /graph/${graph_id}/invokeFunction?functionId=/app/somefn/path| POST 			| Adds a root stage to this flow's graph that asynchronously invokes an external FaaS (fn) function.  The content of the body should correspond to an httpreq datum. When the stage is completed it will yield a httpresp datum |
-| /graph/${graph_id}/completedValue							| POST 			 | Adds a root stage to this flow's graph that is completed with the value provided in the HTTP request body. Analogous to CompletableFuture's `completedFuture`. |
-| /graph/${graph_id}/delay?delayMs=uint									| POST 		| Adds a root stage to this flow's graph that completes asynchronously with an empty value after the specified delay. |
-| /graph/${graph_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this flow's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
-| /graph/${graph_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this flow's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
-| /graph/${graph_id}/externalCompletion						| POST 			| Adds a root stage to this flow's graph that can be completed or failed externally via an HTTP post to `/graph/${graph_id}/stage/${stage_id}/complete` or `/graph/${graph_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
-| /graph/${graph_id}/stage/${stage_id}						| GET 			| Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
-| /graph/${graph_id}/stage/${stage_id}/complete				| POST 			| Completes a pending  stage  with a specified datum.  Analogous to CompletableFuture's `complete` and `completeExceptionally`. |
-| /graph/${graph_id}/stage/${stage_id}/acceptEither?other=${other_stage}			| POST 	 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#acceptEither-java.util.concurrent.CompletionStage-java.util.function.Consumer-). |
-| /graph/${graph_id}/stage/${stage_id}/applyToEither?other=${other_stage}		| POST  | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#applyToEither-java.util.concurrent.CompletionStage-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenAcceptBoth?other=${other_stage}		| POST 		 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAcceptBoth-java.util.concurrent.CompletionStage-java.util.function.BiConsumer-). |
-| /graph/${graph_id}/stage/${stage_id}/thenApply			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenApply-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenRun				| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenRun-java.lang.Runnable-). |
-| /graph/${graph_id}/stage/${stage_id}/thenAccept			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAccept-java.util.function.Consumer-). |
-| /graph/${graph_id}/stage/${stage_id}/thenCompose			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCompose-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenCombine?other=${other_stage}			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCombine-java.util.concurrent.CompletionStage-java.util.function.BiFunction-). |
-| /graph/${graph_id}/stage/${stage_id}/whenComplete			| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#whenComplete-java.util.function.BiConsumer-). |
-| /graph/${graph_id}/stage/${stage_id}/handle				| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#handle-java.util.function.BiFunction-). |
-| /graph/${graph_id}/stage/${stage_id}/exceptionally		| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#exceptionally-java.util.function.Function-). |
+| /graph/${flow_id}										| GET  			| Returns a JSON representation of the flow completion graph. |
+| /graph/${flow_id}/commit								    | POST 			| Signals that the flow entrypoint function has finished executing and the graph is now committed. |
+| /graph/${flow_id}/supply								    | POST 			| Adds a root stage to this flow's graph that asynchronously executes a Supplier closure. Analogous to CompletableFuture's `supplyAsync`. http datum |
+| /graph/${flow_id}/invokeFunction?functionId=/app/somefn/path| POST 			| Adds a root stage to this flow's graph that asynchronously invokes an external FaaS (fn) function.  The content of the body should correspond to an httpreq datum. When the stage is completed it will yield a httpresp datum |
+| /graph/${flow_id}/completedValue							| POST 			 | Adds a root stage to this flow's graph that is completed with the value provided in the HTTP request body. Analogous to CompletableFuture's `completedFuture`. |
+| /graph/${flow_id}/delay?delayMs=uint									| POST 		| Adds a root stage to this flow's graph that completes asynchronously with an empty value after the specified delay. |
+| /graph/${flow_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this flow's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
+| /graph/${flow_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this flow's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
+| /graph/${flow_id}/externalCompletion						| POST 			| Adds a root stage to this flow's graph that can be completed or failed externally via an HTTP post to `/graph/${flow_id}/stage/${stage_id}/complete` or `/graph/${flow_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
+| /graph/${flow_id}/stage/${stage_id}						| GET 			| Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
+| /graph/${flow_id}/stage/${stage_id}/complete				| POST 			| Completes a pending  stage  with a specified datum.  Analogous to CompletableFuture's `complete` and `completeExceptionally`. |
+| /graph/${flow_id}/stage/${stage_id}/acceptEither?other=${other_stage}			| POST 	 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#acceptEither-java.util.concurrent.CompletionStage-java.util.function.Consumer-). |
+| /graph/${flow_id}/stage/${stage_id}/applyToEither?other=${other_stage}		| POST  | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#applyToEither-java.util.concurrent.CompletionStage-java.util.function.Function-). |
+| /graph/${flow_id}/stage/${stage_id}/thenAcceptBoth?other=${other_stage}		| POST 		 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAcceptBoth-java.util.concurrent.CompletionStage-java.util.function.BiConsumer-). |
+| /graph/${flow_id}/stage/${stage_id}/thenApply			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenApply-java.util.function.Function-). |
+| /graph/${flow_id}/stage/${stage_id}/thenRun				| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenRun-java.lang.Runnable-). |
+| /graph/${flow_id}/stage/${stage_id}/thenAccept			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAccept-java.util.function.Consumer-). |
+| /graph/${flow_id}/stage/${stage_id}/thenCompose			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCompose-java.util.function.Function-). |
+| /graph/${flow_id}/stage/${stage_id}/thenCombine?other=${other_stage}			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCombine-java.util.concurrent.CompletionStage-java.util.function.BiFunction-). |
+| /graph/${flow_id}/stage/${stage_id}/whenComplete			| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#whenComplete-java.util.function.BiConsumer-). |
+| /graph/${flow_id}/stage/${stage_id}/handle				| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#handle-java.util.function.BiFunction-). |
+| /graph/${flow_id}/stage/${stage_id}/exceptionally		| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#exceptionally-java.util.function.Function-). |
 
-Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage result by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
+Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage result by making an HTTP GET request to `/graph/${flow_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
 
 Data is exchanged between the client and the flow service and the flow service and the function using HTTP multipart messages 
  

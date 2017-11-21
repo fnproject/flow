@@ -2,6 +2,7 @@ package sanity
 
 // sanity is a simple testing framework for flow service - it allows easy chaining of dependent calls by retaining object placeholders for previous calls
 
+/*
 import (
 	"bytes"
 	"fmt"
@@ -25,7 +26,7 @@ type testCtx struct {
 	failed       bool
 	narrative    []string
 	t            *testing.T
-	graphID      string
+	FlowId      string
 	stageID      string
 	lastResponse *HTTPResp
 	server       *server.Server
@@ -131,7 +132,7 @@ func (c *APIChain) ExpectGraphCreated() *APIChain {
 		Expect(func(ctx *testCtx, resp *HTTPResp) {
 			flowIDHeader := resp.resp.Header.Get("Fnproject-FlowId")
 			require.NotEmpty(ctx, flowIDHeader, "FlowId header must be present in headers %v ", resp.resp.Header)
-			ctx.graphID = flowIDHeader
+			ctx.FlowId = flowIDHeader
 		}, "Graph was created")
 }
 
@@ -150,7 +151,7 @@ func (c *APIChain) ExpectLastStageAddedEvent(test func(*testCtx, *model.StageAdd
 	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		var lastStageAddedEvent *model.StageAddedEvent
 
-		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
+		ctx.server.GraphManager.QueryGraphEvents(ctx.FlowId, 0,
 			func(event *persistence.StreamEvent) bool {
 				_, ok := event.Event.(*model.StageAddedEvent)
 				return ok
@@ -170,7 +171,7 @@ func (c *APIChain) ExpectLastStageEvent(test func(*testCtx, model.Event)) *APICh
 	return c.Expect(func(ctx *testCtx, resp *HTTPResp) {
 		var lastStageEvent model.Event
 
-		ctx.server.GraphManager.QueryGraphEvents(ctx.graphID, 0,
+		ctx.server.GraphManager.QueryGraphEvents(ctx.FlowId, 0,
 			func(event *persistence.StreamEvent) bool {
 				_, ok := event.Event.(model.Event)
 				return ok
@@ -228,7 +229,7 @@ func (c *APIChain) WithErrorDatum(errorType string, message string) *APIChain {
 	})
 }
 
-// ThenCall chains a new api-call on to the state of the previous call - placeholders (e.g. :stageID, :graphID)  inherited from the previous call will be substituted into the next path
+// ThenCall chains a new api-call on to the state of the previous call - placeholders (e.g. :stageID, :FlowId)  inherited from the previous call will be substituted into the next path
 func (c *APIChain) ThenCall(method string, path string) *APIChain {
 	newCmd := &APIChain{method: method, path: path, headers: map[string]string{}}
 	c.cmd = append(c.cmd, newCmd)
@@ -243,7 +244,7 @@ func (c *APIChain) ThenPOST(path string) *APIChain {
 func (c *APIChain) toReq(ctx *testCtx) *http.Request {
 	placeholders := func(key string) string {
 
-		var s = strings.Replace(key, ":graphID", ctx.graphID, -1)
+		var s = strings.Replace(key, ":FlowId", ctx.FlowId, -1)
 		s = strings.Replace(s, ":stageID", ctx.stageID, -1)
 		return s
 	}
@@ -320,3 +321,4 @@ func (c *TestCase) Run(t *testing.T, server *server.Server) {
 
 	}
 }
+*/

@@ -54,7 +54,7 @@
         },
         "parameters": [
           {
-            "name": "graph.graph_id",
+            "name": "graph.flow_id",
             "in": "query",
             "required": false,
             "type": "string"
@@ -72,7 +72,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}": {
+    "/v1/flow/{flow_id}": {
       "get": {
         "operationId": "GetGraphState",
         "responses": {
@@ -85,7 +85,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -96,7 +96,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/commit": {
+    "/v1/flow/{flow_id}/commit": {
       "post": {
         "operationId": "Commit",
         "responses": {
@@ -109,7 +109,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -128,7 +128,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/delay": {
+    "/v1/flow/{flow_id}/delay": {
       "post": {
         "operationId": "AddDelay",
         "responses": {
@@ -141,7 +141,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -160,7 +160,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/invoke": {
+    "/v1/flow/{flow_id}/invoke": {
       "post": {
         "operationId": "AddInvokeFunction",
         "responses": {
@@ -173,7 +173,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -192,7 +192,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/stage": {
+    "/v1/flow/{flow_id}/stage": {
       "post": {
         "operationId": "AddStage",
         "responses": {
@@ -205,7 +205,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -224,7 +224,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/stages/{stage_id}/await": {
+    "/v1/flow/{flow_id}/stages/{stage_id}/await": {
       "get": {
         "operationId": "AwaitStageResult",
         "responses": {
@@ -237,7 +237,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -261,7 +261,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/stages/{stage_id}/complete": {
+    "/v1/flow/{flow_id}/stages/{stage_id}/complete": {
       "post": {
         "operationId": "CompleteStageExternally",
         "responses": {
@@ -274,7 +274,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -299,7 +299,7 @@
         ]
       }
     },
-    "/v1/flow/{graph_id}/value": {
+    "/v1/flow/{flow_id}/value": {
       "post": {
         "operationId": "AddValueStage",
         "responses": {
@@ -312,7 +312,7 @@
         },
         "parameters": [
           {
-            "name": "graph_id",
+            "name": "flow_id",
             "in": "path",
             "required": true,
             "type": "string"
@@ -353,7 +353,7 @@
     "modelAddCompletedValueStageRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "value": {
@@ -371,7 +371,7 @@
     "modelAddDelayStageRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "delay_ms": {
@@ -390,7 +390,7 @@
     "modelAddInvokeFunctionStageRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "function_id": {
@@ -411,7 +411,7 @@
     "modelAddStageRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "operation": {
@@ -438,7 +438,7 @@
     "modelAddStageResponse": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "stage_id": {
@@ -450,7 +450,7 @@
     "modelAwaitStageResultResponse": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "stage_id": {
@@ -480,7 +480,7 @@
     "modelCommitGraphRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         }
       }
@@ -488,7 +488,7 @@
     "modelCompleteStageExternallyRequest": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "stage_id": {
@@ -509,7 +509,7 @@
     "modelCompleteStageExternallyResponse": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "stage_id": {
@@ -568,7 +568,7 @@
         "function_id": {
           "type": "string"
         },
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         }
       }
@@ -576,7 +576,7 @@
     "modelCreateGraphResponse": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         }
       }
@@ -702,7 +702,7 @@
         "function_id": {
           "type": "string"
         },
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         }
       }
@@ -710,7 +710,7 @@
     "modelGraphCompletedEvent": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "function_id": {
@@ -726,7 +726,7 @@
     "modelGraphCreatedEvent": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "function_id": {
@@ -746,7 +746,7 @@
           "type": "string",
           "format": "uint64"
         },
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "graph_created": {
@@ -781,7 +781,7 @@
     "modelGraphRequestProcessedResponse": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         }
       }
@@ -789,7 +789,7 @@
     "modelGraphTerminatingEvent": {
       "type": "object",
       "properties": {
-        "graph_id": {
+        "flow_id": {
           "type": "string"
         },
         "function_id": {

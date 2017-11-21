@@ -13,25 +13,25 @@ import (
 )
 
 type subscribeGraph struct {
-	GraphID string `json:"graph_id"`
+	FlowID string `json:"flow_id"`
 }
 
 type unSubscribeGraph struct {
-	GraphID string `json:"graph_id"`
+	FlowID string `json:"flow_id"`
 }
 
 func (sg *subscribeGraph) Action(l *wsWorker) error {
-	if _, ok := l.subscriptions[sg.GraphID]; ok {
+	if _, ok := l.subscriptions[sg.FlowID]; ok {
 		// already subscribed nop
 		return nil
 	}
 
-	log.WithField("conn", l.conn.LocalAddr().String()).WithField("graph_id", sg.GraphID).Info("Subscribed to graph")
+	log.WithField("conn", l.conn.LocalAddr().String()).WithField("flow_id", sg.FlowID).Info("Subscribed to graph")
 
 	req := &model.StreamRequest{
 		Query: &model.StreamRequest_Graph{
 			Graph: &model.StreamGraph{
-				GraphId: sg.GraphID,
+				FlowId: sg.FlowID,
 			},
 		},
 	}
@@ -52,15 +52,15 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 		}
 	}()
 
-	//sub, err := l.manager.SubscribeGraphEvents(sg.GraphID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.GraphID) })
+	//sub, err := l.manager.SubscribeGraphEvents(sg.FlowID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.FlowID) })
 
-	l.subscriptions[sg.GraphID] = client
+	l.subscriptions[sg.FlowID] = client
 	return nil
 }
 
 func (sg *unSubscribeGraph) Action(l *wsWorker) error {
-	if sub, ok := l.subscriptions[sg.GraphID]; ok {
-		delete(l.subscriptions, sg.GraphID)
+	if sub, ok := l.subscriptions[sg.FlowID]; ok {
+		delete(l.subscriptions, sg.FlowID)
 		sub.CloseSend()
 	}
 	return nil

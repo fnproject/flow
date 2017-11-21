@@ -301,10 +301,9 @@ func givenValidInvokeStageRequest(store blobs.Store, m *MockClient) *model.FaasI
 	}
 
 	result := exec.HandleInvokeStage(&model.InvokeStageRequest{
-		GraphId:    "graph-id",
+		FlowId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
-		Operation:  model.CompletionOperation_thenApply,
 		Closure:    model.NewBlob("closure", uint64(200), "content/type"),
 		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(model.NewBlob("arg1", uint64(200), "content/type"))), model.NewEmptyResult()},
 	})
@@ -320,7 +319,7 @@ func givenValidFunctionRequest(store blobs.Store, m *MockClient, body *model.Blo
 	}
 
 	result := exec.HandleInvokeFunction(&model.InvokeFunctionRequest{
-		GraphId:    "graph-id",
+		FlowId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
 		Arg: &model.HTTPReqDatum{
@@ -339,7 +338,7 @@ func givenValidFunctionRequest(store blobs.Store, m *MockClient, body *model.Blo
 func hasValidResult(t *testing.T, result *model.FaasInvocationResponse) {
 	assert.Equal(t, "/function/id/", result.FunctionId)
 	assert.Equal(t, "stage-id", result.StageId)
-	assert.Equal(t, "graph-id", result.GraphId)
+	assert.Equal(t, "graph-id", result.FlowId)
 	require.NotNil(t, result.Result)
 	require.NotNil(t, result.Result.GetDatum())
 }

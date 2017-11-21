@@ -11,7 +11,7 @@ var log = logrus.WithField("logger", "sharding")
 
 // ShardExtractor maps graph IDs to shards
 type ShardExtractor interface {
-	ShardID(graphID string) (int, error)
+	ShardID(flowID string) (int, error)
 	ShardCount() int
 }
 
@@ -25,8 +25,8 @@ func NewFixedSizeExtractor(shardCount int) ShardExtractor {
 	return &fixedSizeShardExtractor{shardCount: shardCount}
 }
 
-func (m *fixedSizeShardExtractor) ShardID(graphID string) (int, error) {
-	UUID, err := uuid.Parse(graphID)
+func (m *fixedSizeShardExtractor) ShardID(flowID string) (int, error) {
+	UUID, err := uuid.Parse(flowID)
 	if err != nil {
 		return 0, err
 	}
@@ -34,7 +34,7 @@ func (m *fixedSizeShardExtractor) ShardID(graphID string) (int, error) {
 	hiBits := binary.BigEndian.Uint64(UUID[8:])
 	hilo := lowBits ^ hiBits
 	shard := hilo % uint64(m.shardCount)
-	log.Debugf("Got shard %d for graph %s", int(shard), graphID)
+	log.Debugf("Got shard %d for graph %s", int(shard), flowID)
 	return int(shard), nil
 
 }

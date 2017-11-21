@@ -10,17 +10,18 @@ type clusterProxy struct {
 	manager *Manager
 }
 
+// NewClusterProxy creates a proxy service that forwards requests to the appropriate nodes based on the request shard
 func NewClusterProxy(manager *Manager) model.FlowServiceServer {
 	return &clusterProxy{manager: manager}
 }
 
 func (c *clusterProxy) CreateGraph(ctx context.Context, r *model.CreateGraphRequest) (*model.CreateGraphResponse, error) {
-	graphID, err := uuid.NewRandom()
+	flowID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
 	}
-	r.GraphId = graphID.String()
-	client, err := c.manager.GetClient(r.GraphId)
+	r.FlowId = flowID.String()
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func (c *clusterProxy) CreateGraph(ctx context.Context, r *model.CreateGraphRequ
 }
 
 func (c *clusterProxy) AddStage(ctx context.Context, r *model.AddStageRequest) (*model.AddStageResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +39,7 @@ func (c *clusterProxy) AddStage(ctx context.Context, r *model.AddStageRequest) (
 }
 
 func (c *clusterProxy) AddValueStage(ctx context.Context, r *model.AddCompletedValueStageRequest) (*model.AddStageResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (c *clusterProxy) AddValueStage(ctx context.Context, r *model.AddCompletedV
 
 
 func (c *clusterProxy) AddInvokeFunction(ctx context.Context, r *model.AddInvokeFunctionStageRequest) (*model.AddStageResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (c *clusterProxy) AddInvokeFunction(ctx context.Context, r *model.AddInvoke
 }
 
 func (c *clusterProxy) AddDelay(ctx context.Context, r *model.AddDelayStageRequest) (*model.AddStageResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (c *clusterProxy) AddDelay(ctx context.Context, r *model.AddDelayStageReque
 }
 
 func (c *clusterProxy) AwaitStageResult(ctx context.Context, r *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (c *clusterProxy) AwaitStageResult(ctx context.Context, r *model.AwaitStage
 }
 
 func (c *clusterProxy) CompleteStageExternally(ctx context.Context, r *model.CompleteStageExternallyRequest) (*model.CompleteStageExternallyResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +81,7 @@ func (c *clusterProxy) CompleteStageExternally(ctx context.Context, r *model.Com
 }
 
 func (c *clusterProxy) Commit(ctx context.Context, r *model.CommitGraphRequest) (*model.GraphRequestProcessedResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ func (c *clusterProxy) Commit(ctx context.Context, r *model.CommitGraphRequest) 
 }
 
 func (c *clusterProxy) GetGraphState(ctx context.Context, r *model.GetGraphStateRequest) (*model.GetGraphStateResponse, error) {
-	client, err := c.manager.GetClient(r.GraphId)
+	client, err := c.manager.GetClient(r.FlowId)
 	if err != nil {
 		return nil, err
 	}

@@ -100,7 +100,7 @@ func serverGrpc(server *grpc.Server) gin.HandlerFunc {
 	}
 }
 
-// New creates a new server - params are injected dependencies
+// NewAPIServer creates a new API server - params are injected dependencies
 func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL string) (*Server, error) {
 
 	setTracer(restListen, zipkinURL)

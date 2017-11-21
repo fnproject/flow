@@ -63,14 +63,14 @@ func (m *InvalidGraphOperation) Error() string {
 // GraphMessage is any message that belongs exclusively to a graph
 type GraphMessage interface {
 	proto.Message
-	GetGraphId() string
+	GetFlowId() string
 }
 
 // StageMessage is any message that belongs exclusively a stage (and hence a graph)
 // This is intentionally distinct from GraphMessage!
 type StageMessage interface {
 	proto.Message
-	GetGraphId() string
+	GetFlowId() string
 	GetStageId() string
 }
 
@@ -87,7 +87,7 @@ type Command interface {
 
 // AddStageCommand is any command that creates a stage  and Warrants an AddStageResponse
 type AddStageCommand interface {
-	GetGraphId() string
+	GetFlowId() string
 	GetOperation() CompletionOperation
 	GetDependencyCount() int
 	GetCodeLocation() string

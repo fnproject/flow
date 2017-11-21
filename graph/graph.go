@@ -70,7 +70,7 @@ func New(id string, functionID string, listener CompletionEventListener) *Comple
 		FunctionID:      functionID,
 		stages:          make(map[string]*CompletionStage),
 		eventListener:   listener,
-		log:             log.WithFields(logrus.Fields{"graph_id": id, "function_id": functionID}),
+		log:             log.WithFields(logrus.Fields{"flow_id": id, "function_id": functionID}),
 		state:           StateInitial,
 		terminationRoot: &RawDependency{ID: "_termination"},
 	}
@@ -397,20 +397,20 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 	// disallow graph structural changes when complete
 	if addCmd, ok := cmd.(model.AddStageCommand); ok {
 		if !graph.canModifyGraph() {
-			return model.NewGraphCompletedError(addCmd.GetGraphId())
+			return model.NewGraphCompletedError(addCmd.GetFlowId())
 		}
 		strategy, err := getStrategyFromOperation(addCmd.GetOperation())
 		if err != nil {
-			return model.NewInvalidOperationError(addCmd.GetGraphId())
+			return model.NewInvalidOperationError(addCmd.GetFlowId())
 		}
 
 		if addCmd.GetDependencyCount() < strategy.MinDependencies ||
 			strategy.MaxDependencies >= 0 && addCmd.GetDependencyCount() > strategy.MaxDependencies {
-			return model.NewInvalidStageDependenciesError(addCmd.GetGraphId())
+			return model.NewInvalidStageDependenciesError(addCmd.GetFlowId())
 		}
 
 		if len(graph.stages) >= maxStages {
-			return model.NewTooManyStagesError(addCmd.GetGraphId())
+			return model.NewTooManyStagesError(addCmd.GetFlowId())
 		}
 
 		if addCmd.GetOperation() == model.CompletionOperation_terminationHook {
@@ -421,7 +421,7 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 				}
 			}
 			if hookCount >= maxTerminationHooks {
-				return model.NewTooManyTerminationHooksError(addCmd.GetGraphId())
+				return model.NewTooManyTerminationHooksError(addCmd.GetFlowId())
 			}
 		}
 	}
@@ -430,23 +430,23 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 	switch msg := cmd.(type) {
 	case *model.AddDelayStageRequest:
 		if msg.DelayMs <= 0 || msg.DelayMs > maxDelaySeconds*1000 {
-			return model.NewInvalidDelayError(msg.GraphId, msg.DelayMs)
+			return model.NewInvalidDelayError(msg.FlowId, msg.DelayMs)
 		}
 
 	case *model.AddStageRequest:
 		if valid := graph.validateStages(msg.Deps); !valid {
-			return model.NewInvalidStageDependenciesError(msg.GraphId)
+			return model.NewInvalidStageDependenciesError(msg.FlowId)
 		}
 
 	case *model.CompleteStageExternallyRequest:
 		stage := graph.GetStage(msg.StageId)
 		if stage == nil {
-			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
+			return model.NewStageNotFoundError(msg.FlowId, msg.StageId)
 		}
 
 	case *model.AwaitStageResultRequest:
 		if valid := graph.validateStages(append(make([]string, 0), msg.StageId)); !valid {
-			return model.NewStageNotFoundError(msg.GraphId, msg.StageId)
+			return model.NewStageNotFoundError(msg.FlowId, msg.StageId)
 		}
 
 	}

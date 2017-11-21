@@ -494,7 +494,7 @@
         "stage_id": {
           "type": "string"
         },
-        "result": {
+        "value": {
           "$ref": "#/definitions/modelCompletionResult"
         },
         "code_location": {

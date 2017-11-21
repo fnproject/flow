@@ -197,20 +197,20 @@ Content-type: application/json
 ```
 
 Again the flow service returns a new stage ID in the body: 
- 
-```
-HTTP/1.1 200 OK
-Content-type: application/json 
 
-{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
-```
 
 The `body` field is optional (in which case no HTTP body will be passed to the target function): 
 
 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+POST /v1 
+```
+HTTP/1.1 200 OK
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
+```/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
 Content-type: application/json 
 
 {
@@ -221,6 +221,51 @@ Content-type: application/json
     "code_location" : "com.myfn.MyClass#invokeFunction:123"
 }
 ```
+
+#### Standalone completion stages 
+
+Most stages are designed to be chained together but you can also create and complete stages directly: 
+
+
+create an empty stage: 
+
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage
+Content-type: application/json 
+
+{
+   "operation": "externalCompletion" 
+}
+```
+ 
+```
+HTTP/1.1 200 OK
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"3"}
+```
+
+You can then complete this stage with an existing datum and a status (indicating whether the stage should be treated as successful or not ) : 
+
+
+
+
+```
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stages/3/complete
+Content-type: application/json 
+
+{
+    "value" : {
+            "successful": true, 
+            "datum": {
+                 "empty": {}
+               }
+       },
+    "successful": "true"
+}
+```
+
+
 
 ### Runtime creates a completed future on the flow service 
 

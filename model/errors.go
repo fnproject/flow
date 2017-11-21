@@ -47,6 +47,16 @@ func NewInvalidStageDependenciesError(flowID string) ValidationError {
 	return &InvalidGraphOperation{FlowId: flowID, Err: "Failed to create stage with invalid dependencies"}
 }
 
+
+// NewNeedsClosureError :stage needs a closure
+func NewNeedsClosureError(flowID string) ValidationError {
+	return &InvalidGraphOperation{FlowId: flowID, Err: "Stage requires a closure but none was specified"}
+}
+
+// NewShouldNotHaveClosureError :stage has a closure when it shouldn't
+func NewShouldNotHaveClosureError(flowID string) ValidationError {
+	return &InvalidGraphOperation{FlowId: flowID, Err: "Stage should not have  closure but one was specified"}
+}
 // NewInvalidOperationError : bad operation in request
 func NewInvalidOperationError(flowID string) ValidationError {
 	return &InvalidGraphOperation{FlowId: flowID, Err: "Invalid stage operation"}

@@ -92,6 +92,7 @@ type AddStageCommand interface {
 	GetDependencyCount() int
 	GetCodeLocation() string
 	GetCallerId() string
+	HasClosure() bool
 }
 
 //// GetOperation for AddStageCommand.GetOperation
@@ -114,19 +115,40 @@ func (m *AddCompletedValueStageRequest) GetDependencyCount() int {
 	return 0
 }
 
+// HasClosure implements AddStageCommand
+func (m *AddCompletedValueStageRequest) HasClosure() bool {
+	return false
+}
+
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddDelayStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_delay
 }
+
+// HasClosure implements AddStageCommand
+func (m *AddDelayStageRequest) HasClosure() bool {
+	return false
+}
+
 
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_invokeFunction
 }
 
+// HasClosure implements AddStageCommand
+func (m *AddInvokeFunctionStageRequest) HasClosure() bool {
+	return false
+}
+
 // GetDependencyCount for AddStageCommand.GetDependencyCount
 func (m *AddStageRequest) GetDependencyCount() int {
 	return len(m.Deps)
+}
+
+// HasClosure implements AddStageCommand
+func (m *AddStageRequest) HasClosure() bool {
+	return m.Closure!=nil
 }
 
 // GetDependencyCount for AddStageCommand.GetDependencyCount

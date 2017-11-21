@@ -64,7 +64,7 @@ type CompletionGraph struct {
 	terminationRoot      *RawDependency
 	terminationChainHead *CompletionStage
 	// Non-persisted start time. It is reconstructed upon rematerialization based on events.
-	startTime     time.Time
+	startTime time.Time
 }
 
 // New Creates a new graph
@@ -418,6 +418,14 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 		if addCmd.GetDependencyCount() < strategy.MinDependencies ||
 			strategy.MaxDependencies >= 0 && addCmd.GetDependencyCount() > strategy.MaxDependencies {
 			return model.NewInvalidStageDependenciesError(addCmd.GetFlowId())
+		}
+
+		if strategy.TakesClosure && !addCmd.HasClosure() {
+			return model.NewNeedsClosureError(addCmd.GetFlowId())
+		}
+
+		if !strategy.TakesClosure && addCmd.HasClosure() {
+			return model.NewShouldNotHaveClosureError(addCmd.GetFlowId())
 		}
 
 		if len(graph.stages) >= maxStages {

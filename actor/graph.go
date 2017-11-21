@@ -94,6 +94,7 @@ func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool 
 			return false
 		}
 
+
 	default:
 		if g.graph == nil {
 			context.Respond(model.NewGraphNotFoundError(msg.GetFlowId()))
@@ -104,6 +105,8 @@ func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool 
 			context.Respond(validationError)
 			return false
 		}
+
+
 	}
 
 	return true
@@ -137,6 +140,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		context.Respond(g.createExternalState())
 
 	case *model.AddStageRequest:
+
 		g.log.Debug("Adding chained stage")
 		stageID := g.graph.NextStageID()
 
@@ -191,18 +195,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.scheduleDelay(delayEvent)
 		context.Respond(&model.AddStageResponse{FlowId: msg.FlowId, StageId: stageID})
 
-	//case *model.AddExternalCompletionStageRequest:
-	//	g.log.Debug("Adding external completion stage")
-	//	stageID := g.graph.NextStageID()
-	//
-	//	g.persistAndUpdateGraph(&model.StageAddedEvent{
-	//		StageId:      stageID,
-	//		Op:           msg.GetOperation(),
-	//		Ts:           currentTimestamp(),
-	//		CodeLocation: msg.CodeLocation,
-	//		CallerId:     msg.CallerId,
-	//	})
-	//	context.Respond(&model.AddStageResponse{FlowId: msg.FlowId, StageId: stageID})
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
@@ -242,7 +234,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		if completable {
 			g.persistAndUpdateGraph(&model.StageCompletedEvent{
 				StageId: msg.StageId,
-				Result:  msg.Result,
+				Result:  msg.Value,
 				Ts:      currentTimestamp(),
 			})
 		}

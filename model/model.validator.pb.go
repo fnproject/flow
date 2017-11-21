@@ -221,12 +221,12 @@ func (this *CompleteStageExternallyRequest) Validate() error {
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
 	}
-	if nil == this.Result {
-		return go_proto_validators.FieldError("Result", fmt.Errorf("message must exist"))
+	if nil == this.Value {
+		return go_proto_validators.FieldError("Value", fmt.Errorf("message must exist"))
 	}
-	if this.Result != nil {
-		if err := go_proto_validators.CallValidatorIfExists(this.Result); err != nil {
-			return go_proto_validators.FieldError("Result", err)
+	if this.Value != nil {
+		if err := go_proto_validators.CallValidatorIfExists(this.Value); err != nil {
+			return go_proto_validators.FieldError("Value", err)
 		}
 	}
 	return nil

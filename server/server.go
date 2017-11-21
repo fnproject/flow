@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc"
 	"github.com/fnproject/flow/model"
 	"net/http"
-	"time"
 	"github.com/gin-gonic/gin"
 	"github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/opentracing/opentracing-go"
@@ -19,11 +18,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 )
 
-const (
-	maxDelayStageDelay = 3600 * 1000 * 24
-	maxRequestTimeout  = 1 * time.Hour
-	minRequestTimeout  = 1 * time.Second
-)
 
 var log = logrus.WithField("logger", "server")
 

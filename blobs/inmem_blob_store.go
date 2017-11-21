@@ -2,7 +2,6 @@ package blobs
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
 	"sync"
@@ -26,7 +25,7 @@ func (s *inMemBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	blob, ok := s.blobs[blobID]
 
 	if !ok {
-		return nil, fmt.Errorf("blob %s not found", blobID)
+		return nil, BlobNotFound
 	}
 
 	return bytes.NewReader(blob), nil

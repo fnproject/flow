@@ -1,11 +1,17 @@
 package blobs
 
 import (
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"io"
+	"io/ioutil"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 const headerContentType = "Content-Type"
+
+var log = logrus.WithField("logger", "blob_store")
 
 // Server encapsulates the blob server
 type Server struct {
@@ -27,12 +33,12 @@ func NewFromEngine(store Store, engine *gin.Engine) *Server {
 func (s *Server) createBlob(c *gin.Context) {
 
 	contentType := c.GetHeader(headerContentType)
-
-	if contentType == "" {
-
+	if len(contentType) == 0 {
+		c.AbortWithError(400, fmt.Errorf("Missing %s header", headerContentType))
+		return
 	}
-	prefix := c.Param("prefix")
 
+	prefix := c.Param("prefix")
 	blob, err := s.store.Create(prefix, contentType, c.Request.Body)
 
 	if err != nil {
@@ -50,18 +56,21 @@ func (s *Server) getBlob(c *gin.Context) {
 
 	r, err := s.store.Read(prefix, blobID)
 	if err != nil {
+		if err == BlobNotFound {
+			c.AbortWithError(404, err)
+			return
+		}
+		log.WithError(err).Error("Error querying blobstore")
 		c.AbortWithError(500, err)
 		return
 	}
 
-	_, err = io.Copy(c.Writer, r)
-	if err != nil {
-		log.Error("Error writing response")
+	// avoid internal buffering
+	if _, err = ioutil.ReadAll(io.TeeReader(r, c.Writer)); err != nil {
+		log.WithError(err).Error("Error writing blobstore response")
+		c.AbortWithError(500, err)
+		return
 	}
-
-}
-
-func (s *Server) headBlob(c *gin.Context) {
 
 }
 
@@ -72,4 +81,5 @@ func createBlobAPI(s *Server) {
 		blobs.POST("/:prefix", s.createBlob)
 		blobs.GET("/:prefix/:blobId", s.getBlob)
 	}
+
 }

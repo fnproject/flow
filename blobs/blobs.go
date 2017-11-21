@@ -1,6 +1,7 @@
 package blobs
 
 import (
+	"errors"
 	"io"
 )
 
@@ -10,6 +11,8 @@ type Blob struct {
 	ContentType string `json:"content_type,omitempty"`
 	Length      uint64 `json:"length,omitempty"`
 }
+
+var BlobNotFound = errors.New("The specified blob does not exist.")
 
 // Store is an abstraction for user data persistence
 // user data is a pure blob with no semantics

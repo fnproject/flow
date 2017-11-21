@@ -2,19 +2,18 @@ package blobs
 
 import (
 	"bytes"
+	"database/sql"
+	"io"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/opentracing/opentracing-go"
-	"github.com/sirupsen/logrus"
-	"io"
 )
 
 type sqlBlobStore struct {
 	snapshotInterval int
 	db               *sqlx.DB
 }
-
-var log = logrus.WithField("logger", "sql_blob_store")
 
 // NewSQLBlobStore creates a new blob store on the given DB , the DB should already have tables in place
 func NewSQLBlobStore(db *sqlx.DB) (Store, error) {
@@ -73,7 +72,9 @@ func (s *sqlBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	err := row.Scan(&blobData)
 
 	if err != nil {
-
+		if err == sql.ErrNoRows {
+			return nil, BlobNotFound
+		}
 		log.WithField("blob_id", blobID).WithError(row.Err()).Errorf("Error reading blob from DB")
 		return nil, err
 	}

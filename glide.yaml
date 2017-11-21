@@ -89,3 +89,6 @@ import:
   version: v1.3
   subpackages:
   - third_party/googleapis
+- package: github.com/grpc-ecosystem/go-grpc-middleware
+  subpackages:
+  - validator

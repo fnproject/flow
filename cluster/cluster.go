@@ -24,9 +24,9 @@ type Settings struct {
 
 func (s *Settings) nodeAddress(i int) string {
 	if i == s.NodeID {
-		return fmt.Sprintf("http://localhost:%d", s.NodePort)
+		return fmt.Sprintf("localhost:%d", s.NodePort)
 	}
-	return fmt.Sprintf("http://%s:%d", s.nodeName(i), s.NodePort)
+	return fmt.Sprintf("%s:%d", s.nodeName(i), s.NodePort)
 }
 
 func (s *Settings) nodeName(index int) string {

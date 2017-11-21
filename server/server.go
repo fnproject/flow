@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"strings"
 	"net"
+    "github.com/grpc-ecosystem/go-grpc-middleware/validator"
+
 )
 
 const (
@@ -88,7 +90,7 @@ func serverGrpc(server *grpc.Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r := c.Request
 		w := c.Writer
-		log.Infof(" proto: %s %d %s %s",r.Method,r.ProtoMajor,r.Header.Get("Content-type"),r.RequestURI)
+		log.Infof(" proto: %s %d %s %s", r.Method, r.ProtoMajor, r.Header.Get("Content-type"), r.RequestURI)
 
 		if r.ProtoMajor == 2 && (r.Method == "PRI" || strings.Contains(r.Header.Get("Content-Type"), "application/grpc")) {
 			log.Info("Serving GRPC ")
@@ -104,20 +106,21 @@ func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinU
 
 	setTracer(listenAddress, zipkinURL)
 
-	gRPCServer := grpc.NewServer()
+	gRPCServer := grpc.NewServer(validator.U)
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 
-	l,err := net.Listen("tcp","localhost:9999")
-	if err !=nil{
-		return nil,err
+	// TODO make GRPC port configurable
+	l, err := net.Listen("tcp", "localhost:9999")
+	if err != nil {
+		return nil, err
 	}
-	go func(){
+	go func() {
 		gRPCServer.Serve(l)
 	}()
 
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(),serverGrpc(gRPCServer))
+	engine.Use(gin.Logger(), gin.Recovery(), serverGrpc(gRPCServer))
 
 	s := &Server{
 		Engine:         engine,
@@ -132,7 +135,7 @@ func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinU
 	})
 
 	gwmux := runtime.NewServeMux()
-	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux,"localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
+	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(),   gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
 
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
 		log.Info("Serving HTTP ")
@@ -140,7 +143,7 @@ func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinU
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
 
-	// TODO: fix wss/change to GRRPC!
+	// TODO: fix wss/change to gRPC!
 	//s.Engine.GET("/wss", func(c *gin.Context) {
 	//	query.WSSHandler(manager, c.Writer, c.Request)
 	//})

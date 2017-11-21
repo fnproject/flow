@@ -101,9 +101,9 @@ func serverGrpc(server *grpc.Server) gin.HandlerFunc {
 }
 
 // New creates a new server - params are injected dependencies
-func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinURL string) (*Server, error) {
+func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL string) (*Server, error) {
 
-	setTracer(listenAddress, zipkinURL)
+	setTracer(restListen, zipkinURL)
 
 	gRPCServer := grpc.NewServer()
 	proxySvc := cluster.NewClusterProxy(clusterManager)
@@ -123,7 +123,7 @@ func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinU
 
 	s := &Server{
 		Engine:         engine,
-		listen:         listenAddress,
+		listen:         restListen,
 		grpcServer:     gRPCServer,
 		clusterManager: clusterManager,
 		promHandler:    promhttp.Handler(),

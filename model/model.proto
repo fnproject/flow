@@ -129,9 +129,9 @@ message AddStageRequest {
 }
 
 message CompleteStageExternallyRequest {
-    string graph_id = 1;
-    string stage_id = 2;
-    CompletionResult result = 3;
+    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string stage_id = 2 [(validator.field) = {msg_exists : true}];
+    CompletionResult result = 3 [(validator.field) = {msg_exists : true}];
     string code_location = 4;
     string caller_id = 5;
 }
@@ -176,8 +176,8 @@ message GraphRequestProcessedResponse {
 
 
 message CompleteDelayStageRequest {
-    string graph_id = 1;
-    string stage_id = 2;
+    string graph_id = 1 [(validator.field) = {msg_exists : true}];
+    string stage_id = 2 [(validator.field) = {msg_exists : true}];
     CompletionResult result = 3;
 }
 
@@ -228,7 +228,7 @@ message GetGraphStateResponse {
 }
 
 message ListGraphsRequest {
-    ListGraphsFilter filter = 1;
+    ListGraphsFilter filter = 1 [(validator.field) = {msg_exists : true}];
 }
 
 enum ListGraphsFilter {
@@ -465,9 +465,6 @@ service FlowService {
             get: "/v1/flow/stream"
         };
     }
-
-    //	SubscribeGraphEvents(graphID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error)
-    //	QueryGraphEvents(graphID string, fromIndex int, p persistence.StreamPredicate, fn persistence.StreamCallBack) error
-    //	UnsubscribeStream(sub *eventstream.Subscription)
+    
 
 }

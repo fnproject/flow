@@ -15,7 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"strings"
 	"net"
-    "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 
 )
 
@@ -106,7 +105,7 @@ func NewAPIServer(clusterManager *cluster.Manager, listenAddress string, zipkinU
 
 	setTracer(listenAddress, zipkinURL)
 
-	gRPCServer := grpc.NewServer(validator.U)
+	gRPCServer := grpc.NewServer()
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 

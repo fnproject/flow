@@ -358,8 +358,9 @@ The flow service observes the state of the graph to determine when pending work 
 
 e.g.: 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/value HTTP/1.1
+POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/commit HTTP/1.1
 ```
+
 
 ### Flow service Invokes a Continuation
 

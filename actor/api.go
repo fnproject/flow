@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+
 	"github.com/fnproject/flow/sharding"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -48,7 +49,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 		log.Warnf("Stopping failed graph actor due to error: %v", reason)
 		return actor.StopDirective
 	}
-	strategy := actor.NewOneForOneStrategy(10, 1000, decider)
+	strategy := NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, decider)
 
 	executorProps := actor.FromInstance(NewExecutor(fnURL, blobStore)).WithSupervisor(strategy)
 	// TODO executor is not sharded and would not support clustering once it's made persistent!
@@ -86,7 +87,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 
 func (m *actorManager) CreateGraph(ctx context.Context, req *model.CreateGraphRequest) (*model.CreateGraphResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Creating graph")
-	r, e := m.forwardRequest( ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -96,7 +97,7 @@ func (m *actorManager) CreateGraph(ctx context.Context, req *model.CreateGraphRe
 
 func (m *actorManager) GetGraphState(ctx context.Context, req *model.GetGraphStateRequest) (*model.GetGraphStateResponse, error) {
 	m.log.Debug("Getting graph stage")
-	r, e := m.forwardRequest(ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -105,7 +106,7 @@ func (m *actorManager) GetGraphState(ctx context.Context, req *model.GetGraphSta
 
 func (m *actorManager) AddInvokeFunction(ctx context.Context, req *model.AddInvokeFunctionStageRequest) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")
-	r, e := m.forwardRequest(ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -115,7 +116,7 @@ func (m *actorManager) AddInvokeFunction(ctx context.Context, req *model.AddInvo
 
 func (m *actorManager) AddDelay(ctx context.Context, req *model.AddDelayStageRequest) (*model.AddStageResponse, error) {
 	m.log.Debug("Adding stage")
-	r, e := m.forwardRequest( ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -133,7 +134,6 @@ func (m *actorManager) AddStage(ctx context.Context, req *model.AddStageRequest)
 
 }
 
-
 func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddCompletedValueStageRequest) (*model.AddStageResponse, error) {
 	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
@@ -146,7 +146,7 @@ func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddComplete
 
 func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Getting stage result")
-	r, e := m.forwardRequest(ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -156,13 +156,13 @@ func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitSta
 
 func (m *actorManager) CompleteStageExternally(ctx context.Context, req *model.CompleteStageExternallyRequest) (*model.CompleteStageExternallyResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Completing stage externally")
-	r, e := m.forwardRequest(ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	return r.(*model.CompleteStageExternallyResponse), e
 }
 
 func (m *actorManager) Commit(ctx context.Context, req *model.CommitGraphRequest) (*model.GraphRequestProcessedResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Committing graph")
-	r, e := m.forwardRequest(ctx,req)
+	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
 	}
@@ -194,7 +194,7 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	return pid, nil
 }
 
-func (m *actorManager) forwardRequest(ctx context.Context, req interface{} ) (interface{}, error) {
+func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (interface{}, error) {
 	supervisor, err := m.lookupSupervisor(req)
 	if err != nil {
 		return nil, err
@@ -227,8 +227,6 @@ func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowS
 	// }
 	return nil
 }
-
-
 
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)

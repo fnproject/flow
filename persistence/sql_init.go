@@ -14,11 +14,34 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
+var tables = map[string][]string{
+	"sqlite3": {
+	`CREATE TABLE IF NOT EXISTS events (
 	actor_name varchar(255) NOT NULL,
 	event_type varchar(255) NOT NULL,
 	event_index int NOT NULL,
 	event BLOB NOT NULL);`,
+
+	`CREATE INDEX IF NOT EXISTS actors ON events (actor_name);`,
+
+	`CREATE TABLE IF NOT EXISTS snapshots (
+	actor_name varchar(255) NOT NULL PRIMARY KEY ,
+	snapshot_type varchar(255) NOT NULL,
+	event_index int NOT NULL,
+	snapshot BLOB NOT NULL);`,
+
+	`CREATE TABLE IF NOT EXISTS blobs (
+	 blob_id varchar(255) NOT NULL PRIMARY KEY ,
+	 blob_data BLOB);`,
+	},
+
+	"mysql": {
+	`CREATE TABLE IF NOT EXISTS events (
+	actor_name varchar(255) NOT NULL,
+	event_type varchar(255) NOT NULL,
+	event_index int NOT NULL,
+	event BLOB NOT NULL,
+	INDEX actors (actor_name));`,
 
 	`CREATE TABLE IF NOT EXISTS snapshots (
 	actor_name varchar(255) NOT NULL PRIMARY KEY ,
@@ -30,6 +53,8 @@ var tables = [...]string{`CREATE TABLE IF NOT EXISTS events (
 	 prefix varchar(255) NOT NULL,
 	 blob_id varchar(255) NOT NULL PRIMARY KEY ,
 	 blob_data BLOB);`,
+	},
+
 }
 
 // CreateDBConnection sets up a DB connection and ensures required tables exist
@@ -77,7 +102,12 @@ func CreateDBConnection(url *url.URL) (*sqlx.DB, error) {
 		// setting the lifetime seems to result in driver bad connection errors
 		// sqlxDb.SetConnMaxLifetime(1 * time.Minute)
 	}
-	for _, v := range tables {
+
+	statements, ok := tables[driver]
+	if !ok {
+		return nil, fmt.Errorf("No initialisation sequence known for %s", driver)
+	}
+	for _, v := range statements {
 		_, err = sqlxDb.Exec(v)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create database table %s: %v", v, err)

@@ -28,13 +28,13 @@ Completion stages consist of the following :
 The following sections define the request/response protocol for the lifetime of a Fn Flow application.
 ### Runtime Creates a Flow (Function->Flow Service)
 
-The function creates a new flow by POST am empty request to the `/v1/flow/create` endpoint with a function ID  of the current function. 
+The function creates a new flow by POST am empty request to the `/v1/flows` endpoint with a function ID  of the current function.
  
 The function ID is the qualified path of the function in Fn, containing the app name and route. 
 
 
 ```
-POST /v1/flow/create HTTP/1.1
+POST /v1/flows HTTP/1.1
 Content-type: application/json 
 
 {
@@ -89,7 +89,7 @@ Once a blob is stored you can pass it by reference into a stage as either a valu
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
 Content-type: application/json 
     
 {
@@ -123,7 +123,7 @@ Some stages take other stages as dependencies, and will execute when some or all
 e.g. to create a `thenApply`  stage that executes a closure after a preceding stage is compelte: 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
 Content-type: application/json 
     
 {
@@ -142,7 +142,7 @@ Content-type: application/json
 
 or an `thenCombine` stage that blocks until two stages are complete and passes both results to a closure 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
 Content-type: application/json 
     
 {
@@ -159,7 +159,7 @@ Content-type: application/json
 
 or an `allOf` stage that blocks until all other stages are complete but takes no closure: 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
 Content-type: application/json 
     
 {
@@ -177,7 +177,7 @@ Content-type: application/json
 `invoke` creates a stage that immediately executes a call to another function in Fn and contains the target `function_id`, the  function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/invoke
 Content-type: application/json 
 
 {
@@ -209,7 +209,7 @@ HTTP/1.1 200 OK
 Content-type: application/json 
 
 {"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
-```/flow/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+```/flows/1212b145-5695-4b57-97b8-54ffeda83210/invoke
 Content-type: application/json 
 
 {
@@ -229,7 +229,7 @@ Most stages are designed to be chained together but you can also create and comp
 create an empty stage: 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stage
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage
 Content-type: application/json 
 
 {
@@ -250,7 +250,7 @@ You can then complete this stage with an existing datum and a status (indicating
 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stages/3/complete
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stages/3/complete
 Content-type: application/json 
 
 {
@@ -271,7 +271,7 @@ Clients can create stages that are already completed using the `value` operation
 
 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/value
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/value
 
 Content-Type: application/json
 
@@ -309,7 +309,7 @@ Content-type: application/json
 Generally runtimes should not block on graph events as it will consume resources in the client side unnecessarily, however this is possible using the `await` endpoint : 
 
 ```
-GET /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stages/1/await?timeout_ms=1000
+GET /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stages/1/await?timeout_ms=1000
 
 ```
 
@@ -358,7 +358,7 @@ The flow service observes the state of the graph to determine when pending work 
 
 e.g.: 
 ```
-POST /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/commit HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/commit HTTP/1.1
 ```
 
 

@@ -15,7 +15,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/flow/create": {
+    "/v1/flows": {
       "post": {
         "operationId": "CreateGraph",
         "responses": {
@@ -41,7 +41,7 @@
         ]
       }
     },
-    "/v1/flow/stream": {
+    "/v1/flows/stream": {
       "get": {
         "operationId": "StreamEvents",
         "responses": {
@@ -72,7 +72,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}": {
+    "/v1/flows/{flow_id}": {
       "get": {
         "operationId": "GetGraphState",
         "responses": {
@@ -96,7 +96,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/commit": {
+    "/v1/flows/{flow_id}/commit": {
       "post": {
         "operationId": "Commit",
         "responses": {
@@ -120,7 +120,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/delay": {
+    "/v1/flows/{flow_id}/delay": {
       "post": {
         "operationId": "AddDelay",
         "responses": {
@@ -152,7 +152,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/invoke": {
+    "/v1/flows/{flow_id}/invoke": {
       "post": {
         "operationId": "AddInvokeFunction",
         "responses": {
@@ -184,7 +184,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/stage": {
+    "/v1/flows/{flow_id}/stage": {
       "post": {
         "operationId": "AddStage",
         "responses": {
@@ -216,7 +216,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/stages/{stage_id}/await": {
+    "/v1/flows/{flow_id}/stages/{stage_id}/await": {
       "get": {
         "operationId": "AwaitStageResult",
         "responses": {
@@ -253,7 +253,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/stages/{stage_id}/complete": {
+    "/v1/flows/{flow_id}/stages/{stage_id}/complete": {
       "post": {
         "operationId": "CompleteStageExternally",
         "responses": {
@@ -291,7 +291,7 @@
         ]
       }
     },
-    "/v1/flow/{flow_id}/value": {
+    "/v1/flows/{flow_id}/value": {
       "post": {
         "operationId": "AddValueStage",
         "responses": {

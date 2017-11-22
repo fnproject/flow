@@ -664,25 +664,25 @@ func RegisterFlowServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_FlowService_CreateGraph_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "flow", "create"}, ""))
+	pattern_FlowService_CreateGraph_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "flows"}, ""))
 
-	pattern_FlowService_AddStage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flow", "flow_id", "stage"}, ""))
+	pattern_FlowService_AddStage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flows", "flow_id", "stage"}, ""))
 
-	pattern_FlowService_AddValueStage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flow", "flow_id", "value"}, ""))
+	pattern_FlowService_AddValueStage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flows", "flow_id", "value"}, ""))
 
-	pattern_FlowService_AddInvokeFunction_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flow", "flow_id", "invoke"}, ""))
+	pattern_FlowService_AddInvokeFunction_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flows", "flow_id", "invoke"}, ""))
 
-	pattern_FlowService_AddDelay_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flow", "flow_id", "delay"}, ""))
+	pattern_FlowService_AddDelay_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flows", "flow_id", "delay"}, ""))
 
-	pattern_FlowService_AwaitStageResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"v1", "flow", "flow_id", "stages", "stage_id", "await"}, ""))
+	pattern_FlowService_AwaitStageResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"v1", "flows", "flow_id", "stages", "stage_id", "await"}, ""))
 
-	pattern_FlowService_CompleteStageExternally_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"v1", "flow", "flow_id", "stages", "stage_id", "complete"}, ""))
+	pattern_FlowService_CompleteStageExternally_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"v1", "flows", "flow_id", "stages", "stage_id", "complete"}, ""))
 
-	pattern_FlowService_Commit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flow", "flow_id", "commit"}, ""))
+	pattern_FlowService_Commit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 2, 3}, []string{"v1", "flows", "flow_id", "commit"}, ""))
 
-	pattern_FlowService_GetGraphState_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "flow", "flow_id"}, ""))
+	pattern_FlowService_GetGraphState_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "flows", "flow_id"}, ""))
 
-	pattern_FlowService_StreamEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "flow", "stream"}, ""))
+	pattern_FlowService_StreamEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "flows", "stream"}, ""))
 )
 
 var (

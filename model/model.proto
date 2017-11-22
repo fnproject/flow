@@ -431,21 +431,21 @@ message FaasInvocationCompletedEvent {
 service FlowService {
     rpc CreateGraph (CreateGraphRequest) returns (CreateGraphResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/create",
+            post: "/v1/flows",
             body: "*"
         };
     };
 
     rpc AddStage (AddStageRequest) returns (AddStageResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/stage",
+            post: "/v1/flows/{flow_id}/stage",
             body: "*"
         };
     };
 
     rpc AddValueStage (AddCompletedValueStageRequest) returns (AddStageResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/value",
+            post: "/v1/flows/{flow_id}/value",
             body: "*"
         };
     };
@@ -453,46 +453,46 @@ service FlowService {
 
     rpc AddInvokeFunction (AddInvokeFunctionStageRequest) returns (AddStageResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/invoke",
+            post: "/v1/flows/{flow_id}/invoke",
             body: "*"
         };
     };
     rpc AddDelay (AddDelayStageRequest) returns (AddStageResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/delay",
+            post: "/v1/flows/{flow_id}/delay",
             body: "*"
         };
     };
 
     rpc AwaitStageResult (AwaitStageResultRequest) returns (AwaitStageResultResponse) {
         option (google.api.http) = {
-            get: "/v1/flow/{flow_id}/stages/{stage_id}/await"
+            get: "/v1/flows/{flow_id}/stages/{stage_id}/await"
         };
     };
 
     rpc CompleteStageExternally (CompleteStageExternallyRequest) returns (CompleteStageExternallyResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/stages/{stage_id}/complete",
+            post: "/v1/flows/{flow_id}/stages/{stage_id}/complete",
             body: "*",
         };
     };
 
     rpc Commit (CommitGraphRequest) returns (GraphRequestProcessedResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/commit"
+            post: "/v1/flows/{flow_id}/commit"
         };
     };
 
     rpc GetGraphState (GetGraphStateRequest) returns (GetGraphStateResponse) {
         option (google.api.http) = {
-            get: "/v1/flow/{flow_id}"
+            get: "/v1/flows/{flow_id}"
         };
     };
 
 
     rpc StreamEvents (StreamRequest) returns (stream GraphEvent) {
         option (google.api.http) = {
-            get: "/v1/flow/stream"
+            get: "/v1/flows/stream"
         };
     }
 

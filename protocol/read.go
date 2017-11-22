@@ -142,7 +142,7 @@ func readDatum(part io.Reader, header textproto.MIMEHeader) (*model.Datum, error
 		if stageID == "" {
 			return nil, ErrMissingStageRef
 		}
-		return &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: string(stageID)}}}, nil
+		return &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageId: string(stageID)}}}, nil
 
 	case DatumTypeHTTPReq:
 		methodString := header.Get(HeaderMethod)

@@ -45,7 +45,7 @@ func NewBlob(id string, length uint64, contentType string) *BlobDatum {
 func NewStageRefDatum(stageID string) *Datum {
 	return &Datum{
 		Val: &Datum_StageRef{
-			StageRef: &StageRefDatum{StageRef: stageID},
+			StageRef: &StageRefDatum{StageId: stageID},
 		},
 	}
 }

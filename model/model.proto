@@ -65,9 +65,10 @@ enum ErrorDatumType {
 message EmptyDatum {
 
 }
+
 // StageRefDatum represents a reference to another stage in the graph
 message StageRefDatum {
-    string stage_ref = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 1 [(validator.field) = {string_not_empty : true}];
 }
 
 // ErrorDatum represents an error that has occured within a flow graph, the type indicates the cause of the error and the message is informational
@@ -325,7 +326,6 @@ message InvokeStageRequest {
     string function_id = 3 [(validator.field) = {regex : "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"}];
     repeated CompletionResult args = 5;
     BlobDatum closure = 6 [(validator.field) = {msg_exists : true}];
-    bool exceptional = 7 ;
 }
 
 // Events
@@ -479,8 +479,7 @@ service FlowService {
 
     rpc Commit (CommitGraphRequest) returns (GraphRequestProcessedResponse) {
         option (google.api.http) = {
-            post: "/v1/flow/{flow_id}/commit",
-            body: "*"
+            post: "/v1/flow/{flow_id}/commit"
         };
     };
 
@@ -490,11 +489,32 @@ service FlowService {
         };
     };
 
+
     rpc StreamEvents (StreamRequest) returns (stream GraphEvent) {
         option (google.api.http) = {
             get: "/v1/flow/stream"
         };
     }
-    
 
+
+
+
+}
+
+// Invoke API
+
+
+
+// Request Wrapper,
+message RuntimeInvokeStageRequest {
+    string flow_id = 1 [(validator.field) = {string_not_empty : true}];
+    string stage_id = 2 [(validator.field) = {string_not_empty : true}];
+    repeated CompletionResult args = 3;
+    BlobDatum closure = 4 [(validator.field) = {msg_exists : true}];
+}
+
+
+// Result wrapper - intentionally deep to allow extra fields at top level
+message RuntimeInvokeStageResponse {
+    CompletionResult result = 5;
 }

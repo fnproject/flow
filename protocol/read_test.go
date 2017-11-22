@@ -156,7 +156,7 @@ func TestReadsStageRefDatum(t *testing.T) {
 
 	assert.NoError(t, err)
 	require.NotNil(t, d.GetStageRef())
-	assert.Equal(t, "123", d.GetStageRef().GetStageRef())
+	assert.Equal(t, "123", d.GetStageRef().GetStageId())
 }
 
 func TestRejectsStageRefDatumWithNoStageRef(t *testing.T) {

@@ -228,6 +228,8 @@ func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowS
 	return nil
 }
 
+
+
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
 

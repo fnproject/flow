@@ -113,14 +113,6 @@
             "in": "path",
             "required": true,
             "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/modelCommitGraphRequest"
-            }
           }
         ],
         "tags": [
@@ -476,14 +468,6 @@
         }
       },
       "title": "BlobDatum holds a reference to a blob the associated blob store"
-    },
-    "modelCommitGraphRequest": {
-      "type": "object",
-      "properties": {
-        "flow_id": {
-          "type": "string"
-        }
-      }
     },
     "modelCompleteStageExternallyRequest": {
       "type": "object",
@@ -935,7 +919,7 @@
     "modelStageRefDatum": {
       "type": "object",
       "properties": {
-        "stage_ref": {
+        "stage_id": {
           "type": "string"
         }
       },

@@ -90,7 +90,7 @@ func writeDatumToTarget(target WriteTarget, header textproto.MIMEHeader, datum *
 
 	case *model.Datum_StageRef:
 		header.Add(HeaderDatumType, DatumTypeStageRef)
-		header.Add(HeaderStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageRef))
+		header.Add(HeaderStageRef, fmt.Sprintf("%s", datum.GetStageRef().StageId))
 		return target.Write(header, []byte{})
 
 	case *model.Datum_HttpReq:

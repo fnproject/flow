@@ -57,7 +57,7 @@ func TestShouldWriteErrorDatum(t *testing.T) {
 func TestShouldWriteStageRefDatum(t *testing.T) {
 	for _, proto := range protos {
 		t.Run(proto.name(), func(t *testing.T) {
-			datum := &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageRef: "3141"}}}
+			datum := &model.Datum{Val: &model.Datum_StageRef{StageRef: &model.StageRefDatum{StageId: "3141"}}}
 
 			headers, body := proto.writeDatum(datum)
 			assert.Equal(t, DatumTypeStageRef, headers.Get(HeaderDatumType))

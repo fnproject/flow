@@ -57,6 +57,8 @@ It has these top-level messages:
 	StageComposedEvent
 	FaasInvocationStartedEvent
 	FaasInvocationCompletedEvent
+	RuntimeInvokeStageRequest
+	RuntimeInvokeStageResponse
 */
 package model
 
@@ -140,8 +142,8 @@ func (this *EmptyDatum) Validate() error {
 	return nil
 }
 func (this *StageRefDatum) Validate() error {
-	if this.StageRef == "" {
-		return go_proto_validators.FieldError("StageRef", fmt.Errorf(`value '%v' must not be an empty string`, this.StageRef))
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
 	}
 	return nil
 }
@@ -614,6 +616,38 @@ func (this *FaasInvocationCompletedEvent) Validate() error {
 	if this.Ts != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.Ts); err != nil {
 			return go_proto_validators.FieldError("Ts", err)
+		}
+	}
+	return nil
+}
+func (this *RuntimeInvokeStageRequest) Validate() error {
+	if this.FlowId == "" {
+		return go_proto_validators.FieldError("FlowId", fmt.Errorf(`value '%v' must not be an empty string`, this.FlowId))
+	}
+	if this.StageId == "" {
+		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
+	for _, item := range this.Args {
+		if item != nil {
+			if err := go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return go_proto_validators.FieldError("Args", err)
+			}
+		}
+	}
+	if nil == this.Closure {
+		return go_proto_validators.FieldError("Closure", fmt.Errorf("message must exist"))
+	}
+	if this.Closure != nil {
+		if err := go_proto_validators.CallValidatorIfExists(this.Closure); err != nil {
+			return go_proto_validators.FieldError("Closure", err)
+		}
+	}
+	return nil
+}
+func (this *RuntimeInvokeStageResponse) Validate() error {
+	if this.Result != nil {
+		if err := go_proto_validators.CallValidatorIfExists(this.Result); err != nil {
+			return go_proto_validators.FieldError("Result", err)
 		}
 	}
 	return nil

@@ -303,6 +303,53 @@ Content-type: application/json
 
 
 
+
+#### Runtime waits for a stage to complete 
+
+Generally runtimes should not block on graph events as it will consume resources in the client side unnecessarily, however this is possible using the `await` endpoint : 
+
+```
+GET /v1/flow/1212b145-5695-4b57-97b8-54ffeda83210/stages/1/await?timeout_ms=1000
+
+```
+
+If the stage completes within the timeout or is already completed then it will return a result: 
+
+```
+HTTP/1.1 200 OK 
+Content-type: application/json 
+
+
+{
+    "flow_id" : "1212b145-5695-4b57-97b8-54ffeda83210",
+    "stage_id" : "1",
+    "result" : {
+         "successful": true, 
+         "datum": {
+              "blob": { 
+                          "blob_id": "my_blob_id",
+                          "blob_length": 100, 
+                          "content_type": "application/java-serialized-object"
+                 }
+            }
+    }
+}
+```
+
+if the stage does not complete within the timeout the service replies with a 408 
+
+```
+HTTP/1.1 408 timeout 
+Content-type: application/json 
+
+
+{
+   "error": "Deadline Exceeded", 
+   "code:" 4
+}
+```
+
+
 ### Runtime signals that initial flow is committed 
   
 A graph is completed  (and can no longer be modified) once all stages in the graph that can be executed are completed (note that  some stages may not be run). 

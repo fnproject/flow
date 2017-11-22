@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/textproto"
+	"github.com/gogo/protobuf/jsonpb"
 )
 
 type MockClient struct {
@@ -35,19 +36,16 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	m := &MockClient{}
 	store := blobs.NewInMemBlobStore()
 
-	// Note headers names have to be well-formed here.
-	resp := givenEncapsulatedResponse(200,
+	resultDatum := model.NewBlobDatum(model.NewBlob("blobID", 100, "response/type"))
+	marshaller := jsonpb.Marshaler{}
+	resultDatumJSON, _ := marshaller.MarshalToString(resultDatum)
+
+	resp := givenResponse(200,
 		map[string][]string{
-			"Fn_call_id": {"CALLID"},
+			"Fn_call_id":   {"CALLID"},
+			"Content-Type": {"application/json"},
 		},
-		map[string][]string{
-			"Content-Type":           {"response/type"},
-			"Fnproject-Resultstatus": {"success"},
-			"Fnproject-Datumtype":    {"blob"},
-			"FnProject-BlobId":       {"blobID"},
-			"FnProject-BlobLength":   {"100"},
-		},
-		[]byte("ResultBytes"))
+		[]byte(`{"result": {"successful": true, "datum": ` + resultDatumJSON + ` }}`))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
 
@@ -58,13 +56,15 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	assert.True(t, result.Result.Successful)
 	require.NotNil(t, result.Result.GetDatum().GetBlob())
 	blob := result.Result.GetDatum().GetBlob()
+	assert.Equal(t, "blobID", blob.BlobId)
+	assert.Equal(t, uint64(100), blob.Length)
 	assert.Equal(t, "response/type", blob.ContentType)
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
 	assert.Equal(t, "POST", outbound.Method)
-	assert.Contains(t, outbound.Header.Get("Content-type"), "multipart/form-data; boundary=")
+	assert.Contains(t, outbound.Header.Get("Content-type"), "application/json")
 	assert.Equal(t, "graph-id", outbound.Header.Get("Fnproject-FlowId"))
-	assert.Equal(t, "stage-id", outbound.Header.Get("Fnproject-stageid"))
+	assert.Equal(t, "stage-id", outbound.Header.Get("Fnproject-Stageid"))
 
 }
 
@@ -85,11 +85,10 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 	m := &MockClient{}
 	store := blobs.NewInMemBlobStore()
 
-	resp := givenEncapsulatedResponse(504,
+	resp := givenResponse(504,
 		map[string][]string{
 			"Fn_call_id": {"CALLID"},
 		},
-		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
@@ -102,15 +101,36 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 
 }
 
-func TestShouldHandleInvalidStageResponseWithoutHeaders(t *testing.T) {
+func TestShouldHandleInvalidStageResponseContentType(t *testing.T) {
 	m := &MockClient{}
 	store := blobs.NewInMemBlobStore()
 
-	resp := givenEncapsulatedResponse(200,
+	resp := givenResponse(200,
 		map[string][]string{
 			"Fn_call_id": {"CALLID"},
+			"Content-Type": {"text/plain"},
 		},
-		map[string][]string{},
+		[]byte("error"))
+
+	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
+
+	result := givenValidInvokeStageRequest(store, m)
+
+	assert.Equal(t, result.CallId, "CALLID")
+	hasValidResult(t, result)
+	hasErrorResult(t, result, model.ErrorDatumType_invalid_stage_response)
+
+}
+
+func TestShouldHandleInvalidStageResponseContentData(t *testing.T) {
+	m := &MockClient{}
+	store := blobs.NewInMemBlobStore()
+
+	resp := givenResponse(200,
+		map[string][]string{
+			"Fn_call_id": {"CALLID"},
+			"Content-Type": {"application/json"},
+		},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
@@ -127,11 +147,10 @@ func TestShouldHandleFailedStageResponse(t *testing.T) {
 	m := &MockClient{}
 	store := blobs.NewInMemBlobStore()
 
-	resp := givenEncapsulatedResponse(500,
+	resp := givenResponse(500,
 		map[string][]string{
 			"Fn_call_id": {"CALLID"},
 		},
-		map[string][]string{},
 		[]byte("error"))
 
 	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
@@ -273,23 +292,17 @@ func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, 
 	return datum
 }
 
-func givenEncapsulatedResponse(outerStatusCode int, outerHeaders http.Header, headers http.Header, body []byte) *http.Response {
-	buf := &bytes.Buffer{}
+func givenResponse(statusCode int, headers http.Header, body []byte) *http.Response {
 	// we ignore the inner code of the frame here
-	encap := &http.Response{
+	resp := &http.Response{
 		Proto:      "HTTP/1.1",
 		ProtoMajor: 1,
 		ProtoMinor: 1,
-		StatusCode: 200,
+		StatusCode: statusCode,
 		Header:     headers,
 		Body:       ioutil.NopCloser(bytes.NewReader(body)),
 	}
-	encap.Write(buf)
-	return &http.Response{
-		StatusCode: outerStatusCode,
-		Header:     outerHeaders,
-		Body:       ioutil.NopCloser(buf),
-	}
+	return resp
 }
 
 func givenValidInvokeStageRequest(store blobs.Store, m *MockClient) *model.FaasInvocationResponse {

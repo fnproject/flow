@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/fnproject/flow/protocol"
 	"github.com/sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/golang/protobuf/jsonpb"
 )
 
 const fnCallIDHeader = "Fn_call_id"
@@ -78,33 +78,24 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	stageLog := exec.log.WithFields(logrus.Fields{"flow_id": msg.FlowId, "stage_id": msg.StageId, "function_id": msg.FunctionId})
 	stageLog.Info("Running Stage")
 
+	runtimeRequest := &model.RuntimeInvokeStageRequest{
+		FlowId: msg.GetFlowId(),
+		StageId: msg.GetStageId(),
+		Args: msg.GetArgs(),
+		Closure: msg.GetClosure(),
+	}
 	buf := new(bytes.Buffer)
-
-	partWriter := multipart.NewWriter(buf)
-
-	if msg.Closure != nil {
-		err := protocol.WriteDatum(protocol.NewMultipartTarget(partWriter), &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}})
-		if err != nil {
-			exec.log.Error("Failed to create multipart body", err)
-			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
-
-		}
-	}
-	for _, result := range msg.Args {
-		err := protocol.WriteResult(protocol.NewMultipartTarget(partWriter), result)
-		if err != nil {
-			exec.log.Error("Failed to create multipart body", err)
-			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
-
-		}
+	writer := jsonpb.Marshaler{}
+	err := writer.Marshal(buf, runtimeRequest)
+	if err != nil {
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, "Could not marshal the runtime invoke stage request message.", "")
 	}
 
-	partWriter.Close()
-
-	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
-	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
+	req, _ := http.NewRequest("POST", exec.faasAddr + "/" + msg.FunctionId, buf)
+	req.Header.Set("Content-type", "application/json")
 	req.Header.Set(protocol.HeaderFlowID, msg.FlowId)
 	req.Header.Set(protocol.HeaderStageRef, msg.StageId)
+
 	activeFnCallsMetric.Inc()
 	defer activeFnCallsMetric.Dec()
 	resp, err := exec.client.Do(req)
@@ -126,12 +117,21 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callID)
 	}
 
-	result, err := protocol.CompletionResultFromEncapsulatedResponse(resp)
+	if resp.Header.Get("Content-Type") != "application/json" {
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Invalid content type in response from functions service")
+		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Invalid content type in response from functions service", callID)
+
+	}
+
+	runtimeResponse := &model.RuntimeInvokeStageResponse{}
+	reader := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	err = reader.Unmarshal(resp.Body, runtimeResponse)
 	if err != nil {
-		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service", err)
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service: ", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
 
 	}
+	result := runtimeResponse.GetResult()
 	stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
 	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}

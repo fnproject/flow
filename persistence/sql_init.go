@@ -31,6 +31,7 @@ var tables = map[string][]string{
 	snapshot BLOB NOT NULL);`,
 
 	`CREATE TABLE IF NOT EXISTS blobs (
+	 prefix varchar(255) NOT NULL,
 	 blob_id varchar(255) NOT NULL PRIMARY KEY ,
 	 blob_data BLOB);`,
 	},

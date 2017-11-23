@@ -14,8 +14,8 @@ import (
 	"github.com/fnproject/flow/blobs"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/protocol"
-	"github.com/sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 const fnCallIDHeader = "Fn_call_id"
@@ -67,6 +67,8 @@ func NewExecutor(faasAddress string, blobStore blobs.Store) actor.Actor {
 func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		exec.log.Info("Started executor actor")
 	case *model.InvokeStageRequest:
 		go func() { sender.Tell(exec.HandleInvokeStage(msg)) }()
 	case *model.InvokeFunctionRequest:

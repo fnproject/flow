@@ -5,6 +5,8 @@ package persistence
   This has been modified to support propagating event indices to plugins
 */
 import (
+	fmt "fmt"
+
 	proto "github.com/golang/protobuf/proto"
 )
 
@@ -22,3 +24,12 @@ type ProviderState interface {
 	PersistEvent(actorName string, eventIndex int, event proto.Message)
 	PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message)
 }
+
+// MarshallingError will be provided to panic on marshalling failures
+var MarshallingError = fmt.Errorf("Persistence provider failed with marshalling error")
+
+// PersistEventError will be provided to panic on PersistEvent failures
+var PersistEventError = fmt.Errorf("Persistence provider failed to persist event")
+
+// PersistSnapshotError will be provided to panic on PersistSnapshot failures
+var PersistSnapshotError = fmt.Errorf("Persistence provider failed to persist snapshot")

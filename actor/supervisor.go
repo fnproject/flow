@@ -9,8 +9,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
-	"github.com/sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -34,12 +34,12 @@ type graphSupervisor struct {
 	activeGraphs map[string]bool
 }
 
-// NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+// NewGraphSupervisor creates new graphSupervisor actor
+func NewGraphSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
 	return &graphSupervisor{
 		executor:            executor,
 		persistenceProvider: persistenceProvider,
-		log:                 logrus.New().WithField("logger", name),
+		log:                 logrus.WithField("logger", name),
 		activeGraphs:        make(map[string]bool),
 	}
 }

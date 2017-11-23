@@ -28,7 +28,6 @@ type actorManager struct {
 	executor            *actor.PID
 	persistenceProvider *persistence.StreamingProvider
 	shardExtractor      sharding.ShardExtractor
-	strategy            actor.SupervisorStrategy
 }
 
 // NewGraphManager creates a new implementation of the GraphManager interface
@@ -45,13 +44,8 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 		fnURL = parsedURL.String()
 	}
 
-	decider := func(reason interface{}) actor.Directive {
-		log.Warnf("Stopping failed graph actor due to error: %v", reason)
-		return actor.StopDirective
-	}
-	strategy := NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, decider)
-
-	executorProps := actor.FromInstance(NewExecutor(fnURL, blobStore)).WithSupervisor(strategy)
+	//children of root guardian will be restarted by default
+	executorProps := actor.FromInstance(NewExecutor(fnURL, blobStore))
 	// TODO executor is not sharded and would not support clustering once it's made persistent!
 	executor, err := actor.SpawnNamed(executorProps, "executor")
 	if err != nil {
@@ -60,12 +54,25 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 
 	streamingProvider := persistence.NewStreamingProvider(persistenceProvider)
 
+	graphDecider := func(reason interface{}) actor.Directive {
+		log.Warnf("Stopping failed graph actor due to error: %v", reason)
+		switch reason {
+		case persistence.PersistEventError:
+			return actor.RestartDirective
+		case persistence.PersistSnapshotError:
+			return actor.ResumeDirective
+		default:
+			return actor.StopDirective
+		}
+	}
+	graphStrategy := NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, graphDecider)
+
 	supervisors := make(map[int]*actor.PID)
 	for _, shard := range shards {
 		name := supervisorName(shard)
 		supervisorProps := actor.
-			FromInstance(NewSupervisor(name, executor, streamingProvider)).
-			WithSupervisor(strategy).
+			FromInstance(NewGraphSupervisor(name, executor, streamingProvider)).
+			WithSupervisor(graphStrategy).
 			WithMiddleware(persistence.Using(streamingProvider))
 
 		shardSupervisor, err := actor.SpawnNamed(supervisorProps, name)
@@ -81,7 +88,6 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 		executor:            executor,
 		persistenceProvider: streamingProvider,
 		shardExtractor:      shardExtractor,
-		strategy:            strategy,
 	}, nil
 }
 

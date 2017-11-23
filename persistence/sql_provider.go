@@ -17,7 +17,7 @@ type sqlProvider struct {
 	db               *sqlx.DB
 }
 
-var log = logrus.New().WithField("logger", "persistence")
+var log = logrus.WithField("logger", "persistence")
 
 const slowQueryTime = 30 * time.Second
 
@@ -134,7 +134,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		msg, err := extractData(actorName, eventType, eventBytes)
 		if err != nil {
 			log.WithField("actor_name", actorName).WithField("event_type", eventType).WithError(err).Error("Error getting events value from DB")
-			panic(err)
+			panic(MarshallingError)
 		}
 		callback(eventIndex, msg)
 	}
@@ -143,14 +143,19 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 
-	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndex}).Debug("Persisting event")
-
 	pbType := proto.MessageName(event)
-	pbBytes, err := proto.Marshal(event)
+	log.WithField("actor_name", actorName).
+		WithField("event_type", pbType).
+		WithField("event_index", eventIndex).
+		Debug("Persisting event")
 
+	pbBytes, err := proto.Marshal(event)
 	if err != nil {
-		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error marshalling event")
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithField("event_type", pbType).
+			WithError(err).
+			Error("Error marshalling event")
+		panic(MarshallingError)
 	}
 
 	span := opentracing.StartSpan("sql_persist_event")
@@ -161,8 +166,11 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 		actorName, pbType, eventIndex, pbBytes)
 
 	if err != nil {
-		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error writing event to DB")
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithField("event_type", pbType).
+			WithError(err).
+			Error("Error writing event to DB")
+		panic(PersistEventError)
 	}
 
 	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {

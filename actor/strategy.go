@@ -6,6 +6,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
+	"github.com/sirupsen/logrus"
 )
 
 // NewExponentialBackoffStrategy creates a new Supervisor strategy that restarts a faulting child using an exponential
@@ -15,16 +16,18 @@ func NewExponentialBackoffStrategy(backoffWindow time.Duration, initialBackoff t
 		backoffWindow:  backoffWindow,
 		initialBackoff: initialBackoff,
 		decider:        decider,
+		log:            logrus.WithField("logger", "supervisor_strategy"),
 	}
 }
 
 type exponentialBackoffStrategy struct {
+	log            *logrus.Entry
 	backoffWindow  time.Duration
 	initialBackoff time.Duration
 	decider        actor.DeciderFunc
 }
 
-func logFailure(child *actor.PID, reason interface{}, directive actor.Directive) {
+func publishFailureEvent(child *actor.PID, reason interface{}, directive actor.Directive) {
 	eventstream.Publish(&actor.SupervisorEvent{
 		Child:     child,
 		Reason:    reason,
@@ -33,12 +36,14 @@ func logFailure(child *actor.PID, reason interface{}, directive actor.Directive)
 }
 
 func (strategy *exponentialBackoffStrategy) HandleFailure(supervisor actor.Supervisor, child *actor.PID, rs *actor.RestartStatistics, reason interface{}, message interface{}) {
+	strategy.log.WithFields(logrus.Fields{"child_id": child.Id}).Debug("Handling child actor failure")
+
 	directive := strategy.decider(reason)
 
 	switch directive {
 	case actor.ResumeDirective:
 		//resume the failing child
-		logFailure(child, reason, directive)
+		publishFailureEvent(child, reason, directive)
 		supervisor.ResumeChildren(child)
 	case actor.RestartDirective:
 		//try restart the failing child
@@ -46,7 +51,7 @@ func (strategy *exponentialBackoffStrategy) HandleFailure(supervisor actor.Super
 
 	case actor.StopDirective:
 		//stop the failing child, no need to involve the crs
-		logFailure(child, reason, directive)
+		publishFailureEvent(child, reason, directive)
 		supervisor.StopChildren(child)
 	case actor.EscalateDirective:
 		//send failure to parent
@@ -63,8 +68,13 @@ func (strategy *exponentialBackoffStrategy) handleRestart(supervisor actor.Super
 	noise := rand.Intn(500)
 	dur := time.Duration(backoff + noise)
 
+	strategy.log.WithFields(logrus.Fields{"child_id": child.Id}).
+		WithFields(logrus.Fields{"delay_sec": dur.Seconds()}).
+		WithFields(logrus.Fields{"failure_count": rs.FailureCount}).
+		Debug("Scheduling delayed child restart")
+
 	time.AfterFunc(dur, func() {
-		logFailure(child, reason, actor.RestartDirective)
+		publishFailureEvent(child, reason, actor.RestartDirective)
 		supervisor.RestartChildren(child)
 	})
 }

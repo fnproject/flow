@@ -15,7 +15,7 @@ message CompletionResult {
 message BlobDatum {
     string blob_id = 1 [(validator.field) = {string_not_empty : true}];
     string content_type = 2 [(validator.field) = {string_not_empty : true}];
-    uint64 length = 3 [(validator.field) = {msg_exists : true}];
+    int64 length = 3 [(validator.field) = {int_gt : 0}];
 }
 
 // HTTPHeader wraps a single header key/value
@@ -47,7 +47,7 @@ message HTTPReqDatum {
 message HTTPRespDatum {
     BlobDatum body = 1;
     repeated HTTPHeader headers = 3;
-    uint32 status_code = 4 [(validator.field) = {int_gt : 0}];
+    int32 status_code = 4 [(validator.field) = {int_gt : 0}];
 }
 
 // ErrorDatumType defines an internal error code generated within a flow
@@ -291,7 +291,7 @@ message ListGraphsResponse {
 message AwaitStageResultRequest {
     string flow_id = 1 [(validator.field) = {string_not_empty : true}];
     string stage_id = 2 [(validator.field) = {string_not_empty : true}];
-    uint64 timeout_ms = 3;
+    int32 timeout_ms = 3 [(validator.field) = {int_gt : -1}];
 }
 
 message AwaitStageResultResponse {

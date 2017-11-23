@@ -57,7 +57,7 @@ func TestShouldInvokeStageNormally(t *testing.T) {
 	require.NotNil(t, result.Result.GetDatum().GetBlob())
 	blob := result.Result.GetDatum().GetBlob()
 	assert.Equal(t, "blobID", blob.BlobId)
-	assert.Equal(t, uint64(100), blob.Length)
+	assert.Equal(t, int64(100), blob.Length)
 	assert.Equal(t, "response/type", blob.ContentType)
 
 	outbound := m.Calls[0].Arguments.Get(0).(*http.Request)
@@ -282,7 +282,7 @@ func TestResponseDefaultsToApplicationOctetStream(t *testing.T) {
 
 }
 
-func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, code uint32) *model.HTTPRespDatum {
+func hasValidHTTPRespResult(t *testing.T, result *model.FaasInvocationResponse, code int32) *model.HTTPRespDatum {
 	require.NotNil(t, result.Result.GetDatum().GetHttpResp())
 
 	datum := result.Result.GetDatum().GetHttpResp()
@@ -317,8 +317,8 @@ func givenValidInvokeStageRequest(store blobs.Store, m *MockClient) *model.FaasI
 		FlowId:    "graph-id",
 		StageId:    "stage-id",
 		FunctionId: "/function/id/",
-		Closure:    model.NewBlob("closure", uint64(200), "content/type"),
-		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(model.NewBlob("arg1", uint64(200), "content/type"))), model.NewEmptyResult()},
+		Closure:    model.NewBlob("closure", int64(200), "content/type"),
+		Args:       []*model.CompletionResult{model.NewSuccessfulResult(model.NewBlobDatum(model.NewBlob("arg1", int64(200), "content/type"))), model.NewEmptyResult()},
 	})
 	return result
 }

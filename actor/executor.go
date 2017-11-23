@@ -221,7 +221,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 			HttpResp: &model.HTTPRespDatum{
 				Headers:    headers,
 				Body:       model.BlobDatumFromBlobStoreBlob(blob),
-				StatusCode: uint32(resp.StatusCode)}}}
+				StatusCode: int32(resp.StatusCode)}}}
 
 	result := &model.CompletionResult{Successful: exec.successfulResponse(resp), Datum: resultDatum}
 	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}

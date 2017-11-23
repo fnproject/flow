@@ -244,8 +244,8 @@
             "name": "timeout_ms",
             "in": "query",
             "required": false,
-            "type": "string",
-            "format": "uint64"
+            "type": "integer",
+            "format": "int32"
           }
         ],
         "tags": [
@@ -464,7 +464,7 @@
         },
         "length": {
           "type": "string",
-          "format": "uint64"
+          "format": "int64"
         }
       },
       "title": "BlobDatum holds a reference to a blob the associated blob store"
@@ -848,7 +848,7 @@
         },
         "status_code": {
           "type": "integer",
-          "format": "int64"
+          "format": "int32"
         }
       },
       "title": "HTTPRespDatum wraps an outgoing or incoming HTTP REQUEST, it wraps the headers, status code and optinoal body"

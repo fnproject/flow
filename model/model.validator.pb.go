@@ -94,6 +94,9 @@ func (this *BlobDatum) Validate() error {
 	if this.ContentType == "" {
 		return go_proto_validators.FieldError("ContentType", fmt.Errorf(`value '%v' must not be an empty string`, this.ContentType))
 	}
+	if !(this.Length > 0) {
+		return go_proto_validators.FieldError("Length", fmt.Errorf(`value '%v' must be greater than '0'`, this.Length))
+	}
 	return nil
 }
 func (this *HTTPHeader) Validate() error {
@@ -389,6 +392,9 @@ func (this *AwaitStageResultRequest) Validate() error {
 	}
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
+	}
+	if !(this.TimeoutMs > -1) {
+		return go_proto_validators.FieldError("TimeoutMs", fmt.Errorf(`value '%v' must be greater than '-1'`, this.TimeoutMs))
 	}
 	return nil
 }

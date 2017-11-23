@@ -53,7 +53,7 @@ func (s *sqlBlobStore) Create(prefix string, contentType string, input io.Reader
 
 	return &Blob{
 		ID:          idString,
-		Length:      uint64(len(data)),
+		Length:      int64(len(data)),
 		ContentType: contentType,
 	}, nil
 }

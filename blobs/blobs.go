@@ -9,10 +9,10 @@ import (
 type Blob struct {
 	ID          string `json:"blob_id,omitempty"`
 	ContentType string `json:"content_type,omitempty"`
-	Length      uint64 `json:"length,omitempty"`
+	Length      int64 `json:"length,omitempty"`
 }
 
-// ErrBlobNotFound indicates that the requested blob did not exit 
+// ErrBlobNotFound indicates that the requested blob did not exit
 var ErrBlobNotFound = errors.New("the specified blob does not exist")
 
 // Store is an abstraction for user data persistence

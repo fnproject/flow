@@ -130,7 +130,6 @@ func (m *AddDelayStageRequest) HasClosure() bool {
 	return false
 }
 
-
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_invokeFunction
@@ -148,7 +147,7 @@ func (m *AddStageRequest) GetDependencyCount() int {
 
 // HasClosure implements AddStageCommand
 func (m *AddStageRequest) HasClosure() bool {
-	return m.Closure!=nil
+	return m.Closure != nil
 }
 
 // GetDependencyCount for AddStageCommand.GetDependencyCount
@@ -168,4 +167,24 @@ func BlobDatumFromBlobStoreBlob(b *blobs.Blob) *BlobDatum {
 		ContentType: b.ContentType,
 		Length:      b.Length,
 	}
+}
+
+// HasValidValue is Quick mixin to overcome issues with oneof - this checks if at least one of the oneof values is set
+func (d *Datum) HasValidValue() bool {
+
+	switch d.Val.(type) {
+	case *Datum_Empty:
+	case *Datum_Blob:
+	case *Datum_Error:
+	case *Datum_StageRef:
+	case *Datum_HttpReq:
+	case *Datum_HttpResp:
+	case *Datum_State:
+	case nil:
+		// The field is not set.
+		return false
+	default:
+		return false
+	}
+	return true
 }

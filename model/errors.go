@@ -47,6 +47,10 @@ func NewInvalidStageDependenciesError(flowID string) ValidationError {
 	return &InvalidGraphOperation{FlowId: flowID, Err: "Failed to create stage with invalid dependencies"}
 }
 
+// NewInvalidDatumError : request contains an invalid datum
+func NewInvalidDatumError(flowID string) ValidationError {
+	return &InvalidGraphOperation{FlowId: flowID, Err: "Invalid datum in command"}
+}
 
 // NewNeedsClosureError :stage needs a closure
 func NewNeedsClosureError(flowID string) ValidationError {

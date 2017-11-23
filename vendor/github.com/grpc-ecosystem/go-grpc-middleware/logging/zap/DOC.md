@@ -4,7 +4,6 @@
 * [Overview](#pkg-overview)
 * [Imported Packages](#pkg-imports)
 * [Index](#pkg-index)
-* [Examples](#pkg-examples)
 
 ## <a name="pkg-overview">Overview</a>
 `grpc_zap` is a gRPC logging middleware backed by ZAP loggers
@@ -12,8 +11,8 @@
 It accepts a user-configured `zap.Logger` that will be used for logging completed gRPC calls. The same `zap.Logger` will
 be used for logging completed gRPC calls, and be populated into the `context.Context` passed into gRPC handler code.
 
-You can use `Extract` to log into a request-scoped `zap.Logger` instance in your handler code. The fields set on the
-logger correspond to the grpc_ctxtags.Tags attached to the context.
+On calling `StreamServerInterceptor` or `UnaryServerInterceptor` this logging middleware will add gRPC call information
+to the ctx so that it will be present on subsequent use of the `ctx_zap` logger.
 
 This package also implements request and response *payload* logging, both for server-side and client-side. These will be
 logged as structured `jsonbp` fields for every message received/sent (both unary and streaming). For that please use
@@ -24,87 +23,13 @@ ZAP can also be made as a backend for gRPC library internals. For that use `Repl
 
 Please see examples and tests for examples of use.
 
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-x := func(ctx context.Context, ping *pb_testproto.PingRequest) (*pb_testproto.PingResponse, error) {
-	    // Add fields the ctxtags of the request which will be added to all extracted loggers.
-	    grpc_ctxtags.Extract(ctx).Set("custom_tags.string", "something").Set("custom_tags.int", 1337)
-	    // Extract a request-scoped zap.Logger and log a message.
-	    grpc_zap.Extract(ctx).Info("some ping")
-	    return &pb_testproto.PingResponse{Value: ping.Value}, nil
-	}
-	return x
-```
-
-</details>
-
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-// Shared options for the logger, with a custom gRPC code to log level function.
-	opts := []grpc_zap.Option{
-	    grpc_zap.WithLevels(customFunc),
-	}
-	// Make sure that log statements internal to gRPC library are logged using the zapLogger as well.
-	grpc_zap.ReplaceGrpcLogger(zapLogger)
-	// Create a server, make sure we put the grpc_ctxtags context before everything else.
-	server := grpc.NewServer(
-	    grpc_middleware.WithUnaryServerChain(
-	        grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-	        grpc_zap.UnaryServerInterceptor(zapLogger, opts...),
-	    ),
-	    grpc_middleware.WithStreamServerChain(
-	        grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-	        grpc_zap.StreamServerInterceptor(zapLogger, opts...),
-	    ),
-	)
-	return server
-```
-
-</details>
-
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-opts := []grpc_zap.Option{
-	    grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
-	        return zap.Int64("grpc.time_ns", duration.Nanoseconds())
-	    }),
-	}
-	
-	server := grpc.NewServer(
-	    grpc_middleware.WithUnaryServerChain(
-	        grpc_ctxtags.UnaryServerInterceptor(),
-	        grpc_zap.UnaryServerInterceptor(zapLogger, opts...),
-	    ),
-	    grpc_middleware.WithStreamServerChain(
-	        grpc_ctxtags.StreamServerInterceptor(),
-	        grpc_zap.StreamServerInterceptor(zapLogger, opts...),
-	    ),
-	)
-	
-	return server
-```
-
-</details>
-
 ## <a name="pkg-imports">Imported Packages</a>
 
 - [github.com/golang/protobuf/jsonpb](https://godoc.org/github.com/golang/protobuf/jsonpb)
 - [github.com/golang/protobuf/proto](https://godoc.org/github.com/golang/protobuf/proto)
 - [github.com/grpc-ecosystem/go-grpc-middleware](./../..)
 - [github.com/grpc-ecosystem/go-grpc-middleware/logging](./..)
-- [github.com/grpc-ecosystem/go-grpc-middleware/tags](./../../tags)
+- [github.com/grpc-ecosystem/go-grpc-middleware/tags/zap](./../../tags/zap)
 - [go.uber.org/zap](https://godoc.org/go.uber.org/zap)
 - [go.uber.org/zap/zapcore](https://godoc.org/go.uber.org/zap/zapcore)
 - [golang.org/x/net/context](https://godoc.org/golang.org/x/net/context)
@@ -114,6 +39,7 @@ opts := []grpc_zap.Option{
 
 ## <a name="pkg-index">Index</a>
 * [Variables](#pkg-variables)
+* [func AddFields(ctx context.Context, fields ...zapcore.Field)](#AddFields)
 * [func DefaultClientCodeToLevel(code codes.Code) zapcore.Level](#DefaultClientCodeToLevel)
 * [func DefaultCodeToLevel(code codes.Code) zapcore.Level](#DefaultCodeToLevel)
 * [func DurationToDurationField(duration time.Duration) zapcore.Field](#DurationToDurationField)
@@ -134,11 +60,6 @@ opts := []grpc_zap.Option{
   * [func WithCodes(f grpc\_logging.ErrorToCode) Option](#WithCodes)
   * [func WithDurationField(f DurationToField) Option](#WithDurationField)
   * [func WithLevels(f CodeToLevel) Option](#WithLevels)
-
-#### <a name="pkg-examples">Examples</a>
-* [Package (HandlerUsageUnaryPing)](#example__handlerUsageUnaryPing)
-* [Package (Initialization)](#example__initialization)
-* [Package (InitializationWithDurationFieldOverride)](#example__initializationWithDurationFieldOverride)
 
 #### <a name="pkg-files">Package files</a>
 [client_interceptors.go](./client_interceptors.go) [context.go](./context.go) [doc.go](./doc.go) [grpclogger.go](./grpclogger.go) [options.go](./options.go) [payload_interceptors.go](./payload_interceptors.go) [server_interceptors.go](./server_interceptors.go) 
@@ -171,6 +92,13 @@ var (
 )
 ```
 
+## <a name="AddFields">func</a> [AddFields](./context.go#L12)
+``` go
+func AddFields(ctx context.Context, fields ...zapcore.Field)
+```
+AddFields adds zap fields to the logger.
+Deprecated: should use the ctx_zap.AddFields instead
+
 ## <a name="DefaultClientCodeToLevel">func</a> [DefaultClientCodeToLevel](./options.go#L121)
 ``` go
 func DefaultClientCodeToLevel(code codes.Code) zapcore.Level
@@ -196,42 +124,41 @@ func DurationToTimeMillisField(duration time.Duration) zapcore.Field
 ```
 DurationToTimeMillisField converts the duration to milliseconds and uses the key `grpc.time_ms`.
 
-## <a name="Extract">func</a> [Extract](./context.go#L23)
+## <a name="Extract">func</a> [Extract](./context.go#L18)
 ``` go
 func Extract(ctx context.Context) *zap.Logger
 ```
 Extract takes the call-scoped Logger from grpc_zap middleware.
+Deprecated: should use the ctx_zap.Extract instead
 
-It always returns a Logger that has all the grpc_ctxtags updated.
-
-## <a name="PayloadStreamClientInterceptor">func</a> [PayloadStreamClientInterceptor](./payload_interceptors.go#L76)
+## <a name="PayloadStreamClientInterceptor">func</a> [PayloadStreamClientInterceptor](./payload_interceptors.go#L74)
 ``` go
 func PayloadStreamClientInterceptor(logger *zap.Logger, decider grpc_logging.ClientPayloadLoggingDecider) grpc.StreamClientInterceptor
 ```
 PayloadStreamServerInterceptor returns a new streaming client interceptor that logs the paylods of requests and responses.
 
-## <a name="PayloadStreamServerInterceptor">func</a> [PayloadStreamServerInterceptor](./payload_interceptors.go#L48)
+## <a name="PayloadStreamServerInterceptor">func</a> [PayloadStreamServerInterceptor](./payload_interceptors.go#L46)
 ``` go
 func PayloadStreamServerInterceptor(logger *zap.Logger, decider grpc_logging.ServerPayloadLoggingDecider) grpc.StreamServerInterceptor
 ```
 PayloadUnaryServerInterceptor returns a new server server interceptors that logs the payloads of requests.
 
-This *only* works when placed *after* the `grpc_logrus.StreamServerInterceptor`. However, the logging can be done to a
+This *only* works when placed *after* the `grpc_zap.StreamServerInterceptor`. However, the logging can be done to a
 separate instance of the logger.
 
-## <a name="PayloadUnaryClientInterceptor">func</a> [PayloadUnaryClientInterceptor](./payload_interceptors.go#L60)
+## <a name="PayloadUnaryClientInterceptor">func</a> [PayloadUnaryClientInterceptor](./payload_interceptors.go#L58)
 ``` go
 func PayloadUnaryClientInterceptor(logger *zap.Logger, decider grpc_logging.ClientPayloadLoggingDecider) grpc.UnaryClientInterceptor
 ```
 PayloadUnaryClientInterceptor returns a new unary client interceptor that logs the paylods of requests and responses.
 
-## <a name="PayloadUnaryServerInterceptor">func</a> [PayloadUnaryServerInterceptor](./payload_interceptors.go#L28)
+## <a name="PayloadUnaryServerInterceptor">func</a> [PayloadUnaryServerInterceptor](./payload_interceptors.go#L26)
 ``` go
 func PayloadUnaryServerInterceptor(logger *zap.Logger, decider grpc_logging.ServerPayloadLoggingDecider) grpc.UnaryServerInterceptor
 ```
 PayloadUnaryServerInterceptor returns a new unary server interceptors that logs the payloads of requests.
 
-This *only* works when placed *after* the `grpc_logrus.UnaryServerInterceptor`. However, the logging can be done to a
+This *only* works when placed *after* the `grpc_zap.UnaryServerInterceptor`. However, the logging can be done to a
 separate instance of the logger.
 
 ## <a name="ReplaceGrpcLogger">func</a> [ReplaceGrpcLogger](./grpclogger.go#L15)
@@ -247,7 +174,7 @@ func StreamClientInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamClie
 ```
 StreamServerInterceptor returns a new streaming client interceptor that optionally logs the execution of external gRPC calls.
 
-## <a name="StreamServerInterceptor">func</a> [StreamServerInterceptor](./server_interceptors.go#L46)
+## <a name="StreamServerInterceptor">func</a> [StreamServerInterceptor](./server_interceptors.go#L44)
 ``` go
 func StreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServerInterceptor
 ```
@@ -259,7 +186,7 @@ func UnaryClientInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryClient
 ```
 UnaryClientInterceptor returns a new unary client interceptor that optionally logs the execution of external gRPC calls.
 
-## <a name="UnaryServerInterceptor">func</a> [UnaryServerInterceptor](./server_interceptors.go#L26)
+## <a name="UnaryServerInterceptor">func</a> [UnaryServerInterceptor](./server_interceptors.go#L24)
 ``` go
 func UnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServerInterceptor
 ```

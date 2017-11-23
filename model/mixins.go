@@ -52,14 +52,6 @@ func (m *HTTPRespDatum) GetHeader(key string) string {
 	return ""
 }
 
-func (m *InvalidStageOperation) Error() string {
-	return m.Err
-}
-
-func (m *InvalidGraphOperation) Error() string {
-	return m.Err
-}
-
 // GraphMessage is any message that belongs exclusively to a graph
 type GraphMessage interface {
 	proto.Message

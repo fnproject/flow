@@ -404,7 +404,7 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 }
 
 // ValidateCommand validates whether the given command can be correctly applied to the current graph's state
-func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.ValidationError {
+func (graph *CompletionGraph) ValidateCommand(cmd model.Command) error {
 	// disallow graph structural changes when complete
 	if addCmd, ok := cmd.(model.AddStageCommand); ok {
 		if !graph.canModifyGraph() {

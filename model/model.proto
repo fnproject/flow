@@ -301,17 +301,6 @@ message AwaitStageResultResponse {
 }
 
 
-message InvalidGraphOperation {
-    string flow_id = 1;
-    string err = 2;
-}
-
-message InvalidStageOperation {
-    string flow_id = 1;
-    string err = 2;
-    string stage_id = 3;
-}
-
 // Invoke commands
 message InvokeFunctionRequest {
     string flow_id = 1 [(validator.field) = {string_not_empty : true}];

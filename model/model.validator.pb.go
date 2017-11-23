@@ -42,8 +42,6 @@ It has these top-level messages:
 	ListGraphsResponse
 	AwaitStageResultRequest
 	AwaitStageResultResponse
-	InvalidGraphOperation
-	InvalidStageOperation
 	InvokeFunctionRequest
 	InvokeStageRequest
 	GraphEvent
@@ -404,12 +402,6 @@ func (this *AwaitStageResultResponse) Validate() error {
 			return go_proto_validators.FieldError("Result", err)
 		}
 	}
-	return nil
-}
-func (this *InvalidGraphOperation) Validate() error {
-	return nil
-}
-func (this *InvalidStageOperation) Validate() error {
 	return nil
 }
 

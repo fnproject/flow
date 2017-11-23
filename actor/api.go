@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"reflect"
 	"github.com/fnproject/flow/sharding"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/fnproject/flow/blobs"
@@ -13,7 +12,8 @@ import (
 	"github.com/fnproject/flow/persistence"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"time"
 )
 
@@ -176,7 +176,7 @@ func supervisorName(shardID int) (name string) {
 func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	msg, ok := req.(model.GraphMessage)
 	if !ok {
-		return nil, fmt.Errorf("Ignoring request of unknown type %v", reflect.TypeOf(req))
+		return nil, status.Errorf(codes.Unimplemented,"Ignoring request of unknown type %v", reflect.TypeOf(req))
 	}
 
 	shardID, err := m.shardExtractor.ShardID(msg.GetFlowId())

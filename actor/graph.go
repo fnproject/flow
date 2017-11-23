@@ -90,7 +90,7 @@ func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool 
 	case *model.CreateGraphRequest:
 		if g.graph != nil {
 			g.log.Warn("Graph has already been created")
-			context.Respond(model.NewGraphCreationError(msg.GetFlowId()))
+			context.Respond(model.NewGraphAlreadyExistsError(msg.GetFlowId()))
 			return false
 		}
 

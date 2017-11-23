@@ -101,28 +101,7 @@ func TestShouldHandleFnTimeout(t *testing.T) {
 
 }
 
-func TestShouldHandleInvalidStageResponseContentType(t *testing.T) {
-	m := &MockClient{}
-	store := blobs.NewInMemBlobStore()
-
-	resp := givenResponse(200,
-		map[string][]string{
-			"Fn_call_id": {"CALLID"},
-			"Content-Type": {"text/plain"},
-		},
-		[]byte("error"))
-
-	m.On("Do", mock.AnythingOfType("*http.Request")).Return(resp, nil)
-
-	result := givenValidInvokeStageRequest(store, m)
-
-	assert.Equal(t, result.CallId, "CALLID")
-	hasValidResult(t, result)
-	hasErrorResult(t, result, model.ErrorDatumType_invalid_stage_response)
-
-}
-
-func TestShouldHandleInvalidStageResponseContentData(t *testing.T) {
+func TestShouldHandleInvalidStageResponseContent(t *testing.T) {
 	m := &MockClient{}
 	store := blobs.NewInMemBlobStore()
 

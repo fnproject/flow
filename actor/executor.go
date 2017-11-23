@@ -117,12 +117,6 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callID)
 	}
 
-	if resp.Header.Get("Content-Type") != "application/json" {
-		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Invalid content type in response from functions service")
-		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Invalid content type in response from functions service", callID)
-
-	}
-
 	runtimeResponse := &model.RuntimeInvokeStageResponse{}
 	reader := jsonpb.Unmarshaler{AllowUnknownFields: true}
 	err = reader.Unmarshal(resp.Body, runtimeResponse)

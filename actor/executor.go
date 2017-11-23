@@ -85,7 +85,7 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 		Closure: msg.GetClosure(),
 	}
 	buf := new(bytes.Buffer)
-	writer := jsonpb.Marshaler{}
+	writer := jsonpb.Marshaler{OrigName: true}
 	err := writer.Marshal(buf, runtimeRequest)
 	if err != nil {
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, "Could not marshal the runtime invoke stage request message.", "")

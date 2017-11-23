@@ -15,6 +15,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"
+	"math"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -146,6 +149,15 @@ func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddComplete
 
 func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Getting stage result")
+	if timeout := req.GetTimeoutMs(); timeout > 0 {
+		const maxTimeoutEver = 1 * time.Hour
+		awaitTimeout := time.Duration(math.Min(float64(time.Duration(timeout) * time.Millisecond), float64(maxTimeoutEver)))
+		deadline, set := ctx.Deadline()
+		if set {
+			awaitTimeout = time.Duration(math.Min(float64(time.Until(deadline)), float64(awaitTimeout)))
+		}
+		ctx, _ = context.WithTimeout(ctx, awaitTimeout)
+	}
 	r, e := m.forwardRequest(ctx,req)
 	if e != nil {
 		return nil, e
@@ -194,15 +206,24 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	return pid, nil
 }
 
-func (m *actorManager) forwardRequest(ctx context.Context, req interface{} ) (interface{}, error) {
+func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (interface{}, error) {
+	const defaultRequestTimeout = 5 * time.Second
+	// Check http request
+	var requestTimeout = defaultRequestTimeout
+	deadline, set := ctx.Deadline()
+	if set {
+		requestTimeout = time.Until(deadline)
+	}
 	supervisor, err := m.lookupSupervisor(req)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: timeouts from context
-	future := supervisor.RequestFuture(req, 5*time.Second)
+	future := supervisor.RequestFuture(req, requestTimeout)
 	r, err := future.Result()
 	if err != nil {
+		if err == actor.ErrTimeout {
+			return nil, status.Error(codes.DeadlineExceeded, err.Error())
+		}
 		return nil, err
 	}
 

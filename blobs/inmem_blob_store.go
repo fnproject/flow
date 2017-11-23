@@ -25,7 +25,7 @@ func (s *inMemBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	blob, ok := s.blobs[blobID]
 
 	if !ok {
-		return nil, BlobNotFound
+		return nil, ErrBlobNotFound
 	}
 
 	return bytes.NewReader(blob), nil

@@ -73,7 +73,7 @@ func (s *sqlBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, BlobNotFound
+			return nil, ErrBlobNotFound
 		}
 		log.WithField("blob_id", blobID).WithError(row.Err()).Errorf("Error reading blob from DB")
 		return nil, err

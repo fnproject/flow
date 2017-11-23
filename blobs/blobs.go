@@ -12,7 +12,8 @@ type Blob struct {
 	Length      uint64 `json:"length,omitempty"`
 }
 
-var BlobNotFound = errors.New("The specified blob does not exist.")
+// ErrBlobNotFound indicates that the requested blob did not exit 
+var ErrBlobNotFound = errors.New("the specified blob does not exist")
 
 // Store is an abstraction for user data persistence
 // user data is a pure blob with no semantics

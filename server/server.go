@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
-	"github.com/fnproject/flow/grpcx"
 	"github.com/fnproject/flow/model"
 	"net/http"
 	"github.com/gin-gonic/gin"
@@ -104,12 +103,10 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	gRPCServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			unaryMetricsInterceptor(),
-			grpc_validator.UnaryServerInterceptor(),
-			grpcx.UnaryServerInterceptor())),
+			grpc_validator.UnaryServerInterceptor())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			streamMetricsInterceptor(),
-			grpc_validator.StreamServerInterceptor(),
-			grpcx.StreamServerInterceptor())))
+			grpc_validator.StreamServerInterceptor())))
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 

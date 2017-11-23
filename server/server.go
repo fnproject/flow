@@ -120,7 +120,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	}()
 
 	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery(), serverGrpc(gRPCServer))
+	engine.Use(gin.Logger(), gin.Recovery(), engineMetrics(), serverGrpc(gRPCServer))
 
 	s := &Server{
 		Engine:         engine,

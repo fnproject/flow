@@ -59,7 +59,7 @@ Stages can be added to a graph at any time and are executed as soon as their dep
 
 The flow services does not directly handle content from functions (with the exception of HTTP headers, see below)
 
-Data must be persited by function invocations before being passed to flow services: 
+Data must be persisted by function invocations before being passed to flow services:
 
 ```
 POST /blobs/flow-abcd-12344 HTTP/1.1
@@ -546,26 +546,26 @@ Recipients must accept unknown values for this field.
 
 #### State Datum
 
-The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated : 
+The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated :
 
 ```json
 {
-    "state_datum" : {
-         "type" :"succeeded"
-    } 
+	"state_datum" : {
+		 "type" :"succeeded"
+	}
 }
 
-``` 
+```
 
-Valid types are: 
+Valid types are:
 *   succeeded
-*   failed 
+*   failed
 *   cancelled
-*   killed 
+*   killed
 
 
 ### Flow Client API
-See [swagger](../model/mode.swagger.json)
+See [swagger](../model/model.swagger.json)
 
 
 

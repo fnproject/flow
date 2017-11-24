@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	"time"
 	"math"
+	"github.com/golang/protobuf/ptypes"
 )
 
 const (
@@ -232,21 +233,35 @@ func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (int
 	return r, nil
 }
 
-func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowService_StreamEventsServer) error {
-	// TODO Hook up streams
-	//switch q := req.GetQuery().(type) {
-	//case *model.StreamRequest_Lifecycle:
-	//	{
-	//
-	//	}
-	//case *model.StreamRequest_Graph:
-	//	{
-	//
-	//	}
-	// }
-	return nil
+func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
+	// TODO: implement streaming
+	m.log.Debug("Streaming lifecycle events")
+
+	msg := &model.GraphLifecycleEvent{Val: &model.GraphLifecycleEvent_GraphCreated{&model.GraphCreatedEvent{
+		FlowId:"foo", FunctionId:"bar/baz", Ts: ptypes.TimestampNow()}}}
+	err := stream.Send(msg)
+	m.log.Debug("sent one event", msg)
+	return err
 }
 
+func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
+	// TODO: implement streaming
+	m.log.Debugf("ActorManager Streaming graph events streamRequest= %T %+v", gr, gr)
+
+	for {
+		msg := &model.GraphEvent{Val: &model.GraphEvent_GraphCreated{&model.GraphCreatedEvent{
+			FlowId: "foo",
+			FunctionId: "bar/baz",
+			Ts: ptypes.TimestampNow(),
+			}}}
+		err := stream.Send(msg)
+		if err != nil {
+			return err
+		}
+		m.log.Debug("sent one event", msg)
+		time.Sleep(time.Second)
+	}
+}
 
 
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {

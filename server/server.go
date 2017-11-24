@@ -16,6 +16,7 @@ import (
 	"net"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	// "github.com/tmc/grpc-websocket-proxy/wsproxy"
 )
 
 
@@ -140,6 +141,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
 		log.Info("Serving HTTP ")
 
+		// wsproxy.WebSocketProxy(gwmux).ServeHTTP(c.Writer, c.Request)
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
 

@@ -263,22 +263,16 @@ enum ListGraphsFilter {
 }
 
 
-message StreamLifecycle {
+// Requests for a stream of events
 
+message StreamLifecycleRequest {
 }
-message StreamGraph {
+
+message StreamGraphRequest {
     string flow_id = 2;
     uint64 from_seq = 3;
 }
 
-// Request a stream of events
-message StreamRequest {
-
-    oneof query{
-        StreamLifecycle lifecycle = 1;
-        StreamGraph graph = 2;
-    }
-}
 
 message ListGraphResponse {
     string flow_id = 1;
@@ -301,6 +295,7 @@ message AwaitStageResultResponse {
 }
 
 
+
 // Invoke commands
 message InvokeFunctionRequest {
     string flow_id = 1 [(validator.field) = {string_not_empty : true}];
@@ -318,6 +313,15 @@ message InvokeStageRequest {
 }
 
 // Events
+
+message GraphLifecycleEvent {
+    uint64 seq = 1;
+    string flow_id = 2;
+    oneof val {
+        GraphCreatedEvent graph_created = 10;
+        GraphCompletedEvent graph_completed = 12;
+    }
+}
 
 message GraphEvent {
     uint64 seq = 1;
@@ -462,7 +466,7 @@ service FlowService {
     rpc CompleteStageExternally (CompleteStageExternallyRequest) returns (CompleteStageExternallyResponse) {
         option (google.api.http) = {
             post: "/v1/flows/{flow_id}/stages/{stage_id}/complete",
-            body: "*",
+            body: "*"
         };
     };
 
@@ -479,14 +483,17 @@ service FlowService {
     };
 
 
-    rpc StreamEvents (StreamRequest) returns (stream GraphEvent) {
+    rpc StreamLifecycle (StreamLifecycleRequest) returns (stream GraphLifecycleEvent) {
         option (google.api.http) = {
-            get: "/v1/flows/stream"
+            get: "/v1/stream"
         };
     }
 
-
-
+    rpc StreamEvents (StreamGraphRequest) returns (stream GraphEvent) {
+        option (google.api.http) = {
+            get: "/v1/flows/{flow_id}/stream"
+        };
+    }
 
 }
 

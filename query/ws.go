@@ -27,9 +27,9 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 	}
 
 	log.WithField("conn", l.conn.LocalAddr().String()).WithField("flow_id", sg.FlowID).Info("Subscribed to graph")
-
-	req := &model.StreamRequest{
-		Query: &model.StreamRequest_Graph{
+/*
+	req := &model.StreamGraphRequest{
+		Query: &model.StreamGraphRequest_Graph{
 			Graph: &model.StreamGraph{
 				FlowId: sg.FlowID,
 			},
@@ -51,7 +51,7 @@ func (sg *subscribeGraph) Action(l *wsWorker) error {
 			// TODO: send to graph
 		}
 	}()
-
+*/
 	//sub, err := l.manager.SubscribeGraphEvents(sg.FlowID, 0, func(e *persistence.StreamEvent) { l.SendGraphMessage(e, sg.FlowID) })
 
 	l.subscriptions[sg.FlowID] = client
@@ -145,8 +145,10 @@ func (l *wsWorker) Run() {
 	//	return false
 	//}
 
-	subscriptionID := "_all"
+	// subscriptionID := "_all"
 
+	return
+	/*
 	sub, err := l.manager.StreamEvents(context.Background(), &model.StreamRequest{Query: &model.StreamRequest_Lifecycle{}})
 
 	// TODO send back lifecycle events.
@@ -155,7 +157,7 @@ func (l *wsWorker) Run() {
 	}
 
 	l.subscriptions[subscriptionID] = sub
-
+	*/
 	// main cmd loop
 	for {
 		msgType, msg, err := l.conn.ReadMessage()

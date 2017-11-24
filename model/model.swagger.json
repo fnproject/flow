@@ -41,37 +41,6 @@
         ]
       }
     },
-    "/v1/flows/stream": {
-      "get": {
-        "operationId": "StreamEvents",
-        "responses": {
-          "200": {
-            "description": "(streaming responses)",
-            "schema": {
-              "$ref": "#/definitions/modelGraphEvent"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "graph.flow_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "graph.from_seq",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "uint64"
-          }
-        ],
-        "tags": [
-          "FlowService"
-        ]
-      }
-    },
     "/v1/flows/{flow_id}": {
       "get": {
         "operationId": "GetGraphState",
@@ -291,6 +260,37 @@
         ]
       }
     },
+    "/v1/flows/{flow_id}/stream": {
+      "get": {
+        "operationId": "StreamEvents",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/modelGraphEvent"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "flow_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "from_seq",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
     "/v1/flows/{flow_id}/value": {
       "post": {
         "operationId": "AddValueStage",
@@ -318,6 +318,22 @@
             }
           }
         ],
+        "tags": [
+          "FlowService"
+        ]
+      }
+    },
+    "/v1/stream": {
+      "get": {
+        "operationId": "StreamLifecycle",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/modelGraphLifecycleEvent"
+            }
+          }
+        },
         "tags": [
           "FlowService"
         ]
@@ -759,6 +775,24 @@
         },
         "faas_invocation_completed": {
           "$ref": "#/definitions/modelFaasInvocationCompletedEvent"
+        }
+      }
+    },
+    "modelGraphLifecycleEvent": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "flow_id": {
+          "type": "string"
+        },
+        "graph_created": {
+          "$ref": "#/definitions/modelGraphCreatedEvent"
+        },
+        "graph_completed": {
+          "$ref": "#/definitions/modelGraphCompletedEvent"
         }
       }
     },

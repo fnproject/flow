@@ -83,6 +83,14 @@ func (m *Manager) GetClient(flowID string) (model.FlowServiceClient, error) {
 	return m.reverseProxies[ m.settings.nodeName(idx)], nil
 }
 
+// GetClients returns GRPC clients for all the nodes
+func (m *Manager) GetClients() (clients []model.FlowServiceClient, err error) {
+	for _, client := range m.reverseProxies {
+		clients = append(clients, client)
+	}
+	return
+}
+
 func (m *Manager) resolveNode(flowID string) (int, error) {
 	shard, err := m.extractor.ShardID(flowID)
 	if err != nil {

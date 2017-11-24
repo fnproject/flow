@@ -4,8 +4,6 @@ import (
 	"golang.org/x/net/context"
 	"github.com/fnproject/flow/model"
 	"github.com/google/uuid"
-	"github.com/golang/protobuf/ptypes"
-	"time"
 )
 
 type clusterProxy struct {
@@ -102,21 +100,51 @@ func (c *clusterProxy) GetGraphState(ctx context.Context, r *model.GetGraphState
 func (c *clusterProxy) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
 	// TODO: implement streaming
 	log.Debug("Streaming lifecycle events")
+	clients, err := c.manager.GetClients()
+	if err != nil {
+		return err
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+	events := make(chan *model.GraphLifecycleEvent)
+	errors := make(chan error, len(clients))
+
+	for _, cl := range clients {
+		go func() {
+			inStream, err := cl.StreamLifecycle(stream.Context(), lr)
+			if err != nil {
+				errors <- err
+				return
+			}
+			for {
+				event, err := inStream.Recv()
+				if err != nil {
+					errors <- err
+					return
+				}
+				select {
+				case <-done:
+					return
+				case events<-event:
+				}
+			}
+		}()
+	}
 
 	for {
 		select {
 		case <-stream.Context().Done():
 			return nil
-		default:
-			m := &model.GraphLifecycleEvent{Val: &model.GraphLifecycleEvent_GraphCreated{&model.GraphCreatedEvent{
-				FlowId:"foo", FunctionId:"bar/baz", Ts: ptypes.TimestampNow()}}}
-			err := stream.Send(m)
+		case err := <-errors:
+			return err
+		case event := <-events:
+			err := stream.Send(event)
 			if err != nil {
 				return err
 			}
-			log.Debug("sent one event", m)
 		}
-		time.Sleep(time.Second)
 	}
 }
 

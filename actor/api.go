@@ -240,12 +240,17 @@ func isLifecycleEvent(event *persistence.StreamEvent) (ok bool) {
 func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
 	m.log.Debug("Streaming lifecycle events")
 
+	eventsChan := make(chan *model.GraphLifecycleEvent, 10)
+
 	m.persistenceProvider.GetStreamingState().StreamNewEvents(isLifecycleEvent,
 		func(event *persistence.StreamEvent) {
-			graphEvent := event.Event.(*model.GraphLifecycleEvent)
-			m.log.Debugf("Sent a graph lifecycle event %v", graphEvent)
-			stream.Send(graphEvent)
+			eventsChan <- event.Event.(*model.GraphLifecycleEvent)
 		})
+
+	for event := range eventsChan {
+		m.log.Debugf("Sent a graph lifecycle event %v", event)
+		stream.Send(event)
+	}
 	return nil
 }
 
@@ -257,13 +262,19 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 		return err
 	}
 
+	eventsChan := make(chan *model.GraphEvent, 10)
+
 	m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
 			if graphEvent, ok := event.Event.(*model.GraphEvent); ok {
-				m.log.Debugf("Sent a graph event %v", graphEvent)
-				stream.Send(graphEvent)
+				eventsChan <- graphEvent
 			}
 		})
+
+	for event := range eventsChan {
+		m.log.Debugf("Sent a graph event %v", event)
+		stream.Send(event)
+	}
 	return nil
 }
 

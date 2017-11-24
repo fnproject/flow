@@ -257,6 +257,16 @@ func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
 	m.log.Debugf("Streaming graph events streamRequest= %T %+v", gr, gr)
 
+	// Comment this out when the actor stuff is wired.
+	for {
+		err := stream.Send(&model.GraphEvent{Val:&model.GraphEvent_GraphCreated{&model.GraphCreatedEvent{FlowId:"foo", FunctionId:"bar/baz"}}})
+		if err != nil {
+			return err
+		}
+		m.log.Debugf("Sent a fake graph creation event")
+		time.Sleep(time.Second)
+	}
+
 	graphPath, err := m.graphActorPath(gr.FlowId)
 	if err != nil {
 		return err

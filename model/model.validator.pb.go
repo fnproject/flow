@@ -465,10 +465,10 @@ func (this *GraphEvent) Validate() error {
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphTermianting); ok {
-		if oneOfNester.GraphTermianting != nil {
-			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphTermianting); err != nil {
-				return go_proto_validators.FieldError("GraphTermianting", err)
+	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphTerminating); ok {
+		if oneOfNester.GraphTerminating != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphTerminating); err != nil {
+				return go_proto_validators.FieldError("GraphTerminating", err)
 			}
 		}
 	}

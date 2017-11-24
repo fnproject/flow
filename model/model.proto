@@ -328,7 +328,7 @@ message GraphEvent {
     string flow_id = 2;
     oneof val {
         GraphCreatedEvent graph_created = 10;
-        GraphTerminatingEvent graph_termianting = 11;
+        GraphTerminatingEvent graph_terminating = 11;
         GraphCompletedEvent graph_completed = 12;
         DelayScheduledEvent delay_scheduled = 13;
         StageAddedEvent stage_added = 14;

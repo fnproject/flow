@@ -98,7 +98,6 @@ func (c *clusterProxy) GetGraphState(ctx context.Context, r *model.GetGraphState
 }
 
 func (c *clusterProxy) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
-	// TODO: implement streaming
 	log.Debug("Streaming lifecycle events")
 	clients, err := c.manager.GetClients()
 	if err != nil {

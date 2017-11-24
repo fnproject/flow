@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strings"
 	"math"
 )
 
@@ -235,13 +236,13 @@ func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (int
 func isLifecycleEvent(event *persistence.StreamEvent) bool {
 	switch event.Event.(type) {
 	case *model.GraphCreatedEvent, *model.GraphCompletedEvent:
-		return true
+		// Supervisor calls have an actorname of supervisor-[0-9]+
+		// Graph events have an actorname of supervisor-[0-9]+/[-0-9a-f]{36}
+		return strings.Contains(event.ActorName, "/")
 	default:
 		return false
 	}
 }
-
-
 
 func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
 	m.log.Debug("Streaming lifecycle events")
@@ -259,8 +260,9 @@ func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 	*/
 
 	eventsChan := make(chan *model.GraphLifecycleEvent, 10)
+	defer close(eventsChan)
 
-	m.persistenceProvider.GetStreamingState().StreamNewEvents(isLifecycleEvent,
+	sub := m.persistenceProvider.GetStreamingState().StreamNewEvents(isLifecycleEvent,
 		func(event *persistence.StreamEvent) {
 			msg, _ := event.Event.(model.GraphMessage)
 			m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
@@ -283,9 +285,14 @@ func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 			eventsChan <- lifecycleEvent
 		})
 
+	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+
 	for event := range eventsChan {
 		m.log.Debugf("Sent a graph lifecycle event %v", event)
-		stream.Send(event)
+		err := stream.Send(event)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -311,8 +318,9 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 	}
 
 	eventsChan := make(chan *model.GraphEvent, 10)
+	defer close(eventsChan)
 
-	m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
+	sub := m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
 			msg, ok := event.Event.(model.GraphMessage)
 			if !ok {
@@ -353,9 +361,14 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 			eventsChan <- graphEvent
 		})
 
+	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+
 	for event := range eventsChan {
 		m.log.Debugf("Sent a graph event %v", event)
-		stream.Send(event)
+		err := stream.Send(event)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

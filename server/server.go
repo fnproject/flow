@@ -16,7 +16,6 @@ import (
 	"net"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
-	// "github.com/tmc/grpc-websocket-proxy/wsproxy"
 )
 
 
@@ -138,12 +137,13 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	gwmux := runtime.NewServeMux()
 	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
 
+
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
 		log.Info("Serving HTTP ")
 
-		// wsproxy.WebSocketProxy(gwmux).ServeHTTP(c.Writer, c.Request)
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
+	go func() { http.ListenAndServe(":8082", gwmux) }()
 
 	// TODO: fix wss/change to gRPC!
 	//s.Engine.GET("/wss", func(c *gin.Context) {

@@ -28,8 +28,11 @@ type ProviderState interface {
 // MarshallingError will be provided to panic on marshalling failures
 var MarshallingError = fmt.Errorf("Persistence provider failed with marshalling error")
 
-// PersistEventError will be provided to panic on PersistEvent failures
+// PersistEventError is the panic reason if PersistEvent fails to write to persistence provider
 var PersistEventError = fmt.Errorf("Persistence provider failed to persist event")
+
+// ReadEventError is the panic reason if GetEvents fails to read from persistence provider
+var ReadEventError = fmt.Errorf("Persistence provider failed to read events")
 
 // PersistSnapshotError will be provided to panic on PersistSnapshot failures
 var PersistSnapshotError = fmt.Errorf("Persistence provider failed to persist snapshot")

@@ -57,7 +57,7 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 	graphDecider := func(reason interface{}) actor.Directive {
 		log.Warnf("Stopping failed graph actor due to error: %v", reason)
 		switch reason {
-		case persistence.PersistEventError:
+		case persistence.PersistEventError, persistence.ReadEventError:
 			return actor.RestartDirective
 		case persistence.PersistSnapshotError:
 			return actor.ResumeDirective

@@ -114,14 +114,19 @@ func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 }
 
 func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
-	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndexStart}).Debug("Getting events")
+	log.WithField("actor_name", actorName).
+		WithField("event_index", eventIndexStart).
+		Debug("Getting events")
+
 	span := opentracing.StartSpan("sql_get_events")
 	defer span.Finish()
+
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
-		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB")
-		// DON'T PANIC ?
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithError(err).
+			Error("Error getting events value from DB")
+		panic(ReadEventError)
 	}
 	defer rows.Close()
 
@@ -133,9 +138,13 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 		msg, err := extractData(actorName, eventType, eventBytes)
 		if err != nil {
-			log.WithField("actor_name", actorName).WithField("event_type", eventType).WithError(err).Error("Error getting events value from DB")
+			log.WithField("actor_name", actorName).
+				WithField("event_type", eventType).
+				WithError(err).
+				Error("Error getting events value from DB")
 			panic(MarshallingError)
 		}
+
 		callback(eventIndex, msg)
 	}
 

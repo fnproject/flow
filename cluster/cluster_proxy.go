@@ -111,8 +111,10 @@ func (c *clusterProxy) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 	errors := make(chan error, len(clients))
 
 	for _, cl := range clients {
+
+		client:= cl
 		go func() {
-			inStream, err := cl.StreamLifecycle(stream.Context(), lr)
+			inStream, err := client.StreamLifecycle(stream.Context(), lr)
 			if err != nil {
 				errors <- err
 				return
@@ -154,12 +156,12 @@ func (c *clusterProxy) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 		return err
 	}
 	log.Debug("Getting graph events")
-	far_end, err := client.StreamEvents(stream.Context(), gr)
+	remoteStream, err := client.StreamEvents(stream.Context(), gr)
 	if err != nil {
 		return err
 	}
 	for {
-		event, err := far_end.Recv()
+		event, err := remoteStream.Recv()
 		if err != nil {
 			return err
 		}

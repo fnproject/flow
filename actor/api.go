@@ -232,9 +232,13 @@ func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (int
 	return r, nil
 }
 
-func isLifecycleEvent(event *persistence.StreamEvent) (ok bool) {
-	_, ok = event.Event.(*model.GraphLifecycleEvent)
-	return
+func isLifecycleEvent(event *persistence.StreamEvent) bool {
+	switch event.Event.(type) {
+	case *model.GraphCreatedEvent, *model.GraphCompletedEvent:
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
@@ -244,7 +248,25 @@ func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 
 	m.persistenceProvider.GetStreamingState().StreamNewEvents(isLifecycleEvent,
 		func(event *persistence.StreamEvent) {
-			eventsChan <- event.Event.(*model.GraphLifecycleEvent)
+			msg, _ := event.Event.(model.GraphMessage)
+			m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
+
+			lifecycleEvent := &model.GraphLifecycleEvent{
+				FlowId: msg.GetFlowId(),
+				Seq:    uint64(event.EventIndex),
+			}
+
+			switch msg := event.Event.(type) {
+			case *model.GraphCreatedEvent:
+				lifecycleEvent.Val = &model.GraphLifecycleEvent_GraphCreated{GraphCreated: msg}
+			case *model.GraphCompletedEvent:
+				lifecycleEvent.Val = &model.GraphLifecycleEvent_GraphCompleted{GraphCompleted: msg}
+
+			default:
+				return
+			}
+
+			eventsChan <- lifecycleEvent
 		})
 
 	for event := range eventsChan {
@@ -276,9 +298,43 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 
 	m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
-			if graphEvent, ok := event.Event.(*model.GraphEvent); ok {
-				eventsChan <- graphEvent
+			msg, ok := event.Event.(model.GraphMessage)
+			if !ok {
+				m.log.Info("Skipping unknown message %v", reflect.TypeOf(event.Event))
 			}
+			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
+
+			graphEvent := &model.GraphEvent{
+				FlowId: msg.GetFlowId(),
+				Seq:    uint64(event.EventIndex),
+			}
+
+			switch msg := event.Event.(type) {
+			case *model.GraphCreatedEvent:
+				graphEvent.Val = &model.GraphEvent_GraphCreated{GraphCreated: msg}
+			case *model.GraphTerminatingEvent:
+				graphEvent.Val = &model.GraphEvent_GraphTerminating{GraphTerminating: msg}
+			case *model.GraphCompletedEvent:
+				graphEvent.Val = &model.GraphEvent_GraphCompleted{GraphCompleted: msg}
+			case *model.DelayScheduledEvent:
+				graphEvent.Val = &model.GraphEvent_DelayScheduled{DelayScheduled: msg}
+			case *model.StageAddedEvent:
+				graphEvent.Val = &model.GraphEvent_StageAdded{StageAdded: msg}
+			case *model.StageCompletedEvent:
+				graphEvent.Val = &model.GraphEvent_StageCompleted{StageCompleted: msg}
+			case *model.StageComposedEvent:
+				graphEvent.Val = &model.GraphEvent_StageComposed{StageComposed: msg}
+			case *model.FaasInvocationStartedEvent:
+				graphEvent.Val = &model.GraphEvent_FaasInvocationStarted{FaasInvocationStarted: msg}
+			case *model.FaasInvocationCompletedEvent:
+				graphEvent.Val = &model.GraphEvent_FaasInvocationCompleted{FaasInvocationCompleted: msg}
+
+			default:
+				m.log.Info("Skipping unknown graph event %v", reflect.TypeOf(event.Event))
+				return
+			}
+
+			eventsChan <- graphEvent
 		})
 
 	for event := range eventsChan {

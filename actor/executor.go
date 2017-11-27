@@ -15,6 +15,7 @@ import (
 	"github.com/fnproject/flow/protocol"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 const fnCallIDHeader = "Fn_call_id"

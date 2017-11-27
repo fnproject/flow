@@ -52,18 +52,139 @@ func (m *HTTPRespDatum) GetHeader(key string) string {
 	return ""
 }
 
-func (m *InvalidStageOperation) Error() string {
-	return m.Err
-}
-
-func (m *InvalidGraphOperation) Error() string {
-	return m.Err
-}
-
 // GraphMessage is any message that belongs exclusively to a graph
 type GraphMessage interface {
 	proto.Message
 	GetFlowId() string
+}
+
+type GraphLifecycleEventSource interface {
+	GraphLifecycleEvent(index int) *GraphLifecycleEvent
+}
+
+func (m *GraphCreatedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEvent {
+	if m != nil {
+		return &GraphLifecycleEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphLifecycleEvent_GraphCreated{GraphCreated: m},
+		}
+	}
+	return new(GraphLifecycleEvent)
+}
+
+func (m *GraphCompletedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEvent {
+	if m != nil {
+		return &GraphLifecycleEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphLifecycleEvent_GraphCompleted{GraphCompleted: m},
+		}
+	}
+	return new(GraphLifecycleEvent)
+}
+
+type GraphEventSource interface {
+	GraphEvent(index int) *GraphEvent
+}
+
+func (m *GraphCreatedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_GraphCreated{GraphCreated: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *GraphCompletedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_GraphCompleted{GraphCompleted: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *GraphTerminatingEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_GraphTerminating{GraphTerminating: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *DelayScheduledEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_DelayScheduled{DelayScheduled: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *StageAddedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_StageAdded{StageAdded: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *StageCompletedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_StageCompleted{StageCompleted: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *StageComposedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_StageComposed{StageComposed: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *FaasInvocationStartedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_FaasInvocationStarted{FaasInvocationStarted: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+func (m *FaasInvocationCompletedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_FaasInvocationCompleted{FaasInvocationCompleted: m},
+		}
+	}
+	return new(GraphEvent)
 }
 
 // StageMessage is any message that belongs exclusively a stage (and hence a graph)
@@ -130,7 +251,6 @@ func (m *AddDelayStageRequest) HasClosure() bool {
 	return false
 }
 
-
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddInvokeFunctionStageRequest) GetOperation() CompletionOperation {
 	return CompletionOperation_invokeFunction
@@ -148,7 +268,7 @@ func (m *AddStageRequest) GetDependencyCount() int {
 
 // HasClosure implements AddStageCommand
 func (m *AddStageRequest) HasClosure() bool {
-	return m.Closure!=nil
+	return m.Closure != nil
 }
 
 // GetDependencyCount for AddStageCommand.GetDependencyCount
@@ -168,4 +288,24 @@ func BlobDatumFromBlobStoreBlob(b *blobs.Blob) *BlobDatum {
 		ContentType: b.ContentType,
 		Length:      b.Length,
 	}
+}
+
+// HasValidValue is Quick mixin to overcome issues with oneof - this checks if at least one of the oneof values is set
+func (d *Datum) HasValidValue() bool {
+
+	switch d.Val.(type) {
+	case *Datum_Empty:
+	case *Datum_Blob:
+	case *Datum_Error:
+	case *Datum_StageRef:
+	case *Datum_HttpReq:
+	case *Datum_HttpResp:
+	case *Datum_State:
+	case nil:
+		// The field is not set.
+		return false
+	default:
+		return false
+	}
+	return true
 }

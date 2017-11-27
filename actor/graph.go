@@ -90,10 +90,9 @@ func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool 
 	case *model.CreateGraphRequest:
 		if g.graph != nil {
 			g.log.Warn("Graph has already been created")
-			context.Respond(model.NewGraphCreationError(msg.GetFlowId()))
+			context.Respond(model.NewGraphAlreadyExistsError(msg.GetFlowId()))
 			return false
 		}
-
 
 	default:
 		if g.graph == nil {
@@ -105,7 +104,6 @@ func (g *graphActor) validateCmd(cmd model.Command, context actor.Context) bool 
 			context.Respond(validationError)
 			return false
 		}
-
 
 	}
 
@@ -130,7 +128,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 
 	case *model.CreateGraphRequest:
 		g.log.Debug("Creating graph")
-		event := &model.GraphCreatedEvent{FlowId: msg.FlowId, FunctionId: msg.FunctionId, Ts: currentTimestamp()}
+		event := &model.GraphCreatedEvent{
+			FlowId:     msg.FlowId,
+			FunctionId: msg.FunctionId,
+			Ts:         currentTimestamp()}
 		g.PersistReceive(event)
 		g.initGraph(event)
 		context.Respond(&model.CreateGraphResponse{FlowId: msg.FlowId})
@@ -145,6 +146,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			FlowId:       msg.FlowId,
 			StageId:      stageID,
 			Op:           msg.Operation,
 			Closure:      msg.Closure,
@@ -161,6 +163,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			FlowId:       msg.FlowId,
 			StageId:      stageID,
 			Op:           msg.GetOperation(),
 			Ts:           currentTimestamp(),
@@ -169,6 +172,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		})
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
+			FlowId:  msg.FlowId,
 			StageId: stageID,
 			Result:  msg.Value,
 			Ts:      currentTimestamp(),
@@ -180,6 +184,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		stageID := g.graph.NextStageID()
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			FlowId:       msg.FlowId,
 			StageId:      stageID,
 			Op:           msg.GetOperation(),
 			Ts:           currentTimestamp(),
@@ -187,6 +192,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			CallerId:     msg.CallerId,
 		})
 		delayEvent := &model.DelayScheduledEvent{
+			FlowId:  msg.FlowId,
 			StageId: stageID,
 			TimeMs:  timeMillis() + msg.DelayMs,
 			Ts:      currentTimestamp(),
@@ -194,7 +200,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.PersistReceive(delayEvent)
 		g.scheduleDelay(delayEvent)
 		context.Respond(&model.AddStageResponse{FlowId: msg.FlowId, StageId: stageID})
-
 
 	case *model.AddInvokeFunctionStageRequest:
 		g.log.Debug("Adding invoke stage")
@@ -206,6 +211,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		}
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
+			FlowId:       msg.FlowId,
 			StageId:      stageID,
 			Op:           msg.GetOperation(),
 			Ts:           currentTimestamp(),
@@ -214,17 +220,19 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		})
 
 		g.PersistReceive(&model.FaasInvocationStartedEvent{
+			FlowId:     msg.FlowId,
 			StageId:    stageID,
 			Ts:         currentTimestamp(),
 			FunctionId: realFunctionID,
 		})
 
 		g.executor.Request(&model.InvokeFunctionRequest{
-			FlowId:    g.graph.ID,
+			FlowId:     msg.FlowId,
 			StageId:    stageID,
 			FunctionId: realFunctionID,
 			Arg:        msg.Arg,
 		}, g.GetSelf())
+
 		context.Respond(&model.AddStageResponse{FlowId: msg.FlowId, StageId: stageID})
 
 	case *model.CompleteStageExternallyRequest:
@@ -233,6 +241,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		completable := !stage.IsResolved()
 		if completable {
 			g.persistAndUpdateGraph(&model.StageCompletedEvent{
+				FlowId:  msg.FlowId,
 				StageId: msg.StageId,
 				Result:  msg.Value,
 				Ts:      currentTimestamp(),
@@ -261,7 +270,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 				return
 			}
 			response := &model.AwaitStageResultResponse{
-				FlowId: msg.FlowId,
+				FlowId:  msg.FlowId,
 				StageId: msg.StageId,
 				Result:  result.(*model.CompletionResult),
 			}
@@ -359,7 +368,7 @@ func (g *graphActor) scheduleDelay(event *model.DelayScheduledEvent) {
 	// we always need to complete delay nodes from scratch to avoid completing twice
 	delayMs := event.TimeMs - timeMillis()
 	delayReq := &model.CompleteDelayStageRequest{
-		FlowId: g.graph.ID,
+		FlowId:  event.FlowId,
 		StageId: event.StageId,
 		Result:  model.NewEmptyResult(),
 	}
@@ -408,7 +417,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 		stageOut[s.ID] = rep
 	}
 	return &model.GetGraphStateResponse{
-		FlowId:    g.graph.ID,
+		FlowId:     g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Stages:     stageOut,
 	}
@@ -423,7 +432,7 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*mod
 	})
 	req := &model.InvokeStageRequest{
 		FunctionId: g.graph.FunctionID,
-		FlowId:    g.graph.ID,
+		FlowId:     g.graph.ID,
 		StageId:    stage.ID,
 		Args:       results,
 		Closure:    stage.GetClosure(),
@@ -457,7 +466,7 @@ func (g *graphActor) OnGraphExecutionFinished() {
 	}
 
 	g.persistAndUpdateGraph(&model.GraphTerminatingEvent{
-		FlowId:    g.graph.ID,
+		FlowId:     g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})
@@ -470,7 +479,7 @@ func (g *graphActor) OnGraphComplete() {
 	}
 
 	g.persistAndUpdateGraph(&model.GraphCompletedEvent{
-		FlowId:    g.graph.ID,
+		FlowId:     g.graph.ID,
 		FunctionId: g.graph.FunctionID,
 		Ts:         currentTimestamp(),
 	})

@@ -35,17 +35,15 @@ It has these top-level messages:
 	GetGraphStateRequest
 	GetGraphStateResponse
 	ListGraphsRequest
-	StreamLifecycle
-	StreamGraph
-	StreamRequest
+	StreamLifecycleRequest
+	StreamGraphRequest
 	ListGraphResponse
 	ListGraphsResponse
 	AwaitStageResultRequest
 	AwaitStageResultResponse
-	InvalidGraphOperation
-	InvalidStageOperation
 	InvokeFunctionRequest
 	InvokeStageRequest
+	GraphLifecycleEvent
 	GraphEvent
 	GraphCreatedEvent
 	DelayScheduledEvent
@@ -93,6 +91,9 @@ func (this *BlobDatum) Validate() error {
 	}
 	if this.ContentType == "" {
 		return go_proto_validators.FieldError("ContentType", fmt.Errorf(`value '%v' must not be an empty string`, this.ContentType))
+	}
+	if !(this.Length > 0) {
+		return go_proto_validators.FieldError("Length", fmt.Errorf(`value '%v' must be greater than '0'`, this.Length))
 	}
 	return nil
 }
@@ -347,27 +348,10 @@ func (this *GetGraphStateResponse_StageRepresentation) Validate() error {
 func (this *ListGraphsRequest) Validate() error {
 	return nil
 }
-func (this *StreamLifecycle) Validate() error {
+func (this *StreamLifecycleRequest) Validate() error {
 	return nil
 }
-func (this *StreamGraph) Validate() error {
-	return nil
-}
-func (this *StreamRequest) Validate() error {
-	if oneOfNester, ok := this.GetQuery().(*StreamRequest_Lifecycle); ok {
-		if oneOfNester.Lifecycle != nil {
-			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.Lifecycle); err != nil {
-				return go_proto_validators.FieldError("Lifecycle", err)
-			}
-		}
-	}
-	if oneOfNester, ok := this.GetQuery().(*StreamRequest_Graph); ok {
-		if oneOfNester.Graph != nil {
-			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.Graph); err != nil {
-				return go_proto_validators.FieldError("Graph", err)
-			}
-		}
-	}
+func (this *StreamGraphRequest) Validate() error {
 	return nil
 }
 func (this *ListGraphResponse) Validate() error {
@@ -390,6 +374,9 @@ func (this *AwaitStageResultRequest) Validate() error {
 	if this.StageId == "" {
 		return go_proto_validators.FieldError("StageId", fmt.Errorf(`value '%v' must not be an empty string`, this.StageId))
 	}
+	if !(this.TimeoutMs > -1) {
+		return go_proto_validators.FieldError("TimeoutMs", fmt.Errorf(`value '%v' must be greater than '-1'`, this.TimeoutMs))
+	}
 	return nil
 }
 func (this *AwaitStageResultResponse) Validate() error {
@@ -398,12 +385,6 @@ func (this *AwaitStageResultResponse) Validate() error {
 			return go_proto_validators.FieldError("Result", err)
 		}
 	}
-	return nil
-}
-func (this *InvalidGraphOperation) Validate() error {
-	return nil
-}
-func (this *InvalidStageOperation) Validate() error {
 	return nil
 }
 
@@ -459,6 +440,23 @@ func (this *InvokeStageRequest) Validate() error {
 	}
 	return nil
 }
+func (this *GraphLifecycleEvent) Validate() error {
+	if oneOfNester, ok := this.GetVal().(*GraphLifecycleEvent_GraphCreated); ok {
+		if oneOfNester.GraphCreated != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCreated); err != nil {
+				return go_proto_validators.FieldError("GraphCreated", err)
+			}
+		}
+	}
+	if oneOfNester, ok := this.GetVal().(*GraphLifecycleEvent_GraphCompleted); ok {
+		if oneOfNester.GraphCompleted != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCompleted); err != nil {
+				return go_proto_validators.FieldError("GraphCompleted", err)
+			}
+		}
+	}
+	return nil
+}
 func (this *GraphEvent) Validate() error {
 	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCreated); ok {
 		if oneOfNester.GraphCreated != nil {
@@ -467,10 +465,10 @@ func (this *GraphEvent) Validate() error {
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphTermianting); ok {
-		if oneOfNester.GraphTermianting != nil {
-			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphTermianting); err != nil {
-				return go_proto_validators.FieldError("GraphTermianting", err)
+	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphTerminating); ok {
+		if oneOfNester.GraphTerminating != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphTerminating); err != nil {
+				return go_proto_validators.FieldError("GraphTerminating", err)
 			}
 		}
 	}

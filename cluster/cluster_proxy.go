@@ -97,7 +97,78 @@ func (c *clusterProxy) GetGraphState(ctx context.Context, r *model.GetGraphState
 	return client.GetGraphState(ctx, r)
 }
 
-func (c *clusterProxy) StreamEvents(*model.StreamRequest, model.FlowService_StreamEventsServer) error {
-	// TODO: implement streaming
-	return nil
+func (c *clusterProxy) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
+	log.Debug("Streaming lifecycle events")
+	clients, err := c.manager.GetClients()
+	if err != nil {
+		return err
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+	events := make(chan *model.GraphLifecycleEvent)
+	errors := make(chan error, len(clients))
+
+	for _, cl := range clients {
+
+		client:= cl
+		go func() {
+			inStream, err := client.StreamLifecycle(stream.Context(), lr)
+			if err != nil {
+				errors <- err
+				return
+			}
+			for {
+				event, err := inStream.Recv()
+				if err != nil {
+					errors <- err
+					return
+				}
+				select {
+				case <-done:
+					return
+				case events<-event:
+				}
+			}
+		}()
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case err := <-errors:
+			return err
+		case event := <-events:
+			err := stream.Send(event)
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (c *clusterProxy) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
+	client, err := c.manager.GetClient(gr.FlowId)
+
+	if err != nil {
+		return err
+	}
+	log.Debug("Getting graph events")
+	remoteStream, err := client.StreamEvents(stream.Context(), gr)
+	if err != nil {
+		return err
+	}
+	for {
+		event, err := remoteStream.Recv()
+		if err != nil {
+			return err
+		}
+		err = stream.Send(event)
+		if err != nil {
+			return err
+		}
+		log.Debug("cluster_proxy passed through one event", event)
+	}
 }

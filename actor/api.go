@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"time"
 
-	"github.com/fnproject/flow/sharding"
+	"math"
+	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/fnproject/flow/blobs"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
+	"github.com/fnproject/flow/sharding"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-
-	"time"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -152,6 +155,15 @@ func (m *actorManager) AddValueStage(ctx context.Context, req *model.AddComplete
 
 func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitStageResultRequest) (*model.AwaitStageResultResponse, error) {
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Getting stage result")
+	if timeout := req.GetTimeoutMs(); timeout > 0 {
+		const maxTimeoutEver = 1 * time.Hour
+		awaitTimeout := time.Duration(math.Min(float64(time.Duration(timeout)*time.Millisecond), float64(maxTimeoutEver)))
+		deadline, set := ctx.Deadline()
+		if set {
+			awaitTimeout = time.Duration(math.Min(float64(time.Until(deadline)), float64(awaitTimeout)))
+		}
+		ctx, _ = context.WithTimeout(ctx, awaitTimeout)
+	}
 	r, e := m.forwardRequest(ctx, req)
 	if e != nil {
 		return nil, e
@@ -182,7 +194,7 @@ func supervisorName(shardID int) (name string) {
 func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 	msg, ok := req.(model.GraphMessage)
 	if !ok {
-		return nil, fmt.Errorf("Ignoring request of unknown type %v", reflect.TypeOf(req))
+		return nil, status.Errorf(codes.Unimplemented, "Ignoring request of unknown type %v", reflect.TypeOf(req))
 	}
 
 	shardID, err := m.shardExtractor.ShardID(msg.GetFlowId())
@@ -201,14 +213,23 @@ func (m *actorManager) lookupSupervisor(req interface{}) (*actor.PID, error) {
 }
 
 func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (interface{}, error) {
+	const defaultRequestTimeout = 5 * time.Second
+	// Check http request
+	var requestTimeout = defaultRequestTimeout
+	deadline, set := ctx.Deadline()
+	if set {
+		requestTimeout = time.Until(deadline)
+	}
 	supervisor, err := m.lookupSupervisor(req)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: timeouts from context
-	future := supervisor.RequestFuture(req, 5*time.Second)
+	future := supervisor.RequestFuture(req, requestTimeout)
 	r, err := future.Result()
 	if err != nil {
+		if err == actor.ErrTimeout {
+			return nil, status.Error(codes.DeadlineExceeded, err.Error())
+		}
 		return nil, err
 	}
 
@@ -219,24 +240,79 @@ func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (int
 	return r, nil
 }
 
-func (m *actorManager) StreamEvents(req *model.StreamRequest, stream model.FlowService_StreamEventsServer) error {
-	// TODO Hook up streams
-	//switch q := req.GetQuery().(type) {
-	//case *model.StreamRequest_Lifecycle:
-	//	{
-	//
-	//	}
-	//case *model.StreamRequest_Graph:
-	//	{
-	//
-	//	}
-	// }
+func isGraphLifecycleEvent(event *persistence.StreamEvent) bool {
+	if _, ok := event.Event.(model.GraphLifecycleEventSource); ok {
+		// Only emit events originating in a graph actor. Note that
+		// the same event will also be emitted by the actor's supervisor.
+		// Supervisor calls have an actorname of supervisor-[0-9]+
+		// Graph events have an actorname of supervisor-[0-9]+/[-0-9a-f]{36}
+		return strings.Contains(event.ActorName, "/")
+	}
+	return false
+}
+
+func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
+	m.log.Debug("Streaming lifecycle events")
+
+	eventsChan := make(chan *model.GraphLifecycleEvent, 10)
+	defer close(eventsChan)
+
+	sub := m.persistenceProvider.GetStreamingState().StreamNewEvents(isGraphLifecycleEvent,
+		func(event *persistence.StreamEvent) {
+			msg := event.Event.(model.GraphLifecycleEventSource)
+			m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
+			eventsChan <- msg.GraphLifecycleEvent(event.EventIndex)
+		})
+
+	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+
+	for event := range eventsChan {
+		m.log.Debugf("Sent a graph lifecycle event %v", event)
+		err := stream.Send(event)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
+	m.log.Debugf("Streaming graph events streamRequest= %T %+v", gr, gr)
+
+	graphPath, err := m.graphActorPath(gr.FlowId)
+	if err != nil {
+		return err
+	}
+
+	eventsChan := make(chan *model.GraphEvent, 10)
+	defer close(eventsChan)
+
+	sub := m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
+		func(event *persistence.StreamEvent) {
+			msg, ok := event.Event.(model.GraphEventSource)
+			if !ok {
+				m.log.Info("Skipping unknown message %v", reflect.TypeOf(event.Event))
+				return
+			}
+
+			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
+			eventsChan <- msg.GraphEvent(event.EventIndex)
+		})
+
+	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+
+	for event := range eventsChan {
+		m.log.Debugf("Sent a graph event %v", event)
+		err := stream.Send(event)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {
 	return m.persistenceProvider.GetStreamingState().StreamNewEvents(predicate, fn)
-
 }
 
 func (m *actorManager) SubscribeGraphEvents(flowID string, fromIndex int, fn persistence.StreamCallBack) (*eventstream.Subscription, error) {

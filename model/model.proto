@@ -15,7 +15,7 @@ message CompletionResult {
 message BlobDatum {
     string blob_id = 1 [(validator.field) = {string_not_empty : true}];
     string content_type = 2 [(validator.field) = {string_not_empty : true}];
-    uint64 length = 3 [(validator.field) = {msg_exists : true}];
+    int64 length = 3 [(validator.field) = {int_gt : 0}];
 }
 
 // HTTPHeader wraps a single header key/value
@@ -47,7 +47,7 @@ message HTTPReqDatum {
 message HTTPRespDatum {
     BlobDatum body = 1;
     repeated HTTPHeader headers = 3;
-    uint32 status_code = 4 [(validator.field) = {int_gt : 0}];
+    int32 status_code = 4 [(validator.field) = {int_gt : 0}];
 }
 
 // ErrorDatumType defines an internal error code generated within a flow
@@ -263,22 +263,16 @@ enum ListGraphsFilter {
 }
 
 
-message StreamLifecycle {
+// Requests for a stream of events
 
+message StreamLifecycleRequest {
 }
-message StreamGraph {
+
+message StreamGraphRequest {
     string flow_id = 2;
     uint64 from_seq = 3;
 }
 
-// Request a stream of events
-message StreamRequest {
-
-    oneof query{
-        StreamLifecycle lifecycle = 1;
-        StreamGraph graph = 2;
-    }
-}
 
 message ListGraphResponse {
     string flow_id = 1;
@@ -291,7 +285,7 @@ message ListGraphsResponse {
 message AwaitStageResultRequest {
     string flow_id = 1 [(validator.field) = {string_not_empty : true}];
     string stage_id = 2 [(validator.field) = {string_not_empty : true}];
-    uint64 timeout_ms = 3;
+    int32 timeout_ms = 3 [(validator.field) = {int_gt : -1}];
 }
 
 message AwaitStageResultResponse {
@@ -301,16 +295,6 @@ message AwaitStageResultResponse {
 }
 
 
-message InvalidGraphOperation {
-    string flow_id = 1;
-    string err = 2;
-}
-
-message InvalidStageOperation {
-    string flow_id = 1;
-    string err = 2;
-    string stage_id = 3;
-}
 
 // Invoke commands
 message InvokeFunctionRequest {
@@ -330,12 +314,21 @@ message InvokeStageRequest {
 
 // Events
 
+message GraphLifecycleEvent {
+    uint64 seq = 1;
+    string flow_id = 2;
+    oneof val {
+        GraphCreatedEvent graph_created = 10;
+        GraphCompletedEvent graph_completed = 12;
+    }
+}
+
 message GraphEvent {
     uint64 seq = 1;
     string flow_id = 2;
     oneof val {
         GraphCreatedEvent graph_created = 10;
-        GraphTerminatingEvent graph_termianting = 11;
+        GraphTerminatingEvent graph_terminating = 11;
         GraphCompletedEvent graph_completed = 12;
         DelayScheduledEvent delay_scheduled = 13;
         StageAddedEvent stage_added = 14;
@@ -359,6 +352,7 @@ message DelayScheduledEvent {
     string stage_id = 1;
     int64 time_ms = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // Graph termination has started - no more changes can be made to this graph
@@ -383,7 +377,6 @@ message GraphCompletedEvent {
 message GraphCommittedEvent {
     string flow_id = 1;
     google.protobuf.Timestamp ts = 2;
-
 }
 
 // A stage was added to the graph
@@ -395,6 +388,7 @@ message StageAddedEvent {
     google.protobuf.Timestamp ts = 5;
     string code_location = 6;
     string caller_id = 7;
+    string flow_id = 8;
 }
 
 // A stage completed  - downstream stages may be triggered
@@ -402,6 +396,7 @@ message StageCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // A stage was composed into  stage_id  - stage_id will compelete with the saem result as composed_stage_id
@@ -409,6 +404,7 @@ message StageComposedEvent {
     string stage_id = 1;
     string composed_stage_id = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // A call to the FaaS has started
@@ -416,6 +412,7 @@ message FaasInvocationStartedEvent {
     string stage_id = 1;
     google.protobuf.Timestamp ts = 2;
     string function_id = 3;
+    string flow_id = 4;
 }
 
 // A call to the FaaS completed
@@ -424,6 +421,7 @@ message FaasInvocationCompletedEvent {
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
     string call_id = 4;
+    string flow_id = 5;
 }
 
 
@@ -473,7 +471,7 @@ service FlowService {
     rpc CompleteStageExternally (CompleteStageExternallyRequest) returns (CompleteStageExternallyResponse) {
         option (google.api.http) = {
             post: "/v1/flows/{flow_id}/stages/{stage_id}/complete",
-            body: "*",
+            body: "*"
         };
     };
 
@@ -490,14 +488,17 @@ service FlowService {
     };
 
 
-    rpc StreamEvents (StreamRequest) returns (stream GraphEvent) {
+    rpc StreamLifecycle (StreamLifecycleRequest) returns (stream GraphLifecycleEvent) {
         option (google.api.http) = {
-            get: "/v1/flows/stream"
+            get: "/v1/stream"
         };
     }
 
-
-
+    rpc StreamEvents (StreamGraphRequest) returns (stream GraphEvent) {
+        option (google.api.http) = {
+            get: "/v1/flows/{flow_id}/stream"
+        };
+    }
 
 }
 

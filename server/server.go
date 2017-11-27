@@ -16,6 +16,7 @@ import (
 	"net"
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	// "github.com/golang/protobuf/proto"
 )
 
 
@@ -134,8 +135,14 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 		c.Status(http.StatusOK)
 	})
 
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(/* runtime.WithForwardResponseOption(func(_ context.Context, w http.ResponseWriter, m proto.Message) error {
+		log.Debug("About to respond with", m)
+		f, ok := w.(http.Flusher)
+		log.Debug("f is", f, " is it flusher? ", ok)
+		return nil
+	})*/ )
 	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
+
 
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
 		log.Info("Serving HTTP ")
@@ -144,9 +151,6 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	})
 
 	// TODO: fix wss/change to gRPC!
-	//s.Engine.GET("/wss", func(c *gin.Context) {
-	//	query.WSSHandler(manager, c.Writer, c.Request)
-	//})
 
 	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
 

@@ -161,7 +161,10 @@ func (s *graphSupervisor) spawnGraphActor(context actor.Context, flowID string) 
 			persistence.Using(s.persistenceProvider),
 		)
 	pid, err := context.SpawnNamed(props, flowID)
+	if err != nil {
+		return nil, err
+	}
 	context.Watch(pid)
 	s.log.WithFields(logrus.Fields{"flow_id": flowID}).Infof("Created graph actor %s", pid.Id)
-	return pid, err
+	return pid, nil
 }

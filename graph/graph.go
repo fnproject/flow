@@ -404,7 +404,7 @@ func (graph *CompletionGraph) UpdateWithEvent(event model.Event, mayTrigger bool
 }
 
 // ValidateCommand validates whether the given command can be correctly applied to the current graph's state
-func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.ValidationError {
+func (graph *CompletionGraph) ValidateCommand(cmd model.Command) error {
 	// disallow graph structural changes when complete
 	if addCmd, ok := cmd.(model.AddStageCommand); ok {
 		if !graph.canModifyGraph() {
@@ -457,7 +457,16 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 			return model.NewInvalidStageDependenciesError(msg.FlowId)
 		}
 
+	case *model.AddCompletedValueStageRequest:
+		if !msg.Value.Datum.HasValidValue() {
+			return model.NewInvalidDatumError(msg.FlowId)
+		}
+
 	case *model.CompleteStageExternallyRequest:
+		if !msg.Value.Datum.HasValidValue() {
+			return model.NewInvalidDatumError(msg.FlowId)
+		}
+
 		stage := graph.GetStage(msg.StageId)
 		if stage == nil {
 			return model.NewStageNotFoundError(msg.FlowId, msg.StageId)
@@ -472,6 +481,9 @@ func (graph *CompletionGraph) ValidateCommand(cmd model.Command) model.Validatio
 
 	return nil
 }
+
+
+
 
 // Validate a list of stages. If any of them is missing, returns false
 func (graph *CompletionGraph) validateStages(stageIDs []string) bool {

@@ -56,7 +56,7 @@ func (s *Server) getBlob(c *gin.Context) {
 
 	r, err := s.store.Read(prefix, blobID)
 	if err != nil {
-		if err == BlobNotFound {
+		if err == ErrBlobNotFound {
 			c.AbortWithError(404, err)
 			return
 		}

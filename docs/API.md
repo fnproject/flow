@@ -59,7 +59,7 @@ Stages can be added to a graph at any time and are executed as soon as their dep
 
 The flow services does not directly handle content from functions (with the exception of HTTP headers, see below)
 
-Data must be persited by function invocations before being passed to flow services: 
+Data must be persisted by function invocations before being passed to flow services:
 
 ```
 POST /blobs/flow-abcd-12344 HTTP/1.1
@@ -76,7 +76,7 @@ Content-type: application/json
 
 { 
    "blob_id" : "adsadas",
-   "blob_length": 21321, 
+   "length": 21321, 
    "content_type": "application/java-serialized-object"
 }
 ```
@@ -97,7 +97,7 @@ Content-type: application/json
     "operation": "supply",
     "closure": { 
          "blob_id": "my_blob_id",
-         "blob_length": 100, 
+         "length": 100, 
          "content_type": "application/java-serialized-object"
     },
     "code_location" : "com.myfn.MyClass#invokeFunction:123"
@@ -131,7 +131,7 @@ Content-type: application/json
     "operation": "thenApply",
     "closure": { 
          "blob_id": "my_blob_id",
-         "blob_length": 100, 
+         "length": 100, 
          "content_type": "application/java-serialized-object"
     },
     "deps" : ["1"]
@@ -149,7 +149,7 @@ Content-type: application/json
     "operation": "thenCombine",
     "closure": { 
          "blob_id": "my_blob_id",
-         "blob_length": 100, 
+         "length": 100, 
          "content_type": "application/java-serialized-object"
     },
     "deps" : ["1","2","3"]
@@ -185,7 +185,7 @@ Content-type: application/json
     "arg": {
           "body" : {
             "blob_id": "my_blob_id",
-            "blob_length": 100,
+            "length": 100,
             "content_type": "application/java-serialized-object"
            },
            "method": "post",
@@ -282,7 +282,7 @@ Content-Type: application/json
          "datum": {
               "blob": { 
                           "blob_id": "my_blob_id",
-                          "blob_length": 100, 
+                          "length": 100, 
                           "content_type": "application/java-serialized-object"
                  }
             }
@@ -328,7 +328,7 @@ Content-type: application/json
          "datum": {
               "blob": { 
                           "blob_id": "my_blob_id",
-                          "blob_length": 100, 
+                          "length": 100, 
                           "content_type": "application/java-serialized-object"
                  }
             }
@@ -381,7 +381,7 @@ FnProject-FlowID: 767b1b6d-bf7e-4739-b720-783518198176
   "stage_id" : "2", 
   "closure" : {
     "blob_id" : "07284d92-b38e-41c9-8a61-994a0783994e",
-    "blob_length" : 1201, 
+    "length" : 1201, 
     "content_type" : "application/java-serialized-object"
   },
   "args" : [
@@ -396,7 +396,7 @@ FnProject-FlowID: 767b1b6d-bf7e-4739-b720-783518198176
             "datum": {
                  "blob": {
                     "blob_id" : "bf1ec054-ed15-4802-9f9f-5f1c73a21eb3",
-    "blob_length" : 1201, 
+    "length" : 1201, 
     "content_type" : "application/java-serialized-object"
                  }
                }
@@ -416,7 +416,7 @@ The FDK function should reply to an invocation request with an invocation respon
                         "datum": {
                              "blob": {
                                 "blob_id" : "bf1ec054-ed15-4802-9f9f-5f1c73a21eb3",
-                "blob_length" : 1201, 
+                "length" : 1201, 
                 "content_type" : "application/java-serialized-object"
                              }
                            }
@@ -441,7 +441,7 @@ A blob is a wrapper for some data stored externally to flow, it is used to descr
 ```json 
 { 
          "blob_id": "my_blob_id",
-         "blob_length": 100, 
+         "length": 100, 
          "content_type": "application/java-serialized-object"
 }
 ``` 
@@ -456,7 +456,7 @@ A blob datum wraps a blob
 {
  "blob" : { 
                    "blob_id": "my_blob_id",
-                   "blob_length": 100, 
+                   "length": 100, 
                    "content_type": "application/java-serialized-object"
           }
 }
@@ -476,7 +476,7 @@ An empty datum represents a null or empty value :
   { "http_req" : {
           "body" : {
             "blob_id": "my_blob_id",
-            "blob_length": 100,
+            "length": 100,
             "content_type": "application/java-serialized-object"
            },
            "method": "post",
@@ -492,7 +492,7 @@ An empty datum represents a null or empty value :
     "http_resp" : {
           "body" : {
             "blob_id": "my_blob_id",
-            "blob_length": 100,
+            "length": 100,
             "content_type": "application/java-serialized-object"
            },
            "status_code": "200",
@@ -546,26 +546,26 @@ Recipients must accept unknown values for this field.
 
 #### State Datum
 
-The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated : 
+The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated :
 
 ```json
 {
-    "state_datum" : {
-         "type" :"succeeded"
-    } 
+	"state_datum" : {
+		 "type" :"succeeded"
+	}
 }
 
-``` 
+```
 
-Valid types are: 
+Valid types are:
 *   succeeded
-*   failed 
+*   failed
 *   cancelled
-*   killed 
+*   killed
 
 
 ### Flow Client API
-See [swagger](../model/mode.swagger.json)
+See [swagger](../model/model.swagger.json)
 
 
 

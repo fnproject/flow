@@ -4,7 +4,6 @@
 * [Overview](#pkg-overview)
 * [Imported Packages](#pkg-imports)
 * [Index](#pkg-index)
-* [Examples](#pkg-examples)
 
 ## <a name="pkg-overview">Overview</a>
 `grpc_logrus` is a gRPC logging middleware backed by Logrus loggers
@@ -12,8 +11,8 @@
 It accepts a user-configured `logrus.Entry` that will be used for logging completed gRPC calls. The same
 `logrus.Entry` will be used for logging completed gRPC calls, and be populated into the `context.Context` passed into gRPC handler code.
 
-You can use `Extract` to log into a request-scoped `logrus.Entry` instance in your handler code. The fields set on the
-logger correspond to the grpc_ctxtags.Tags attached to the context.
+On calling `StreamServerInterceptor` or `UnaryServerInterceptor` this logging middleware will add gRPC call information
+to the ctx so that it will be present on subsequent use of the `ctx_zap` logger.
 
 This package also implements request and response *payload* logging, both for server-side and client-side. These will be
 logged as structured `jsonbp` fields for every message received/sent (both unary and streaming). For that please use
@@ -24,91 +23,14 @@ Logrus can also be made as a backend for gRPC library internals. For that use `R
 
 Please see examples and tests for examples of use.
 
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-x := func(ctx context.Context, ping *pb_testproto.PingRequest) (*pb_testproto.PingResponse, error) {
-	    // Add fields the ctxtags of the request which will be added to all extracted loggers.
-	    grpc_ctxtags.Extract(ctx).Set("custom_tags.string", "something").Set("custom_tags.int", 1337)
-	    // Extract a request-scoped zap.Logger and log a message.
-	    grpc_logrus.Extract(ctx).Info("some ping")
-	    return &pb_testproto.PingResponse{Value: ping.Value}, nil
-	}
-	return x
-```
-
-</details>
-
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-// Logrus entry is used, allowing pre-definition of certain fields by the user.
-	logrusEntry := logrus.NewEntry(logrusLogger)
-	// Shared options for the logger, with a custom gRPC code to log level function.
-	opts := []grpc_logrus.Option{
-	    grpc_logrus.WithLevels(customFunc),
-	}
-	// Make sure that log statements internal to gRPC library are logged using the zapLogger as well.
-	grpc_logrus.ReplaceGrpcLogger(logrusEntry)
-	// Create a server, make sure we put the grpc_ctxtags context before everything else.
-	server := grpc.NewServer(
-	    grpc_middleware.WithUnaryServerChain(
-	        grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-	        grpc_logrus.UnaryServerInterceptor(logrusEntry, opts...),
-	    ),
-	    grpc_middleware.WithStreamServerChain(
-	        grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-	        grpc_logrus.StreamServerInterceptor(logrusEntry, opts...),
-	    ),
-	)
-	return server
-```
-
-</details>
-
-#### Example:
-
-<details>
-<summary>Click to expand code.</summary>
-
-```go
-// Logrus entry is used, allowing pre-definition of certain fields by the user.
-	logrusEntry := logrus.NewEntry(logrusLogger)
-	// Shared options for the logger, with a custom duration to log field function.
-	opts := []grpc_logrus.Option{
-	    grpc_logrus.WithDurationField(func(duration time.Duration) (key string, value interface{}) {
-	        return "grpc.time_ns", duration.Nanoseconds()
-	    }),
-	}
-	server := grpc.NewServer(
-	    grpc_middleware.WithUnaryServerChain(
-	        grpc_ctxtags.UnaryServerInterceptor(),
-	        grpc_logrus.UnaryServerInterceptor(logrusEntry, opts...),
-	    ),
-	    grpc_middleware.WithStreamServerChain(
-	        grpc_ctxtags.StreamServerInterceptor(),
-	        grpc_logrus.StreamServerInterceptor(logrusEntry, opts...),
-	    ),
-	)
-	return server
-```
-
-</details>
-
 ## <a name="pkg-imports">Imported Packages</a>
 
-- github.com/sirupsen/logrus
 - [github.com/golang/protobuf/jsonpb](https://godoc.org/github.com/golang/protobuf/jsonpb)
 - [github.com/golang/protobuf/proto](https://godoc.org/github.com/golang/protobuf/proto)
 - [github.com/grpc-ecosystem/go-grpc-middleware](./../..)
 - [github.com/grpc-ecosystem/go-grpc-middleware/logging](./..)
-- [github.com/grpc-ecosystem/go-grpc-middleware/tags](./../../tags)
+- [github.com/grpc-ecosystem/go-grpc-middleware/tags/logrus](./../../tags/logrus)
+- [github.com/sirupsen/logrus](https://godoc.org/github.com/sirupsen/logrus)
 - [golang.org/x/net/context](https://godoc.org/golang.org/x/net/context)
 - [google.golang.org/grpc](https://godoc.org/google.golang.org/grpc)
 - [google.golang.org/grpc/codes](https://godoc.org/google.golang.org/grpc/codes)
@@ -116,6 +38,7 @@ x := func(ctx context.Context, ping *pb_testproto.PingRequest) (*pb_testproto.Pi
 
 ## <a name="pkg-index">Index</a>
 * [Variables](#pkg-variables)
+* [func AddFields(ctx context.Context, fields logrus.Fields)](#AddFields)
 * [func DefaultClientCodeToLevel(code codes.Code) logrus.Level](#DefaultClientCodeToLevel)
 * [func DefaultCodeToLevel(code codes.Code) logrus.Level](#DefaultCodeToLevel)
 * [func DurationToDurationField(duration time.Duration) (key string, value interface{})](#DurationToDurationField)
@@ -137,13 +60,8 @@ x := func(ctx context.Context, ping *pb_testproto.PingRequest) (*pb_testproto.Pi
   * [func WithDurationField(f DurationToField) Option](#WithDurationField)
   * [func WithLevels(f CodeToLevel) Option](#WithLevels)
 
-#### <a name="pkg-examples">Examples</a>
-* [Package (HandlerUsageUnaryPing)](#example__handlerUsageUnaryPing)
-* [Package (Initialization)](#example__initialization)
-* [Package (InitializationWithDurationFieldOverride)](#example__initializationWithDurationFieldOverride)
-
 #### <a name="pkg-files">Package files</a>
-[client_interceptors.go](./client_interceptors.go) [context.go](./context.go) [doc.go](./doc.go) [grpclogger.go](./grpclogger.go) [noop.go](./noop.go) [options.go](./options.go) [payload_interceptors.go](./payload_interceptors.go) [server_interceptors.go](./server_interceptors.go) 
+[client_interceptors.go](./client_interceptors.go) [context.go](./context.go) [doc.go](./doc.go) [grpclogger.go](./grpclogger.go) [options.go](./options.go) [payload_interceptors.go](./payload_interceptors.go) [server_interceptors.go](./server_interceptors.go) 
 
 ## <a name="pkg-variables">Variables</a>
 ``` go
@@ -166,6 +84,13 @@ var (
     JsonPbMarshaller = &jsonpb.Marshaler{}
 )
 ```
+
+## <a name="AddFields">func</a> [AddFields](./context.go#L11)
+``` go
+func AddFields(ctx context.Context, fields logrus.Fields)
+```
+AddFields adds logrus fields to the logger.
+Deprecated: should use the ctx_logrus.Extract instead
 
 ## <a name="DefaultClientCodeToLevel">func</a> [DefaultClientCodeToLevel](./options.go#L120)
 ``` go
@@ -191,22 +116,20 @@ func DurationToTimeMillisField(duration time.Duration) (key string, value interf
 ```
 DurationToTimeMillisField converts the duration to milliseconds and uses the key `grpc.time_ms`.
 
-## <a name="Extract">func</a> [Extract](./context.go#L22)
+## <a name="Extract">func</a> [Extract](./context.go#L17)
 ``` go
 func Extract(ctx context.Context) *logrus.Entry
 ```
 Extract takes the call-scoped logrus.Entry from grpc_logrus middleware.
+Deprecated: should use the ctx_logrus.Extract instead
 
-If the grpc_logrus middleware wasn't used, a no-op `logrus.Entry` is returned. This makes it safe to
-use regardless.
-
-## <a name="PayloadStreamClientInterceptor">func</a> [PayloadStreamClientInterceptor](./payload_interceptors.go#L77)
+## <a name="PayloadStreamClientInterceptor">func</a> [PayloadStreamClientInterceptor](./payload_interceptors.go#L74)
 ``` go
 func PayloadStreamClientInterceptor(entry *logrus.Entry, decider grpc_logging.ClientPayloadLoggingDecider) grpc.StreamClientInterceptor
 ```
 PayloadStreamServerInterceptor returns a new streaming client interceptor that logs the paylods of requests and responses.
 
-## <a name="PayloadStreamServerInterceptor">func</a> [PayloadStreamServerInterceptor](./payload_interceptors.go#L48)
+## <a name="PayloadStreamServerInterceptor">func</a> [PayloadStreamServerInterceptor](./payload_interceptors.go#L45)
 ``` go
 func PayloadStreamServerInterceptor(entry *logrus.Entry, decider grpc_logging.ServerPayloadLoggingDecider) grpc.StreamServerInterceptor
 ```
@@ -215,13 +138,13 @@ PayloadUnaryServerInterceptor returns a new server server interceptors that logs
 This *only* works when placed *after* the `grpc_logrus.StreamServerInterceptor`. However, the logging can be done to a
 separate instance of the logger.
 
-## <a name="PayloadUnaryClientInterceptor">func</a> [PayloadUnaryClientInterceptor](./payload_interceptors.go#L61)
+## <a name="PayloadUnaryClientInterceptor">func</a> [PayloadUnaryClientInterceptor](./payload_interceptors.go#L58)
 ``` go
 func PayloadUnaryClientInterceptor(entry *logrus.Entry, decider grpc_logging.ClientPayloadLoggingDecider) grpc.UnaryClientInterceptor
 ```
 PayloadUnaryClientInterceptor returns a new unary client interceptor that logs the paylods of requests and responses.
 
-## <a name="PayloadUnaryServerInterceptor">func</a> [PayloadUnaryServerInterceptor](./payload_interceptors.go#L28)
+## <a name="PayloadUnaryServerInterceptor">func</a> [PayloadUnaryServerInterceptor](./payload_interceptors.go#L25)
 ``` go
 func PayloadUnaryServerInterceptor(entry *logrus.Entry, decider grpc_logging.ServerPayloadLoggingDecider) grpc.UnaryServerInterceptor
 ```
@@ -243,7 +166,7 @@ func StreamClientInterceptor(entry *logrus.Entry, opts ...Option) grpc.StreamCli
 ```
 StreamServerInterceptor returns a new streaming client interceptor that optionally logs the execution of external gRPC calls.
 
-## <a name="StreamServerInterceptor">func</a> [StreamServerInterceptor](./server_interceptors.go#L50)
+## <a name="StreamServerInterceptor">func</a> [StreamServerInterceptor](./server_interceptors.go#L48)
 ``` go
 func StreamServerInterceptor(entry *logrus.Entry, opts ...Option) grpc.StreamServerInterceptor
 ```
@@ -255,7 +178,7 @@ func UnaryClientInterceptor(entry *logrus.Entry, opts ...Option) grpc.UnaryClien
 ```
 UnaryClientInterceptor returns a new unary client interceptor that optionally logs the execution of external gRPC calls.
 
-## <a name="UnaryServerInterceptor">func</a> [UnaryServerInterceptor](./server_interceptors.go#L25)
+## <a name="UnaryServerInterceptor">func</a> [UnaryServerInterceptor](./server_interceptors.go#L23)
 ``` go
 func UnaryServerInterceptor(entry *logrus.Entry, opts ...Option) grpc.UnaryServerInterceptor
 ```

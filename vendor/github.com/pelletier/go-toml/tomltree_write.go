@@ -118,7 +118,8 @@ func (t *Tree) writeTo(w io.Writer, indent, keyspace string, bytesCount int64) (
 			return bytesCount, err
 		}
 
-		writtenBytesCount, err := writeStrings(w, indent, k, " = ", repr, "\n")
+		kvRepr := indent + k + " = " + repr + "\n"
+		writtenBytesCount, err := w.Write([]byte(kvRepr))
 		bytesCount += int64(writtenBytesCount)
 		if err != nil {
 			return bytesCount, err
@@ -136,7 +137,8 @@ func (t *Tree) writeTo(w io.Writer, indent, keyspace string, bytesCount int64) (
 		switch node := v.(type) {
 		// node has to be of those two types given how keys are sorted above
 		case *Tree:
-			writtenBytesCount, err := writeStrings(w, "\n", indent, "[", combinedKey, "]\n")
+			tableName := "\n" + indent + "[" + combinedKey + "]\n"
+			writtenBytesCount, err := w.Write([]byte(tableName))
 			bytesCount += int64(writtenBytesCount)
 			if err != nil {
 				return bytesCount, err
@@ -147,7 +149,8 @@ func (t *Tree) writeTo(w io.Writer, indent, keyspace string, bytesCount int64) (
 			}
 		case []*Tree:
 			for _, subTree := range node {
-				writtenBytesCount, err := writeStrings(w, "\n", indent, "[[", combinedKey, "]]\n")
+				tableArrayName := "\n" + indent + "[[" + combinedKey + "]]\n"
+				writtenBytesCount, err := w.Write([]byte(tableArrayName))
 				bytesCount += int64(writtenBytesCount)
 				if err != nil {
 					return bytesCount, err
@@ -162,18 +165,6 @@ func (t *Tree) writeTo(w io.Writer, indent, keyspace string, bytesCount int64) (
 	}
 
 	return bytesCount, nil
-}
-
-func writeStrings(w io.Writer, s ...string) (int, error) {
-	var n int
-	for i := range s {
-		b, err := io.WriteString(w, s[i])
-		n += b
-		if err != nil {
-			return n, err
-		}
-	}
-	return n, nil
 }
 
 // WriteTo encode the Tree as Toml and writes it to the writer w.

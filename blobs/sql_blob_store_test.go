@@ -20,7 +20,7 @@ func TestShouldInsertBlobAndGenerateId(t *testing.T) {
 	require.NotNil(t, blob)
 	assert.NotNil(t, blob.ID)
 	assert.Equal(t, "test/type", blob.ContentType)
-	assert.Equal(t, uint64(len(data)), blob.Length)
+	assert.Equal(t, int64(len(data)), blob.Length)
 
 }
 
@@ -53,7 +53,7 @@ func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
 
 	blob, err := store.Create("graph", "test/type", bytes.NewReader([]byte{}))
 	require.NoError(t, err)
-	assert.Equal(t, uint64(0), blob.Length)
+	assert.Equal(t, int64(0), blob.Length)
 
 	dataReader, err := store.Read("graph", blob.ID)
 	buf := bytes.Buffer{}

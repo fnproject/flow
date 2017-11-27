@@ -25,7 +25,7 @@ func (s *inMemBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 	blob, ok := s.blobs[blobID]
 
 	if !ok {
-		return nil, BlobNotFound
+		return nil, ErrBlobNotFound
 	}
 
 	return bytes.NewReader(blob), nil
@@ -49,7 +49,7 @@ func (s *inMemBlobStore) Create(flowID string, contentType string, data io.Reade
 
 	return &Blob{
 		ID:          id,
-		Length:      uint64(len(s.blobs[id])),
+		Length:      int64(len(s.blobs[id])),
 		ContentType: contentType,
 	}, nil
 

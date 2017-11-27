@@ -57,19 +57,6 @@ func NewGraphManager(persistenceProvider persistence.ProviderState, blobStore bl
 
 	streamingProvider := persistence.NewStreamingProvider(persistenceProvider)
 
-	graphDecider := func(reason interface{}) actor.Directive {
-		log.Warnf("Stopping failed graph actor due to error: %v", reason)
-		switch reason {
-		case persistence.PersistEventError, persistence.ReadEventError:
-			return actor.RestartDirective
-		case persistence.PersistSnapshotError:
-			return actor.ResumeDirective
-		default:
-			return actor.StopDirective
-		}
-	}
-	graphStrategy := NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, graphDecider)
-
 	supervisors := make(map[int]*actor.PID)
 	for _, shard := range shards {
 		name := supervisorName(shard)

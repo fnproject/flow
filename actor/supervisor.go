@@ -3,6 +3,7 @@ package actor
 import (
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
@@ -18,6 +19,21 @@ var (
 		Name: "flow_concurrent_active_graphs",
 		Help: "Currently active graphs.",
 	})
+
+	graphDecider = func(reason interface{}) actor.Directive {
+		logrus.WithField("logger", "supervisor").
+			Warnf("Stopping failed graph actor due to error: %v", reason)
+		switch reason {
+		case persistence.PersistEventError, persistence.ReadEventError:
+			return actor.RestartDirective
+		case persistence.PersistSnapshotError:
+			return actor.ResumeDirective
+		default:
+			return actor.StopDirective
+		}
+	}
+
+	graphStrategy = NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, graphDecider)
 )
 
 func init() {

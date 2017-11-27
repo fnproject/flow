@@ -352,6 +352,7 @@ message DelayScheduledEvent {
     string stage_id = 1;
     int64 time_ms = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // Graph termination has started - no more changes can be made to this graph
@@ -376,7 +377,6 @@ message GraphCompletedEvent {
 message GraphCommittedEvent {
     string flow_id = 1;
     google.protobuf.Timestamp ts = 2;
-
 }
 
 // A stage was added to the graph
@@ -388,6 +388,7 @@ message StageAddedEvent {
     google.protobuf.Timestamp ts = 5;
     string code_location = 6;
     string caller_id = 7;
+    string flow_id = 8;
 }
 
 // A stage completed  - downstream stages may be triggered
@@ -395,6 +396,7 @@ message StageCompletedEvent {
     string stage_id = 1;
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // A stage was composed into  stage_id  - stage_id will compelete with the saem result as composed_stage_id
@@ -402,6 +404,7 @@ message StageComposedEvent {
     string stage_id = 1;
     string composed_stage_id = 2;
     google.protobuf.Timestamp ts = 3;
+    string flow_id = 4;
 }
 
 // A call to the FaaS has started
@@ -409,6 +412,7 @@ message FaasInvocationStartedEvent {
     string stage_id = 1;
     google.protobuf.Timestamp ts = 2;
     string function_id = 3;
+    string flow_id = 4;
 }
 
 // A call to the FaaS completed
@@ -417,6 +421,7 @@ message FaasInvocationCompletedEvent {
     CompletionResult result = 2;
     google.protobuf.Timestamp ts = 3;
     string call_id = 4;
+    string flow_id = 5;
 }
 
 

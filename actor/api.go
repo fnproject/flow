@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"time"
 
+	"math"
+	"strings"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/fnproject/flow/blobs"
@@ -16,8 +19,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
-	"math"
 )
 
 const (
@@ -150,7 +151,7 @@ func (m *actorManager) AwaitStageResult(ctx context.Context, req *model.AwaitSta
 	m.log.WithFields(logrus.Fields{"flow_id": req.FlowId}).Debug("Getting stage result")
 	if timeout := req.GetTimeoutMs(); timeout > 0 {
 		const maxTimeoutEver = 1 * time.Hour
-		awaitTimeout := time.Duration(math.Min(float64(time.Duration(timeout) * time.Millisecond), float64(maxTimeoutEver)))
+		awaitTimeout := time.Duration(math.Min(float64(time.Duration(timeout)*time.Millisecond), float64(maxTimeoutEver)))
 		deadline, set := ctx.Deadline()
 		if set {
 			awaitTimeout = time.Duration(math.Min(float64(time.Until(deadline)), float64(awaitTimeout)))
@@ -233,56 +234,28 @@ func (m *actorManager) forwardRequest(ctx context.Context, req interface{}) (int
 	return r, nil
 }
 
-func isLifecycleEvent(event *persistence.StreamEvent) bool {
-	switch event.Event.(type) {
-	case *model.GraphCreatedEvent, *model.GraphCompletedEvent:
+func isGraphLifecycleEvent(event *persistence.StreamEvent) bool {
+	if _, ok := event.Event.(model.GraphLifecycleEventSource); ok {
+		// Only emit events originating in a graph actor. Note that
+		// the same event will also be emitted by the actor's supervisor.
 		// Supervisor calls have an actorname of supervisor-[0-9]+
 		// Graph events have an actorname of supervisor-[0-9]+/[-0-9a-f]{36}
 		return strings.Contains(event.ActorName, "/")
-	default:
-		return false
 	}
+	return false
 }
 
 func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
 	m.log.Debug("Streaming lifecycle events")
 
-	// Comment this out when the actor stuff is wired.
-	/*
-	for {
-		err := stream.Send(&model.GraphLifecycleEvent{Val:&model.GraphLifecycleEvent_GraphCreated{&model.GraphCreatedEvent{FlowId:"foo", FunctionId:"bar/baz"}}})
-		if err != nil {
-			return err
-		}
-		m.log.Debugf("Sent a fake graph creation event")
-		time.Sleep(time.Second)
-	}
-	*/
-
 	eventsChan := make(chan *model.GraphLifecycleEvent, 10)
 	defer close(eventsChan)
 
-	sub := m.persistenceProvider.GetStreamingState().StreamNewEvents(isLifecycleEvent,
+	sub := m.persistenceProvider.GetStreamingState().StreamNewEvents(isGraphLifecycleEvent,
 		func(event *persistence.StreamEvent) {
-			msg, _ := event.Event.(model.GraphMessage)
+			msg := event.Event.(model.GraphLifecycleEventSource)
 			m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
-
-			lifecycleEvent := &model.GraphLifecycleEvent{
-				FlowId: msg.GetFlowId(),
-				Seq:    uint64(event.EventIndex),
-			}
-
-			switch msg := event.Event.(type) {
-			case *model.GraphCreatedEvent:
-				lifecycleEvent.Val = &model.GraphLifecycleEvent_GraphCreated{GraphCreated: msg}
-			case *model.GraphCompletedEvent:
-				lifecycleEvent.Val = &model.GraphLifecycleEvent_GraphCompleted{GraphCompleted: msg}
-
-			default:
-				return
-			}
-
-			eventsChan <- lifecycleEvent
+			eventsChan <- msg.GraphLifecycleEvent(event.EventIndex)
 		})
 
 	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
@@ -300,18 +273,6 @@ func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream 
 func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
 	m.log.Debugf("Streaming graph events streamRequest= %T %+v", gr, gr)
 
-	// Comment this out when the actor stuff is wired.
-	/*
-	for {
-		err := stream.Send(&model.GraphEvent{Val:&model.GraphEvent_GraphCreated{&model.GraphCreatedEvent{FlowId:"foo", FunctionId:"bar/baz"}}})
-		if err != nil {
-			return err
-		}
-		m.log.Debugf("Sent a fake graph creation event")
-		time.Sleep(time.Second)
-	}
-	*/
-
 	graphPath, err := m.graphActorPath(gr.FlowId)
 	if err != nil {
 		return err
@@ -322,43 +283,14 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 
 	sub := m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
-			msg, ok := event.Event.(model.GraphMessage)
+			msg, ok := event.Event.(model.GraphEventSource)
 			if !ok {
 				m.log.Info("Skipping unknown message %v", reflect.TypeOf(event.Event))
-			}
-			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
-
-			graphEvent := &model.GraphEvent{
-				FlowId: msg.GetFlowId(),
-				Seq:    uint64(event.EventIndex),
-			}
-
-			switch msg := event.Event.(type) {
-			case *model.GraphCreatedEvent:
-				graphEvent.Val = &model.GraphEvent_GraphCreated{GraphCreated: msg}
-			case *model.GraphTerminatingEvent:
-				graphEvent.Val = &model.GraphEvent_GraphTerminating{GraphTerminating: msg}
-			case *model.GraphCompletedEvent:
-				graphEvent.Val = &model.GraphEvent_GraphCompleted{GraphCompleted: msg}
-			case *model.DelayScheduledEvent:
-				graphEvent.Val = &model.GraphEvent_DelayScheduled{DelayScheduled: msg}
-			case *model.StageAddedEvent:
-				graphEvent.Val = &model.GraphEvent_StageAdded{StageAdded: msg}
-			case *model.StageCompletedEvent:
-				graphEvent.Val = &model.GraphEvent_StageCompleted{StageCompleted: msg}
-			case *model.StageComposedEvent:
-				graphEvent.Val = &model.GraphEvent_StageComposed{StageComposed: msg}
-			case *model.FaasInvocationStartedEvent:
-				graphEvent.Val = &model.GraphEvent_FaasInvocationStarted{FaasInvocationStarted: msg}
-			case *model.FaasInvocationCompletedEvent:
-				graphEvent.Val = &model.GraphEvent_FaasInvocationCompleted{FaasInvocationCompleted: msg}
-
-			default:
-				m.log.Info("Skipping unknown graph event %v", reflect.TypeOf(event.Event))
 				return
 			}
 
-			eventsChan <- graphEvent
+			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
+			eventsChan <- msg.GraphEvent(event.EventIndex)
 		})
 
 	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)

@@ -621,6 +621,9 @@
         "ts": {
           "type": "string",
           "format": "date-time"
+        },
+        "flow_id": {
+          "type": "string"
         }
       },
       "title": "A delay has started - this marks the relative start of an event when a delay node is recovered"
@@ -670,6 +673,9 @@
         },
         "call_id": {
           "type": "string"
+        },
+        "flow_id": {
+          "type": "string"
         }
       },
       "title": "A call to the FaaS completed"
@@ -685,6 +691,9 @@
           "format": "date-time"
         },
         "function_id": {
+          "type": "string"
+        },
+        "flow_id": {
           "type": "string"
         }
       },
@@ -914,6 +923,9 @@
         },
         "caller_id": {
           "type": "string"
+        },
+        "flow_id": {
+          "type": "string"
         }
       },
       "title": "A stage was added to the graph"
@@ -930,6 +942,9 @@
         "ts": {
           "type": "string",
           "format": "date-time"
+        },
+        "flow_id": {
+          "type": "string"
         }
       },
       "title": "A stage completed  - downstream stages may be triggered"
@@ -946,6 +961,9 @@
         "ts": {
           "type": "string",
           "format": "date-time"
+        },
+        "flow_id": {
+          "type": "string"
         }
       },
       "title": "A stage was composed into  stage_id  - stage_id will compelete with the saem result as composed_stage_id"

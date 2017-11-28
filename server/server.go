@@ -135,12 +135,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 		c.Status(http.StatusOK)
 	})
 
-	gwmux := runtime.NewServeMux(/* runtime.WithForwardResponseOption(func(_ context.Context, w http.ResponseWriter, m proto.Message) error {
-		log.Debug("About to respond with", m)
-		f, ok := w.(http.Flusher)
-		log.Debug("f is", f, " is it flusher? ", ok)
-		return nil
-	})*/ )
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard,&runtime.JSONPb{OrigName: true,EmitDefaults:true})) 
 	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
 
 

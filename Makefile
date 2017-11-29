@@ -57,6 +57,8 @@ docker-pull-image-funcy-go:
 docker-test: protos docker-pull-image-funcy-go
 	docker run --rm -it -v $(COMPLETER_DIR):$(CONTAINER_COMPLETER_DIR) -w $(CONTAINER_COMPLETER_DIR) -e CGO_ENABLED=1 funcy/go:dev sh -c 'go test -v $$(go list ./...  | grep -v /vendor/)'
 
-docker-build: docker-test docker-pull-image-funcy-go
+docker-build-0: docker-pull-image-funcy-go
 	docker run --rm -it -v $(COMPLETER_DIR):$(CONTAINER_COMPLETER_DIR) -w $(CONTAINER_COMPLETER_DIR) -e CGO_ENABLED=1 funcy/go:dev go build -o flow-service-docker
 	docker build -t $(IMAGE_FULL) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
+
+docker-build: docker-test docker-pull-image-funcy-go docker-build-0

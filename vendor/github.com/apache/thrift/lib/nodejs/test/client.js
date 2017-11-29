@@ -108,7 +108,7 @@ if (type === 'tcp') {
   connection.on('connect', function() {
     secondclient.secondtestString("Test", function(err, response) {
       assert(!err);
-      assert.equal("testString(\"Test\")", response);
+      assert.equal("Test", response);
     });
 
     runTests();

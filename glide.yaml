@@ -21,7 +21,7 @@ import:
 - package: github.com/gin-gonic/gin
   version: 52c2ed34b3256727a0aeac5e57129eb788bac045
 - package: github.com/google/uuid
-  version: ^0.2.0
+  version: 0.2.0
 - package: github.com/emirpasic/gods
   version: 1.9.0
   subpackages:
@@ -90,3 +90,33 @@ import:
   version: 0e9bafcdad94657d492d0395b9347d4af3dbdca8
   subpackages:
   - validator
+- package: google.golang.org/genproto
+  version: 11c7f9e547da6db876260ce49ea7536985904c9b
+  subpackages:
+  - googleapis/api/annotations
+  - googleapis/rpc/status
+- package: google.golang.org/grpc
+  version: 6253aa9397d3f97c06b2c67e2b2965b558b3705f
+  subpackages:
+  - balancer
+  - balancer/roundrobin
+  - codes
+  - connectivity
+  - credentials
+  - encoding
+  - grpclb/grpc_lb_v1/messages
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - resolver
+  - resolver/dns
+  - resolver/passthrough
+  - stats
+  - status
+  - tap
+  - transport
+
+

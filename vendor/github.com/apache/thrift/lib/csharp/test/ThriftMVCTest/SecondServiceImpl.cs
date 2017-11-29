@@ -24,14 +24,24 @@ namespace ThriftMVCTest
 {
     public class SecondServiceImpl : SecondService.IAsync, SecondService.ISync
     {
+        public Task blahBlahAsync()
+        {
+            return Task.FromResult(0);
+        }
+
         public Task<string> secondtestStringAsync(string thing)
         {
             return Task.FromResult(thing);
         }
 
+        public void blahBlah()
+        {
+
+        }
+
         public string secondtestString(string thing)
         {
-            return "testString(\"" + thing + "\")";
+            return thing;
         }
     }
 }

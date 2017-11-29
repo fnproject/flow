@@ -48,21 +48,21 @@ func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error)
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
 	// Set viper configuration and activate its reading from env
-	SetDefault(envFnAPIURL, "http://localhost:8080/r")
-	SetDefault(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
-	SetDefault(envLogLevel, "debug")
-	SetDefault(envListen, fmt.Sprintf(":8081"))
-	SetDefault(envGrpcListen, "localhost:9999")
-	SetDefault(envSnapshotInterval, "1000")
-	SetDefault(envRequestTimeout, "60000ms")
+	setDefaultConfig(envFnAPIURL, "http://localhost:8080/r")
+	setDefaultConfig(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
+	setDefaultConfig(envLogLevel, "debug")
+	setDefaultConfig(envListen, fmt.Sprintf(":8081"))
+	setDefaultConfig(envGrpcListen, "localhost:9999")
+	setDefaultConfig(envSnapshotInterval, "1000")
+	setDefaultConfig(envRequestTimeout, "60000ms")
 
-	SetDefault(envClusterNodeCount, "1")
-	SetDefault(envClusterShardCount, "1")
-	SetDefault(envClusterNodePrefix, "node-")
-	SetDefault(envClusterNodeID, "0")
-	SetDefault(envClusterNodePort, "19081")
+	setDefaultConfig(envClusterNodeCount, "1")
+	setDefaultConfig(envClusterShardCount, "1")
+	setDefaultConfig(envClusterNodePrefix, "node-")
+	setDefaultConfig(envClusterNodeID, "0")
+	setDefaultConfig(envClusterNodePort, "19081")
 
-	logLevel, err := logrus.ParseLevel(GetString(envLogLevel))
+	logLevel, err := logrus.ParseLevel(getStringConfig(envLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
 	}
@@ -78,35 +78,35 @@ func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error)
 		return nil, nil, nil,err
 	}
 
-	nodeCount := GetInt(envClusterNodeCount)
+	nodeCount := getIntConfig(envClusterNodeCount)
 	var shardCount int
-	if len(GetString(envClusterShardCount)) == 0 {
+	if len(getStringConfig(envClusterShardCount)) == 0 {
 		shardCount = 10 * nodeCount
 	} else {
-		shardCount = GetInt(envClusterShardCount)
+		shardCount = getIntConfig(envClusterShardCount)
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
 	clusterSettings := &cluster.Settings{
 		NodeCount:  nodeCount,
-		NodeID:     GetInt(envClusterNodeID),
-		NodePrefix: GetString(envClusterNodePrefix),
-		NodePort:   GetInt(envClusterNodePort),
+		NodeID:     getIntConfig(envClusterNodeID),
+		NodePrefix: getStringConfig(envClusterNodePrefix),
+		NodePort:   getIntConfig(envClusterNodePort),
 	}
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
 	shards := clusterManager.LocalShards()
 
-	localGraphManager, err := actor.NewGraphManager(provider, blobStore, GetString(envFnAPIURL), shardExtractor, shards)
+	localGraphManager, err := actor.NewGraphManager(provider, blobStore, getStringConfig(envFnAPIURL), shardExtractor, shards)
 	if err != nil {
 		return nil, nil,nil, err
 	}
-	localServer, err := server.NewInternalFlowService(localGraphManager, ":"+GetString(envClusterNodePort))
+	localServer, err := server.NewInternalFlowService(localGraphManager, ":"+getStringConfig(envClusterNodePort))
 	if err != nil {
 		return nil, nil,nil, err
 	}
 
-	apiServer, err := server.NewAPIServer(clusterManager, GetString(envListen), GetString(envGrpcListen),GetString(envZipkinURL))
+	apiServer, err := server.NewAPIServer(clusterManager, getStringConfig(envListen), getStringConfig(envGrpcListen), getStringConfig(envZipkinURL))
 
 	if err != nil {
 		return nil, nil,nil, err
@@ -117,8 +117,8 @@ func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error)
 	return apiServer, localServer, blobServer,nil
 }
 
-func GetInt(key string) int {
-	stringVal := GetString(key)
+func getIntConfig(key string) int {
+	stringVal := getStringConfig(key)
 	intVal,err := strconv.Atoi(stringVal)
 	if err !=nil  {
 		panic(fmt.Sprintf("parameter %s with val \"%s\" could not be converted to an int",key,stringVal))
@@ -127,29 +127,29 @@ func GetInt(key string) int {
 
 }
 
-func GetString(key string) string {
+func getStringConfig(key string) string {
 	val := os.Getenv(key)
 	if val !="" {
 		return val
 	}
-	return defaults[val]
+	return configDefaults[val]
 }
 
 
-var defaults = make(map[string]string)
+var configDefaults = make(map[string]string)
 
-func SetDefault(key string, val string) {
-	defaults[key] = val
+func setDefaultConfig(key string, val string) {
+	configDefaults[key] = val
 }
 
 func initStorageFromEnv() (persistence.ProviderState, blobs.Store, error) {
-	dbURLString := GetString(envDBURL)
+	dbURLString := getStringConfig(envDBURL)
 	dbURL, err := url.Parse(dbURLString)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid DB URL in %s : %s", envDBURL, dbURLString)
 	}
 
-	snapshotIntervalStr := GetString(envSnapshotInterval)
+	snapshotIntervalStr := getStringConfig(envSnapshotInterval)
 	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
 	if ok != nil {
 		snapshotInterval = 1000

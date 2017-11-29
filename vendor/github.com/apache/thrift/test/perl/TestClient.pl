@@ -33,12 +33,10 @@ use Thrift;
 use Thrift::BinaryProtocol;
 use Thrift::BufferedTransport;
 use Thrift::FramedTransport;
-use Thrift::MultiplexedProtocol;
 use Thrift::SSLSocket;
 use Thrift::Socket;
 use Thrift::UnixSocket;
 
-use ThriftTest::SecondService;
 use ThriftTest::ThriftTest;
 use ThriftTest::Types;
 
@@ -110,19 +108,11 @@ if ($opts{transport} eq 'buffered') {
 }
 
 my $protocol;
-my $protocol2;
-if ($opts{protocol} eq 'binary' || $opts{protocol} eq 'multi') {
+if ($opts{protocol} eq 'binary') {
     $protocol = new Thrift::BinaryProtocol($transport);
 } else {
     usage();
     exit 1;
-}
-
-my $secondService = undef;
-if (index($opts{protocol}, 'multi') == 0) {
-  $protocol2 = new Thrift::MultiplexedProtocol($protocol, "SecondService");
-  $protocol = new Thrift::MultiplexedProtocol($protocol, "ThriftTest");
-  $secondService = new ThriftTest::SecondServiceClient($protocol2);
 }
 
 my $testClient = new ThriftTest::ThriftTestClient($protocol);
@@ -133,14 +123,6 @@ eval {
 if($@){
     die(Dumper($@));
 }
-
-use constant ERR_BASETYPES => 1;
-use constant ERR_STRUCTS => 2;
-use constant ERR_CONTAINERS => 4;
-use constant ERR_EXCEPTIONS => 8;
-use constant ERR_PROTOCOL => 16;
-use constant ERR_UNKNOWN => 64;
-
 my $start = gettimeofday();
 
 #
@@ -156,17 +138,6 @@ print(" = void\n");
 print("testString(\"Test\")");
 my $s = $testClient->testString("Test");
 print(" = \"$s\"\n");
-exit(ERR_BASETYPES) if ($s ne 'Test');
-
-#
-# MULTIPLEXED TEST
-#
-if (index($opts{protocol}, 'multi') == 0) {
-    print("secondtestString(\"Test2\")");
-    $s = $secondService->secondtestString("Test2");
-    print(" = \"$s\"\n");
-    exit(ERR_PROTOCOL) if ($s ne 'testString("Test2")');
-}
 
 #
 # BOOL TEST
@@ -174,11 +145,9 @@ if (index($opts{protocol}, 'multi') == 0) {
 print("testBool(1)");
 my $t = $testClient->testBool(1);
 print(" = $t\n");
-exit(ERR_BASETYPES) if ($t ne 1);
 print("testBool(0)");
 my $f = $testClient->testBool(0);
 print(" = $f\n");
-exit(ERR_BASETYPES) if ($f ne "");
 
 
 #
@@ -194,15 +163,13 @@ print(" = $u8\n");
 print("testI32(-1)");
 my $i32 = $testClient->testI32(-1);
 print(" = $i32\n");
-exit(ERR_BASETYPES) if ($i32 ne -1);
 
 #
-# I64 TEST
+#I64 TEST
 #
 print("testI64(-34359738368)");
 my $i64 = $testClient->testI64(-34359738368);
 print(" = $i64\n");
-exit(ERR_BASETYPES) if ($i64 ne -34359738368);
 
 #
 # DOUBLE TEST
@@ -210,7 +177,6 @@ exit(ERR_BASETYPES) if ($i64 ne -34359738368);
 print("testDouble(-852.234234234)");
 my $dub = $testClient->testDouble(-852.234234234);
 print(" = $dub\n");
-exit(ERR_BASETYPES) if ($dub ne -852.234234234);
 
 #
 # BINARY TEST   ---  TODO

@@ -412,7 +412,7 @@ main (int argc, char **argv)
                                                         "2nd",
                                                         &error)) {
           printf (" = \"%s\"\n", string);
-          if (strcmp (string, "testString(\"2nd\")") != 0) {
+          if (strncmp (string, "testString(\"2nd\")", 18) != 0) {
             ++fail_count;
           }
 

@@ -66,6 +66,7 @@
       "--string-limit=50"
     ],
     "protocols": [
+      "binary",
       "compact"
     ],
     "transports": ["buffered"],
@@ -83,6 +84,7 @@
       "--container-limit=50"
     ],
     "protocols": [
+      "binary",
       "compact"
     ],
     "transports": ["buffered"],

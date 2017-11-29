@@ -68,7 +68,6 @@ type serverTester struct {
 
 func init() {
 	testHookOnPanicMu = new(sync.Mutex)
-	goAwayTimeout = 25 * time.Millisecond
 }
 
 func resetHooks() {

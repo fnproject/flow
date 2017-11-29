@@ -546,6 +546,11 @@ func (child *partitionConsumer) parseRecords(block *FetchResponseBlock) ([]*Cons
 		} else {
 			incomplete = true
 		}
+
+		if child.offset > block.LastStableOffset {
+			// We reached the end of closed transactions
+			break
+		}
 	}
 
 	if incomplete || len(messages) == 0 {

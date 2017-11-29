@@ -33,7 +33,7 @@ namespace Test
 {
     public class TestClient
     {
-        public class TestParams
+        private class TestParams
         {
             public int numIterations = 1;
             public string host = "localhost";
@@ -44,7 +44,6 @@ namespace Test
             public bool framed;
             public string protocol;
             public bool encrypted = false;
-            public bool multiplexed = false;
             protected bool _isFirstTransport = true;
 
 
@@ -106,30 +105,21 @@ namespace Test
         private const int ErrorStructs = 2;
         private const int ErrorContainers = 4;
         private const int ErrorExceptions = 8;
-        private const int ErrorProtocol = 16;
         private const int ErrorUnknown = 64;
 
         private class ClientTest
         {
-            private readonly TestParams param;
             private readonly TTransport transport;
-            private readonly SecondService.Client second;
             private readonly ThriftTest.Client client;
             private readonly int numIterations;
             private bool done;
 
             public int ReturnCode { get; set; }
 
-            public ClientTest(TestParams paramin)
+            public ClientTest(TestParams param)
             {
-                param = paramin;
                 transport = param.CreateTransport();
-                TProtocol protocol = param.CreateProtocol(transport);
-                if (param.multiplexed)
-                {
-                    second = new SecondService.Client(new TMultiplexedProtocol(protocol, "SecondService"));
-                }
-                client = new ThriftTest.Client(protocol);
+                client = new ThriftTest.Client(param.CreateProtocol(transport));
                 numIterations = param.numIterations;
             }
             public void Execute()
@@ -158,7 +148,7 @@ namespace Test
 
                     try
                     {
-                        ReturnCode |= ExecuteClientTest(client, second, param);
+                        ReturnCode |= ExecuteClientTest(client);
                     }
                     catch (Exception ex)
                     {
@@ -225,12 +215,12 @@ namespace Test
                         {
                             numThreads = Convert.ToInt32(args[++i]);
                         }
-                        else if (args[i] == "--compact" || args[i] == "--protocol=compact" || args[i] == "--protocol=multic")
+                        else if (args[i] == "--compact" || args[i] == "--protocol=compact")
                         {
                             param.protocol = "compact";
                             Console.WriteLine("Using compact protocol");
                         }
-                        else if (args[i] == "--json" || args[i] == "--protocol=json" || args[i] == "--protocol=multij")
+                        else if (args[i] == "--json" || args[i] == "--protocol=json")
                         {
                             param.protocol = "json";
                             Console.WriteLine("Using JSON protocol");
@@ -239,11 +229,6 @@ namespace Test
                         {
                             param.encrypted = true;
                             Console.WriteLine("Using encrypted transport");
-                        }
-
-                        if (args[i].StartsWith("--protocol=multi"))
-                        {
-                            param.multiplexed = true;
                         }
                     }
                 }
@@ -311,7 +296,7 @@ namespace Test
             return retval;
         }
 
-        public static int ExecuteClientTest(ThriftTest.Client client, SecondService.Client second, TestParams param)
+        public static int ExecuteClientTest(ThriftTest.Client client)
         {
             int returnCode = 0;
 
@@ -326,18 +311,6 @@ namespace Test
             {
                 Console.WriteLine("*** FAILED ***");
                 returnCode |= ErrorBaseTypes;
-            }
-
-            if (param.multiplexed)
-            {
-                Console.WriteLine("secondTestString(\"Test2\")");
-                s = second.secondtestString("Test2");
-              Console.WriteLine(" = \"" + s + "\"");
-              if ("testString(\"Test2\")" != s)
-              {
-                  Console.WriteLine("*** FAILED ***");
-                  returnCode |= ErrorProtocol;
-              }
             }
 
             Console.Write("testBool(true)");

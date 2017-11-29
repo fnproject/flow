@@ -506,17 +506,6 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-//func TestShouldRejectStageWithInvalidNumberOfDeps(t *testing.T) {
-//	m := &MockedListener{}
-//
-//	g := New("graph", "function", m)
-//
-//	err := g.ValidateCommand(&model.AddChainedStageRequest{
-//		FlowId:   g.ID,
-//		Operation: model.CompletionOperation_thenApply,
-//	})
-//	assert.Error(t, err)
-//}
 
 func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 	event := &model.StageAddedEvent{

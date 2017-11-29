@@ -42,7 +42,7 @@ type graphActor struct {
 func NewGraphActor(executor *actor.PID) actor.Actor {
 	return &graphActor{
 		executor: executor,
-		log:      logrus.New().WithField("logger", "graph_actor"),
+		log:      logrus.WithField("logger", "graph_actor"),
 	}
 }
 

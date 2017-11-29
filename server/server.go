@@ -184,7 +184,8 @@ func (s *Server) Run() error {
 
 func grpcUnaryTimeout(max time.Duration) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		newCtx, _ := context.WithTimeout(ctx, max)
+		newCtx, cancel := context.WithTimeout(ctx, max)
+		defer cancel()
 		// log.Debugf("Original context: %+v", ctx, "; new context: %+v", newCtx)
 		return handler(newCtx, req)
 	}

@@ -78,7 +78,7 @@ message ErrorDatum {
 }
 
 // StateDatumType describes the state of a stage or graph
-enum StateDatumType {
+enum StatusDatumType {
     unknown_state = 0;
     succeeded = 1;
     failed = 2;
@@ -88,8 +88,8 @@ enum StateDatumType {
 
 
 // StateDatum wraps a description of the state of the graph in a datum
-message StateDatum {
-    StateDatumType type = 1 [(validator.field) = {msg_exists : true}];
+message StatusDatum {
+    StatusDatumType type = 1 [(validator.field) = {msg_exists : true}];
 }
 
 // Datum encapusulates all possible values that may be associated with a stage in the flow graph
@@ -101,7 +101,7 @@ message Datum {
         StageRefDatum stage_ref = 4;
         HTTPReqDatum http_req = 5;
         HTTPRespDatum http_resp = 6;
-        StateDatum state = 7;
+        StatusDatum status = 7;
     }
 }
 
@@ -360,7 +360,7 @@ message DelayScheduledEvent {
 message GraphTerminatingEvent {
     string flow_id = 1;
     string function_id = 2;
-    StateDatumType state = 3;
+    StatusDatumType status = 3;
     google.protobuf.Timestamp ts = 4;
 }
 

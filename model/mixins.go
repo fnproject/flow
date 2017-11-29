@@ -300,7 +300,7 @@ func (d *Datum) HasValidValue() bool {
 	case *Datum_StageRef:
 	case *Datum_HttpReq:
 	case *Datum_HttpResp:
-	case *Datum_State:
+	case *Datum_Status:
 	case nil:
 		// The field is not set.
 		return false

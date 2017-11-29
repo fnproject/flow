@@ -468,6 +468,7 @@ func (g *graphActor) OnGraphExecutionFinished() {
 	g.persistAndUpdateGraph(&model.GraphTerminatingEvent{
 		FlowId:     g.graph.ID,
 		FunctionId: g.graph.FunctionID,
+		Status:		model.StatusDatumType_succeeded,
 		Ts:         currentTimestamp(),
 	})
 

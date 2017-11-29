@@ -16,7 +16,7 @@ It has these top-level messages:
 	EmptyDatum
 	StageRefDatum
 	ErrorDatum
-	StateDatum
+	StatusDatum
 	Datum
 	AddStageRequest
 	CompleteStageExternallyRequest
@@ -151,7 +151,7 @@ func (this *StageRefDatum) Validate() error {
 func (this *ErrorDatum) Validate() error {
 	return nil
 }
-func (this *StateDatum) Validate() error {
+func (this *StatusDatum) Validate() error {
 	return nil
 }
 func (this *Datum) Validate() error {
@@ -197,10 +197,10 @@ func (this *Datum) Validate() error {
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*Datum_State); ok {
-		if oneOfNester.State != nil {
-			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.State); err != nil {
-				return go_proto_validators.FieldError("State", err)
+	if oneOfNester, ok := this.GetVal().(*Datum_Status); ok {
+		if oneOfNester.Status != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.Status); err != nil {
+				return go_proto_validators.FieldError("Status", err)
 			}
 		}
 	}

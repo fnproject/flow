@@ -305,7 +305,7 @@ func TestShouldCompleteEmptyGraph(t *testing.T) {
 
 	g := New("graph", "function", m)
 	m.On("OnGraphExecutionFinished").Run(func(args mock.Arguments) {
-		g.UpdateWithEvent(&model.GraphTerminatingEvent{FlowId: g.ID, State: model.StateDatumType_succeeded}, true)
+		g.UpdateWithEvent(&model.GraphTerminatingEvent{FlowId: g.ID, Status: model.StatusDatumType_succeeded}, true)
 	})
 
 	m.On("OnGraphComplete").Return()
@@ -394,7 +394,7 @@ func TestErrorInHookDoesNotInterruptOtherHooks(t *testing.T) {
 		Op:      model.CompletionOperation_terminationHook,
 	}, false)
 
-	datum := model.NewStateDatum(model.StateDatumType_succeeded)
+	datum := model.NewStateDatum(model.StatusDatumType_succeeded)
 	m.On("OnExecuteStage",
 		g.stages["2"],
 		[]*model.CompletionResult{{Successful: true, Datum: datum}}).
@@ -432,8 +432,8 @@ func TestErrorInHookDoesNotInterruptOtherHooks(t *testing.T) {
 	m.On("OnGraphComplete").Return()
 
 	g.UpdateWithEvent(&model.GraphTerminatingEvent{
-		State:      model.StateDatumType_succeeded,
-		FlowId:    g.ID,
+		Status:     model.StatusDatumType_succeeded,
+		FlowId:     g.ID,
 		FunctionId: g.FunctionID,
 	}, true)
 
@@ -447,8 +447,8 @@ func TestShutsDownGraphWithNoShutdownHooks(t *testing.T) {
 
 	m.On("OnGraphExecutionFinished").Run(func(args mock.Arguments) {
 		g.UpdateWithEvent(&model.GraphTerminatingEvent{
-			State:      model.StateDatumType_succeeded,
-			FlowId:    g.ID,
+			Status:     model.StatusDatumType_succeeded,
+			FlowId:     g.ID,
 			FunctionId: g.FunctionID,
 		}, true)
 	})
@@ -478,7 +478,7 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 
 	for i := noHooks - 1; i >= 0; i-- {
 		stage := g.stages[fmt.Sprintf("%d", i)]
-		datum := model.NewStateDatum(model.StateDatumType_succeeded)
+		datum := model.NewStateDatum(model.StatusDatumType_succeeded)
 		m.On("OnExecuteStage",
 			stage,
 			[]*model.CompletionResult{{Successful: true, Datum: datum}}).
@@ -498,8 +498,8 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 	m.On("OnGraphComplete").Return()
 
 	g.handleTerminating(&model.GraphTerminatingEvent{
-		State:      model.StateDatumType_succeeded,
-		FlowId:    g.ID,
+		Status:     model.StatusDatumType_succeeded,
+		FlowId:     g.ID,
 		FunctionId: g.FunctionID,
 	}, true)
 

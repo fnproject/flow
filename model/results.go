@@ -76,10 +76,10 @@ func NewHTTPReqDatum(httpreq *HTTPReqDatum) *Datum {
 }
 
 // NewStateDatum creates a graph state datum
-func NewStateDatum(stateType StateDatumType) *Datum {
+func NewStateDatum(statusType StatusDatumType) *Datum {
 	return &Datum{
-		Val: &Datum_State{
-			State: &StateDatum{Type: stateType},
+		Val: &Datum_Status{
+			Status: &StatusDatum{Type: statusType},
 		},
 	}
 }

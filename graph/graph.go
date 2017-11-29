@@ -129,7 +129,7 @@ func (graph *CompletionGraph) handleTerminating(event *model.GraphTerminatingEve
 	graph.log.Info("Graph terminating")
 	graph.state = StateTerminating
 
-	graph.terminationRoot.SetResult(model.NewSuccessfulResult(model.NewStateDatum(event.State)))
+	graph.terminationRoot.SetResult(model.NewSuccessfulResult(model.NewStateDatum(event.Status)))
 
 	if shouldTrigger {
 		graph.triggerReadyStages()

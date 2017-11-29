@@ -602,8 +602,8 @@
         "http_resp": {
           "$ref": "#/definitions/modelHTTPRespDatum"
         },
-        "state": {
-          "$ref": "#/definitions/modelStateDatum"
+        "status": {
+          "$ref": "#/definitions/modelStatusDatum"
         }
       },
       "title": "Datum encapusulates all possible values that may be associated with a stage in the flow graph"
@@ -822,8 +822,8 @@
         "function_id": {
           "type": "string"
         },
-        "state": {
-          "$ref": "#/definitions/modelStateDatumType"
+        "status": {
+          "$ref": "#/definitions/modelStatusDatumType"
         },
         "ts": {
           "type": "string",
@@ -977,16 +977,16 @@
       },
       "title": "StageRefDatum represents a reference to another stage in the graph"
     },
-    "modelStateDatum": {
+    "modelStatusDatum": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/definitions/modelStateDatumType"
+          "$ref": "#/definitions/modelStatusDatumType"
         }
       },
       "title": "StateDatum wraps a description of the state of the graph in a datum"
     },
-    "modelStateDatumType": {
+    "modelStatusDatumType": {
       "type": "string",
       "enum": [
         "unknown_state",

@@ -544,13 +544,13 @@ In the case of such a failure the flow-service will generate an _error datum_ th
 
 Recipients must accept unknown values for this field.
 
-#### State Datum
+#### Status Datum
 
 The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated :
 
 ```json
 {
-	"state_datum" : {
+	"status_datum" : {
 		 "type" :"succeeded"
 	}
 }

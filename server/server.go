@@ -3,7 +3,7 @@ package server
 import (
 	"github.com/sirupsen/logrus"
 	"github.com/fnproject/flow/cluster"
-	"context"
+	"golang.org/x/net/context"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 	"github.com/fnproject/flow/model"

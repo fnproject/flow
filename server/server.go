@@ -17,6 +17,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	// "github.com/golang/protobuf/proto"
+	"errors"
 )
 
 
@@ -25,6 +26,19 @@ var log = logrus.WithField("logger", "server")
 func (s *Server) handlePrometheusMetrics(c *gin.Context) {
 	s.promHandler.ServeHTTP(c.Writer, c.Request)
 }
+
+
+func (s *Server) handleSwagger(c *gin.Context){
+	file,err := model.Asset("model/model.swagger.json")
+	if err !=nil{
+		c.AbortWithError(500,errors.New("Error reading swagger content"))
+		return
+	}
+
+	c.Data(200,"application/json",file)
+
+}
+
 
 func setTracer(ownURL string, zipkinURL string) {
 	var (
@@ -145,10 +159,8 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
 
-	// TODO: fix wss/change to gRPC!
-
 	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
-
+	s.Engine.GET("/swagger.json",s.handleSwagger)
 	return s, nil
 
 }

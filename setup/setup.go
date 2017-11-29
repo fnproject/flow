@@ -132,7 +132,7 @@ func getStringConfig(key string) string {
 	if val !="" {
 		return val
 	}
-	return configDefaults[val]
+	return configDefaults[key]
 }
 
 

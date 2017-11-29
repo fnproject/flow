@@ -50,7 +50,7 @@ func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error)
 	// Set viper configuration and activate its reading from env
 	setDefaultConfig(envFnAPIURL, "http://localhost:8080/r")
 	setDefaultConfig(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
-	setDefaultConfig(envLogLevel, "debug")
+	setDefaultConfig(envLogLevel, "info")
 	setDefaultConfig(envListen, fmt.Sprintf(":8081"))
 	setDefaultConfig(envGrpcListen, "localhost:9999")
 	setDefaultConfig(envSnapshotInterval, "1000")

@@ -25,14 +25,14 @@ type ProviderState interface {
 	PersistSnapshot(actorName string, eventIndex int, snapshot proto.Message)
 }
 
-// MarshallingError will be provided to panic on marshalling failures
-var MarshallingError = fmt.Errorf("Persistence provider failed with marshalling error")
+// ErrMarshalling will be provided to panic on marshalling failures
+var ErrMarshalling = fmt.Errorf("Persistence provider failed with marshalling error")
 
-// PersistEventError is the panic reason if PersistEvent fails to write to persistence provider
-var PersistEventError = fmt.Errorf("Persistence provider failed to persist event")
+// ErrPersistenceFailed is the panic reason if PersistEvent fails to write to persistence provider
+var ErrPersistenceFailed = fmt.Errorf("Persistence provider failed to persist event")
 
-// ReadEventError is the panic reason if GetEvents fails to read from persistence provider
-var ReadEventError = fmt.Errorf("Persistence provider failed to read events")
+// ErrReadingEvents is the panic reason if GetEvents fails to read from persistence provider
+var ErrReadingEvents = fmt.Errorf("Persistence provider failed to read events")
 
-// PersistSnapshotError will be provided to panic on PersistSnapshot failures
-var PersistSnapshotError = fmt.Errorf("Persistence provider failed to persist snapshot")
+// ErrPersistingSnapshot will be provided to panic on PersistSnapshot failures
+var ErrPersistingSnapshot = fmt.Errorf("Persistence provider failed to persist snapshot")

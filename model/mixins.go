@@ -58,10 +58,13 @@ type GraphMessage interface {
 	GetFlowId() string
 }
 
+// GraphLifecycleEventSource describes an event that can be mapped to graph lifecycle event
 type GraphLifecycleEventSource interface {
+	// GraphLifecycleEvent constructs a graph lifecycle event from this event type with a specified index
 	GraphLifecycleEvent(index int) *GraphLifecycleEvent
 }
 
+// GraphLifecycleEvent implements GraphLifecycleEventSource
 func (m *GraphCreatedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEvent {
 	if m != nil {
 		return &GraphLifecycleEvent{
@@ -73,6 +76,7 @@ func (m *GraphCreatedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEvent 
 	return new(GraphLifecycleEvent)
 }
 
+// GraphLifecycleEvent implements GraphLifecycleEventSource
 func (m *GraphCompletedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEvent {
 	if m != nil {
 		return &GraphLifecycleEvent{
@@ -84,10 +88,14 @@ func (m *GraphCompletedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEven
 	return new(GraphLifecycleEvent)
 }
 
+// GraphEventSource describes an event that can be mapped to a graph event
 type GraphEventSource interface {
+	// GraphEvent constructs a GraphEvent from the current event type
 	GraphEvent(index int) *GraphEvent
 }
 
+
+// GraphEvent implements GraphEventSource
 func (m *GraphCreatedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -99,6 +107,7 @@ func (m *GraphCreatedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *GraphCompletedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -110,6 +119,7 @@ func (m *GraphCompletedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *GraphTerminatingEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -121,6 +131,7 @@ func (m *GraphTerminatingEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *DelayScheduledEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -132,6 +143,7 @@ func (m *DelayScheduledEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *StageAddedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -143,6 +155,7 @@ func (m *StageAddedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *StageCompletedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -154,6 +167,7 @@ func (m *StageCompletedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *StageComposedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -165,6 +179,7 @@ func (m *StageComposedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *FaasInvocationStartedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -176,6 +191,7 @@ func (m *FaasInvocationStartedEvent) GraphEvent(index int) *GraphEvent {
 	return new(GraphEvent)
 }
 
+// GraphEvent implements GraphEventSource
 func (m *FaasInvocationCompletedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
 		return &GraphEvent{
@@ -216,15 +232,6 @@ type AddStageCommand interface {
 	HasClosure() bool
 }
 
-//// GetOperation for AddStageCommand.GetOperation
-//func (m *AddExternalCompletionStageRequest) GetOperation() CompletionOperation {
-//	return CompletionOperation_externalCompletion
-//}
-//
-//// GetDependencyCount for AddStageCommand.GetDependencyCount
-//func (m *AddExternalCompletionStageRequest) GetDependencyCount() int {
-//	return 0
-//}
 
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddCompletedValueStageRequest) GetOperation() CompletionOperation {

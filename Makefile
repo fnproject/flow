@@ -14,7 +14,7 @@ dep-up:
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
 bindata:  model/model.swagger.json
-	go-bindata -o  model/swagger_file.go -pkg model model/model.swagger.json
+	go-bindata -nometadata -o  model/swagger_file.go -pkg model model/model.swagger.json
 
 vet: $(GOFILES)
 	go vet $(GOPACKAGES)

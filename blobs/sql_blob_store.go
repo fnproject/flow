@@ -77,9 +77,9 @@ func (s *sqlBlobStore) Read(flowID string, blobID string) (io.Reader, error) {
 		}
 		log.WithField("blob_id", blobID).WithError(row.Err()).Errorf("Error reading blob from DB")
 		return nil, err
-	} else {
-		log.WithField("flow_id", flowID).WithField("blob_id", blobID).WithField("length", len(blobData)).Debugf("Successfully read blob from DB")
 	}
+	
+	log.WithField("flow_id", flowID).WithField("blob_id", blobID).WithField("length", len(blobData)).Debugf("Successfully read blob from DB")
 	return bytes.NewBuffer(blobData), nil
 
 }

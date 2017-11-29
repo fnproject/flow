@@ -126,7 +126,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 		log.WithField("actor_name", actorName).
 			WithError(err).
 			Error("Error getting events value from DB")
-		panic(ReadEventError)
+		panic(ErrReadingEvents)
 	}
 	defer rows.Close()
 
@@ -142,7 +142,7 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 				WithField("event_type", eventType).
 				WithError(err).
 				Error("Error getting events value from DB")
-			panic(MarshallingError)
+			panic(ErrMarshalling)
 		}
 
 		callback(eventIndex, msg)
@@ -164,7 +164,7 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 			WithField("event_type", pbType).
 			WithError(err).
 			Error("Error marshalling event")
-		panic(MarshallingError)
+		panic(ErrMarshalling)
 	}
 
 	span := opentracing.StartSpan("sql_persist_event")
@@ -179,7 +179,7 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 			WithField("event_type", pbType).
 			WithError(err).
 			Error("Error writing event to DB")
-		panic(PersistEventError)
+		panic(ErrPersistenceFailed)
 	}
 
 	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {

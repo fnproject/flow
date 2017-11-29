@@ -24,9 +24,9 @@ var (
 		logrus.WithField("logger", "supervisor").
 			Warnf("Stopping failed graph actor due to error: %v", reason)
 		switch reason {
-		case persistence.PersistEventError, persistence.ReadEventError:
+		case persistence.ErrPersistenceFailed, persistence.ErrReadingEvents:
 			return actor.RestartDirective
-		case persistence.PersistSnapshotError:
+		case persistence.ErrPersistingSnapshot:
 			return actor.ResumeDirective
 		default:
 			return actor.StopDirective

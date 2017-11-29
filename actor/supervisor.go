@@ -147,7 +147,7 @@ func (s *graphSupervisor) receiveEvent(context actor.Context) {
 		s.handleInactiveGraph(msg.FlowId)
 
 	default:
-		s.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
+		s.log.Warnf("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
 	}
 }
 
@@ -181,6 +181,6 @@ func (s *graphSupervisor) spawnGraphActor(context actor.Context, flowID string) 
 		return nil, err
 	}
 	context.Watch(pid)
-	s.log.WithFields(logrus.Fields{"flow_id": flowID}).Infof("Created graph actor %s", pid.Id)
+	s.log.WithFields(logrus.Fields{"flow_id": flowID}).Debug("Created graph actor %s", pid.Id)
 	return pid, nil
 }

@@ -31,7 +31,7 @@ func (s *Server) handlePrometheusMetrics(c *gin.Context) {
 func (s *Server) handleSwagger(c *gin.Context){
 	file,err := model.Asset("model/model.swagger.json")
 	if err !=nil{
-		c.AbortWithError(500,errors.New("Error reading swagger content"))
+		c.AbortWithError(500,errors.New("error reading swagger content"))
 		return
 	}
 
@@ -111,7 +111,7 @@ func serverGrpc(server *grpc.Server) gin.HandlerFunc {
 }
 
 // NewAPIServer creates a new API server - params are injected dependencies
-func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL string) (*Server, error) {
+func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen string,zipkinURL string) (*Server, error) {
 
 	setTracer(restListen, zipkinURL)
 
@@ -125,8 +125,9 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 
-	// TODO make GRPC port configurable
-	l, err := net.Listen("tcp", "localhost:9999")
+	log.WithField("listen",grpcListen).Info("Starting API gRPC service")
+
+	l, err := net.Listen("tcp", grpcListen)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +137,9 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery(), engineMetrics(), serverGrpc(gRPCServer))
+
+
+	log.WithField("listen",restListen).Info("Starting API REST service")
 
 	s := &Server{
 		Engine:         engine,

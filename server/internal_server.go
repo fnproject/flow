@@ -31,7 +31,7 @@ func (s *InternalServer) Run() error {
 	}
 	defer lis.Close()
 
-	log.WithField("listen",s.listen).Info("Serving internal server ")
+	log.WithField("listen",s.listen).Info("Serving shard server")
 	return s.grpc.Serve(lis)
 
 }

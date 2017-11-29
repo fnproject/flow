@@ -61,8 +61,6 @@ import:
 - package: golang.org/x/net
   subpackages:
   - context
-- package: github.com/gorilla/websocket
-  version: v1.2.0
 - package: github.com/prometheus/client_golang
   version: v0.8.0
   subpackages:
@@ -80,8 +78,6 @@ import:
   - thrift/gen-go/zipkincore
   - types
   - wire
-- package: github.com/spf13/viper
-  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - package: github.com/go-sql-driver/mysql
   version: 1.3.0
 - package: github.com/mwitkow/go-proto-validators

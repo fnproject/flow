@@ -17,8 +17,6 @@ type sqlBlobStore struct {
 
 // NewSQLBlobStore creates a new blob store on the given DB , the DB should already have tables in place
 func NewSQLBlobStore(db *sqlx.DB) (Store, error) {
-
-	log.Info("Creating SQL persistence provider")
 	return &sqlBlobStore{
 		db: db,
 	}, nil

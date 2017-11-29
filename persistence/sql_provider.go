@@ -23,8 +23,6 @@ const slowQueryTime = 30 * time.Second
 
 // NewSQLProvider creates a journal/snapshot provider with an SQL db backing it
 func NewSQLProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
-
-	log.Info("Creating SQL persistence provider")
 	return &sqlProvider{
 		snapshotInterval: snapshotInterval,
 		db:               db,

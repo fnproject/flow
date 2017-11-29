@@ -5,7 +5,7 @@ jobs:
     working_directory: ~/go/src/github.com/fnproject/flow
     environment: # apparently expansion doesn't work here yet: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
       - GOPATH=/home/circleci/go
-      - GOVERSION=1.8.3
+      - GOVERSION=1.9.1
       - OS=linux
       - ARCH=amd64
       - TEST_RESULTS=/tmp/test-results
@@ -40,6 +40,10 @@ jobs:
            rm -rf protoc3
            rm -f protoc-3.3.0-linux-x86_64.zip
            go get -u github.com/golang/protobuf/protoc-gen-go
+           go get -u github.com/mwitkow/go-proto-validators
+           go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+           go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+           go get -u github.com/jteeuwen/go-bindata/...
            go get -u github.com/golang/lint/golint
       # update Docker
       - run: |

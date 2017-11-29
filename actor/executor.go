@@ -4,25 +4,38 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"strings"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/fnproject/flow/blobs"
 	"github.com/fnproject/flow/model"
-	"github.com/fnproject/flow/persistence"
 	"github.com/fnproject/flow/protocol"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
 const fnCallIDHeader = "Fn_call_id"
 
+var (
+	activeFnCallsMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "flow_concurrent_active_fn_calls",
+		Help: "Current number of fn calls waiting for a response.",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(activeFnCallsMetric)
+	activeFnCallsMetric.Set(0.0)
+}
+
 type graphExecutor struct {
 	faasAddr  string
 	client    httpClient
-	blobStore persistence.BlobStore
+	blobStore blobs.Store
 	log       *logrus.Entry
 }
 
@@ -39,7 +52,7 @@ type ExecHandler interface {
 }
 
 // NewExecutor creates a new executor actor with the given funcions service endpoint
-func NewExecutor(faasAddress string, blobStore persistence.BlobStore) actor.Actor {
+func NewExecutor(faasAddress string, blobStore blobs.Store) actor.Actor {
 	client := &http.Client{}
 	// TODO configure timeouts
 	client.Timeout = 300 * time.Second
@@ -54,6 +67,8 @@ func NewExecutor(faasAddress string, blobStore persistence.BlobStore) actor.Acto
 func (exec *graphExecutor) Receive(context actor.Context) {
 	sender := context.Sender()
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		exec.log.Info("Started executor actor")
 	case *model.InvokeStageRequest:
 		go func() { sender.Tell(exec.HandleInvokeStage(msg)) }()
 	case *model.InvokeFunctionRequest:
@@ -62,36 +77,29 @@ func (exec *graphExecutor) Receive(context actor.Context) {
 }
 
 func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *model.FaasInvocationResponse {
-	stageLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "stage_id": msg.StageId, "function_id": msg.FunctionId, "operation": msg.Operation})
+	stageLog := exec.log.WithFields(logrus.Fields{"flow_id": msg.FlowId, "stage_id": msg.StageId, "function_id": msg.FunctionId})
 	stageLog.Info("Running Stage")
 
+	runtimeRequest := &model.RuntimeInvokeStageRequest{
+		FlowId:  msg.GetFlowId(),
+		StageId: msg.GetStageId(),
+		Args:    msg.GetArgs(),
+		Closure: msg.GetClosure(),
+	}
 	buf := new(bytes.Buffer)
-
-	partWriter := multipart.NewWriter(buf)
-
-	if msg.Closure != nil {
-		err := protocol.WritePartFromDatum(exec.blobStore, &model.Datum{Val: &model.Datum_Blob{Blob: msg.Closure}}, partWriter)
-		if err != nil {
-			exec.log.Error("Failed to create multipart body", err)
-			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
-
-		}
+	writer := jsonpb.Marshaler{EmitDefaults:true, OrigName: true}
+	err := writer.Marshal(buf, runtimeRequest)
+	if err != nil {
+		return stageFailed(msg, model.ErrorDatumType_stage_failed, "Could not marshal the runtime invoke stage request message.", "")
 	}
-	for _, result := range msg.Args {
-		err := protocol.WritePartFromResult(exec.blobStore, result, partWriter)
-		if err != nil {
-			exec.log.Error("Failed to create multipart body", err)
-			return stageFailed(msg, model.ErrorDatumType_stage_failed, "Error creating stage invoke request", "")
-
-		}
-	}
-
-	partWriter.Close()
 
 	req, _ := http.NewRequest("POST", exec.faasAddr+"/"+msg.FunctionId, buf)
-	req.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=\"%s\"", partWriter.Boundary()))
-	req.Header.Set(protocol.HeaderFlowID, msg.GraphId)
+	req.Header.Set("Content-type", "application/json")
+	req.Header.Set(protocol.HeaderFlowID, msg.FlowId)
 	req.Header.Set(protocol.HeaderStageRef, msg.StageId)
+
+	activeFnCallsMetric.Inc()
+	defer activeFnCallsMetric.Dec()
 	resp, err := exec.client.Do(req)
 
 	if err != nil {
@@ -102,45 +110,49 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	lbDelayHeader := resp.Header.Get("Xxx-Fxlb-Wait")
 	callID := resp.Header.Get(fnCallIDHeader)
 
-	if !successfulResponse(resp) {
-		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
+	if !exec.successfulResponse(resp) {
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("http_status", fmt.Sprintf("%d", resp.StatusCode)).Error("Got non-200 error from FaaS endpoint")
 
 		if resp.StatusCode == 504 {
-			return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callID}
+			return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_stage_timeout, "stage timed out"), CallId: callID}
 		}
 		return stageFailed(msg, model.ErrorDatumType_stage_failed, fmt.Sprintf("Invalid http response from functions platform code %d", resp.StatusCode), callID)
 	}
 
-	result, err := protocol.CompletionResultFromEncapsulatedResponse(exec.blobStore, resp)
+	runtimeResponse := &model.RuntimeInvokeStageResponse{}
+	reader := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	err = reader.Unmarshal(resp.Body, runtimeResponse)
 	if err != nil {
-		stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service", err)
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service: ", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
 
 	}
-	stageLog.WithField("fn_call_id",callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
+	result := runtimeResponse.GetResult()
+	stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
+	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }
 
 func stageFailed(msg *model.InvokeStageRequest, errorType model.ErrorDatumType, errorMessage string, callID string) *model.FaasInvocationResponse {
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callID}
+	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(errorType, errorMessage), CallId: callID}
 }
 
 func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest) *model.FaasInvocationResponse {
 	datum := msg.Arg
 
 	method := strings.ToUpper(model.HTTPMethod_name[int32(datum.Method)])
-	stageLog := exec.log.WithFields(logrus.Fields{"graph_id": msg.GraphId, "stage_id": msg.StageId, "target_function_id": msg.FunctionId, "method": method})
+	stageLog := exec.log.WithFields(logrus.Fields{"flow_id": msg.FlowId, "stage_id": msg.StageId, "target_function_id": msg.FunctionId, "method": method})
 	stageLog.Info("Sending function invocation")
 
 	var bodyReader io.Reader
 
 	if datum.Body != nil {
-		blobData, err := exec.blobStore.ReadBlobData(datum.Body)
+		var err error
+		bodyReader, err = exec.blobStore.Read(msg.FlowId, datum.Body.BlobId)
 		if err != nil {
-			return invokeFailed(msg, "Failed to read data for invocation", "")
+			stageLog.WithError(err).Warn("Failed to fetch blob from store")
+			return exec.invokeFailed(msg, "Failed to read data for invocation", "")
 		}
-		bodyReader = bytes.NewReader(blobData)
 	} else {
 		bodyReader = http.NoBody
 	}
@@ -148,7 +160,7 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	req, err := http.NewRequest(strings.ToUpper(method), exec.faasAddr+"/"+msg.FunctionId, bodyReader)
 	if err != nil {
 		exec.log.Error("Failed to create http request:", err)
-		return invokeFailed(msg, "Failed to create HTTP request", "")
+		return exec.invokeFailed(msg, "Failed to create HTTP request", "")
 	}
 
 	if datum.Body != nil {
@@ -159,11 +171,13 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		req.Header.Add(header.Key, header.Value)
 	}
 
+	activeFnCallsMetric.Inc()
+	defer activeFnCallsMetric.Dec()
 	resp, err := exec.client.Do(req)
 
 	if err != nil {
 		exec.log.Error("Http error calling functions service:", err)
-		return invokeFailed(msg, "Failed to call function", "")
+		return exec.invokeFailed(msg, "Failed to call function", "")
 
 	}
 	defer resp.Body.Close()
@@ -176,13 +190,6 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 	}
 
 	callID := resp.Header.Get(fnCallIDHeader)
-	buf := &bytes.Buffer{}
-	_, err = buf.ReadFrom(resp.Body)
-	if err != nil {
-		exec.log.Error("Error reading data from function:", err)
-		return invokeFailed(msg, "Failed to call function could not read response", callID)
-
-	}
 
 	var contentType = resp.Header.Get("Content-type")
 	if contentType == "" {
@@ -199,29 +206,30 @@ func (exec *graphExecutor) HandleInvokeFunction(msg *model.InvokeFunctionRequest
 		}
 	}
 
-	bytes := buf.Bytes()
-	blob, err := exec.blobStore.CreateBlob(contentType, bytes)
+	blob, err := exec.blobStore.Create(msg.FlowId, contentType, resp.Body)
 	if err != nil {
-		return invokeFailed(msg, "Failed to persist HTTP response data", callID)
+		stageLog.WithError(err).Warn("failed to persist data in blob store")
+		return exec.invokeFailed(msg, "Failed to persist HTTP response data", callID)
 	}
 
 	resultDatum := &model.Datum{
 		Val: &model.Datum_HttpResp{
 			HttpResp: &model.HTTPRespDatum{
 				Headers:    headers,
-				Body:       blob,
-				StatusCode: uint32(resp.StatusCode)}}}
+				Body:       model.BlobDatumFromBlobStoreBlob(blob),
+				StatusCode: int32(resp.StatusCode)}}}
 
-	result := &model.CompletionResult{Successful: successfulResponse(resp), Datum: resultDatum}
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
+	result := &model.CompletionResult{Successful: exec.successfulResponse(resp), Datum: resultDatum}
+	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}
 }
 
-func successfulResponse(resp *http.Response) bool {
+func (exec *graphExecutor) successfulResponse(resp *http.Response) bool {
 	// assume any non-error codes are successful
 	// TODO doc in spec
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
-func invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callID string) *model.FaasInvocationResponse {
-	return &model.FaasInvocationResponse{GraphId: msg.GraphId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_function_invoke_failed, errorMessage), CallId: callID}
+func (exec *graphExecutor) invokeFailed(msg *model.InvokeFunctionRequest, errorMessage string, callID string) *model.FaasInvocationResponse {
+
+	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: model.NewInternalErrorResult(model.ErrorDatumType_function_invoke_failed, errorMessage), CallId: callID}
 }

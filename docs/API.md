@@ -23,56 +23,23 @@ Completion stages consist of the following :
   * A *stage result* : this corresponds to the (successful or failed) value associated with stage once it has completed - this value is used to trigger downstream stages.  
   
 
-
-
-## Datum Types
-
-The protocol assigns semantic meaning to byte streams which must fall into one of the following types: 
-
-```
-FnProject-DatumType: blob
-FnProject-DatumType: empty
-FnProject-DatumType: error
-FnProject-DatumType: stageref
-FnProject-DatumType: httpreq
-FnProject-DatumType: httpresp
-FnProject-DatumType: state
-```
-
-When using _blob_ types, their media type must be defined by including the `Content-Type` header. For example, to transmit a serialized Java value the following headers must be included in the request/response:
-
-
-```
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-```
-The _error_ type sets the additional header `Fnproject-Errortype` to designate the class of error and has no body.
-
-The _state_ datum represents the state of a flow, with the additional header `Fnproject-Statetype` taking on one of the values _succeeded_, _failed_, _cancelled_, or _killed_.
-
-The _empty_ datum type is used to signify a null/void type and has no body. 
-
-The _stageref_ type is used to return the stage ID of a composed stage reference (see below) and also has no body.
-
-Finally, the _httpreq_  and _httpresp__ types encapsulate an HTTP request or response (such as a function call or response). They include the body of the HTTP message and  any headers present in the original response by prefixing them with `FnProject-Header-`. HTTP requests must specify an HTTP Method  for the requested call via `FnProject-Method` Additionally, HTTP responses must include the header `FnProject-ResultCode` with the HTTP status code. The `Content-type` header is preserved as per a `blob` datum. 
-
-## Encapsulation due to `fn` contract
-
-When receiving a response from a function invocation, the HTTP response cannot have additional headers because of the `fn` contract. Therefore, HTTP responses from Fn Flow runtimes implementing this contract shall serialize the entire HTTP frame of their response, _including_ the initial `HTTP/1.1 ...` line, as the body of a wrapper HTTP frame which is handled by `fn`.
-
 ## Fn Flow Application Lifecycle
 
 The following sections define the request/response protocol for the lifetime of a Fn Flow application.
-
 ### Runtime Creates a Flow (Function->Flow Service)
 
-The function creates a new flow by POST am empty request to the `/graph` endpoint with a function ID  of the current function.
+The function creates a new flow by POST am empty request to the `/v1/flows` endpoint with a function ID  of the current function.
+ 
+The function ID is the qualified path of the function in Fn, containing the app name and route. 
 
 
 ```
-POST /graph?functionId=${fn_id} HTTP/1.1
-Content-length: 0
+POST /v1/flows HTTP/1.1
+Content-type: application/json 
 
+{
+   "function_id" : "myapp/myroute",
+}
 
 ```
 
@@ -80,450 +47,529 @@ The flow service returns with an empty response containing the new flow ID in th
 
 ```
 HTTP/1.1 200 OK 
-FnProject-FlowID: flow-abcd-12344
+Content-type: application/json 
+
+{"graph_id":"1212b145-5695-4b57-97b8-54ffeda83210"}
 ``` 
 
 ### Runtime creates a stage in the graph
+Stages can be added to a graph at any time and are executed as soon as their dependencies are satisified.
 
-HTTP POST requests to the Flow Service Client API should include a `Content-Type` header to designate the media type of the body. In the case of a Java runtime, requests that POST a Java lambda expression or a Java serialized instance should set this header to `application/java-serialized-object`.
+#### Storing Blob data  
+
+The flow services does not directly handle content from functions (with the exception of HTTP headers, see below)
+
+Data must be persisted by function invocations before being passed to flow services:
+
+```
+POST /blobs/flow-abcd-12344 HTTP/1.1
+Content-type: application/java-serialized-object
+
+...serialized lambda...
+```
+
+Which returns a blob description: 
+
+```
+HTTP/1.1 200 OK 
+Content-type: application/json 
+
+{ 
+   "blob_id" : "adsadas",
+   "length": 21321, 
+   "content_type": "application/java-serialized-object"
+}
+```
+
+Once a blob is stored you can pass it by reference into a stage as either a value or a closure. 
+
+
+#### Runtime creates a stage with a closure  
 
 For example, the runtime POSTs a *closure*  to one of the stage operations (see API below): 
 
 ```
-POST /graph/flow-abcd-12344/supply HTTP/1.1
-FnProject-DatumType: blob
-Content-type: application/java-serialized-object
-Content-length: 100
-FnProject-CodeLocation: com.example.fn.HelloFunction.handleRequest(HelloFunction.java:11)
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
 
-...serialized lambda...
-```
-The FnProject-CodeLocation is an opaque string.
-
-The flow service returns a new `StageID` in the `FnProject-StageID` header. 
-```
-HTTP/1.1 200 OK
-FnProject-StageID: 1
-```
-
-### Runtime requests a function invocation via the flow service 
-
-Invoke Function stages take an *httpreq* datum which encapsulates the invoked function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
+    "operation": "supply",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
 
 ```
-POST /graph/flow-abcd-12344/invokeFunction?functionId=/fnapp/somefunction/path
-FnProject-DatumType: httpreq
-FnProject-Method: POST
-FnProject-Header-CUSTOM-HEADER: user-12334
-Content-Type: application/json
 
-...request body...
-```
+(`code_location` is optional and is used for information purposes) 
 
-Again the flow service returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new `stage_id"  in the body: 
+ 
 ```
 HTTP/1.1 200 OK
-FnProject-StageID: 3
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
 ```
+
+#### Runtime creates a stage with dependencies 
+Some stages take other stages as dependencies, and will execute when some or all of these dependencies succeed or fail
+
+
+e.g. to create a `thenApply`  stage that executes a closure after a preceding stage is compelte: 
+
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
+
+    "operation": "thenApply",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "deps" : ["1"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
+```
+
+or an `thenCombine` stage that blocks until two stages are complete and passes both results to a closure 
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
+    "operation": "thenCombine",
+    "closure": { 
+         "blob_id": "my_blob_id",
+         "length": 100, 
+         "content_type": "application/java-serialized-object"
+    },
+    "deps" : ["1","2","3"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+```
+
+or an `allOf` stage that blocks until all other stages are complete but takes no closure: 
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
+Content-type: application/json 
+    
+{
+
+    "operation": "allOf",
+    "deps" : ["1","2","3"]
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
+```
+ 
+
+### Runtime requests a function invocation via the flow service
+
+`invoke` creates a stage that immediately executes a call to another function in Fn and contains the target `function_id`, the  function's HTTP headers, method and body. The flow service will then use this datum to create and send a request to fn upon successfully triggering this stage.
+
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+Content-type: application/json 
+
+{
+    "function_id" :"otherapp/fn",
+    "arg": {
+          "body" : {
+            "blob_id": "my_blob_id",
+            "length": 100,
+            "content_type": "application/java-serialized-object"
+           },
+           "method": "post",
+           "headers": [ { "key":"accept","value":"*/*"}]
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+```
+
+Again the flow service returns a new stage ID in the body: 
+
+
+The `body` field is optional (in which case no HTTP body will be passed to the target function): 
+
+
+
+```
+POST /v1 
+```
+HTTP/1.1 200 OK
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
+```/flows/1212b145-5695-4b57-97b8-54ffeda83210/invoke
+Content-type: application/json 
+
+{
+    "function_id" :"otherapp/fn",
+    "arg": {       
+           "method": "get",
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+```
+
+#### Runtime creates a standalone completion stages 
+
+Most stages are designed to be chained together but you can also create and complete stages directly: 
+
+
+create an empty stage: 
+
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage
+Content-type: application/json 
+
+{
+   "operation": "externalCompletion" 
+}
+```
+ 
+```
+HTTP/1.1 200 OK
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"3"}
+```
+
+You can then complete this stage with an existing datum and a status (indicating whether the stage should be treated as successful or not ) : 
+
+
+
+
+```
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stages/3/complete
+Content-type: application/json 
+
+{
+    "value" : {
+            "successful": true, 
+            "datum": {
+                 "empty": {}
+               }
+       }
+}
+```
+
+
 
 ### Runtime creates a completed future on the flow service 
 
-The function pushes a Result value to /graph/<graph-id>/completedValue containing a Datum request and and including an optional  `FnProject-ResultStatus` to indicate whether the value should trigger successfully or with an error. If `FnProject-ResultStatus` is ommitted then the value is assumed to be successful. 
+Clients can create stages that are already completed using the `value` operation 
+
 
 ```
-POST /graph/flow-abcd-12344/completedValue
-FnProject-DatumType: blob
-FnProject-ResultStatus: success 
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/value
+
 Content-Type: application/json
 
-...request body...
+
+{
+    "value" : {
+         "successful": true, 
+         "datum": {
+              "blob": { 
+                          "blob_id": "my_blob_id",
+                          "length": 100, 
+                          "content_type": "application/java-serialized-object"
+                 }
+            }
+    },
+    "code_location" : "com.myfn.MyClass#invokeFunction:123"
+}
+
 ```
 
-The flow service returns a new `StageID` in the `FnProject-StageID` header. 
+The flow service returns a new stage response: 
+
 ```
 HTTP/1.1 200 OK
-FnProject-StageID: 3
+Content-type: application/json 
+
+{"graph_id":"b4a726bd-b043-424a-b419-ed1cfb548f4d","stage_id":"1"}
 ```
 
 
-### Flow service Invokes a Continuation
 
-A continuation request inside a function must include a serialized closure along with one or more arguments. Some of these arguments may be empty/null. HTTP multipart is used to frame the different elements of the request.
 
-For example:
+#### Runtime waits for a stage to complete 
 
-```
-POST /r/app/path HTTP/1.1
-Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-FlowID: flow-abcd-12344
-FnProject-StageID: 2
-Content-Length: 707419
-
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Type: application/java-serialized-object
-Content-Disposition: form-data; name=closure
-FnProject-DatumType: blob
-
-...serialized closure...
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Type: application/java-serialized-object
-Content-Disposition: form-data; name=arg_0
-FnProject-DatumType: blob
-
-...serialized arg 0...
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Disposition: form-data; name=arg_1
-FnProject-DatumType: empty
-
---01ead4a5-7a67-4703-ad02-589886e00923--
-```
-
-#### Encapsulation of the result
-
-As explained above, because of the `fn` contract the actual HTTP response that the flow service will see is serialized in the body of the 'wrapper' HTTP response returned by the functions platform.
-
-#### Successful Result
-
-If the execution of the closure succeeds, the runtime must include the header `FnProject-ResultStatus: success`.
+Generally runtimes should not block on graph events as it will consume resources in the client side unnecessarily, however this is possible using the `await` endpoint : 
 
 ```
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-FnProject-ResultStatus: success
-
-...serialized result...
-```
-
-##### Empty/Void Result
-Closures may succeed and return an empty (void) response (e.g. the result of _thenAccept_), in which case the empty datum type should be used and the body should be empty:
+GET /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stages/1/await?timeout_ms=1000
 
 ```
-FnProject-DatumType: empty
-FnProject-ResultStatus: success
+
+If the stage completes within the timeout or is already completed then it will return a result: 
+
+```
+HTTP/1.1 200 OK 
+Content-type: application/json 
+
+
+{
+    "flow_id" : "1212b145-5695-4b57-97b8-54ffeda83210",
+    "stage_id" : "1",
+    "result" : {
+         "successful": true, 
+         "datum": {
+              "blob": { 
+                          "blob_id": "my_blob_id",
+                          "length": 100, 
+                          "content_type": "application/java-serialized-object"
+                 }
+            }
+    }
+}
 ```
 
-##### Completion Stage ID Result
-Successful execution of the continuation associated with a _thenCompose_ stage returns a datum of type `stageref` and must include the header `FnProject-StageID` containing the inner completion stage's ID. The body of the response should be empty.
-For example:
+if the stage does not complete within the timeout the service replies with a 408 
+
 ```
-FnProject-DatumType: stageref
-FnProject-ResultStatus: success
-FnProject-StageID: 2
+HTTP/1.1 408 timeout 
+Content-type: application/json 
+
+
+{
+   "error": "Deadline Exceeded", 
+   "code:" 4
+}
 ```
 
 
-#### Failed Result
-
-Similary, if executing the closure fails inside the runtime, it responds by including the header `FnProject-ResultStatus: failure`. For a Java runtime, the body will contain the serialized bytes of the Java exception thrown by the user code inside the closure:
-
-```
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-FnProject-ResultStatus: failure
-
-...serialized exception...
-```
-
-#### Platform Error
-
-Completion stages can also fail due to errors thrown outside of the user's
-code. For example, the flow service may time out while waiting for a response to
-a continuation request. In such cases, the completion stage will fail, but
-there will be no exception or stacktrace associated with the failure.
-Retrieving the value of a failed stage due to a platform error will return the
-following headers, and will include a message describing the error in the body
-of the response.
-
-The error response will always have the following headers:
-
-* `Content-Type: text/plain`
-* `FnProject-DatumType: error`
-* `FnProject-ResultStatus: failure`
-* `FnProject-ErrorType: <error-type>`
-
-```
-Content-Type: text/plain
-FnProject-DatumType: error
-FnProject-ResultStatus: failure
-FnProject-ErrorType: stage-timeout
-
-The continuation request timed out.
-```
-
-In the Java runtime, a platform error will be internally converted to a `CloudCompletionStageTimeoutException` and contain the original error message string.
-
-`FnProject-ErrorType` indicates the type of the error, currently supported values are: 
-
-| Error Type | Meaning |
-| ---         | ----   |
-| stage-timeout | a completion stage function timed out - the stage may or may not have completed normally'|
-| stage-invoke-failed | a completion stage invocation failed  within Fn  - the stage may or may not have been invoked  and that invocation may or may not have completed |
-| function-timeout | A function call timed out | 
-| function-invoke-failed | A function call failed within Fn platform  - the function may or may not have been invoked  and that invocation may or may not have completed | 
-| stage-lost | A stage failed after an internal error in the flow service the stage may or may not have been invoked  and that invocation may or may not have completed| 
-
-
-Recipients should accept unknown values for this header.
-
-### Flow service Invokes a Function
-
-Completion stages that invoke an external function via a call to _invokeFunction_ may also complete successfully or with an error. They may also fail to complete due to a platform error.
-
-#### The result is not encapsulated
-
-In this case, the invoked function is external and thus does not need to conform to the encapsulation rule above.
-
-#### Successful Response
-
-When a function call completes successfully, the flow service will persist the HTTP status code and headers along with the body of the response. This HTTP response data will be included in the appropriate argument part of a multipart continuation request for any dependent completion stages, as well as when retrieving the value of this stage. For example:
-
-```
-FnProject-DatumType: httpresp
-FnProject-ResultStatus: success        
-FnProject-ResultCode: 200
-FnProject-Header-CUSTOM-HEADER: customValue
-Content-Type: application/json
-
-...function response body...
-```
-
-In the Java runtime, this stage's value will be transparently coerced to the `HttpResponse` type. HttpResponse is a wrapped HTTP response including:
-* Status Code
-* Headers (without the `FnProject-Header-` prefix)
-* Body
-
-Runtimes may also optionally provide coercions of function results to the appropriate runtime language types. In the case of Java, the standard Java functions coercions apply and can be leveraged to coerce a stage result to a specific Java type.
-
-#### Failed Response
-
-As with successful invocations, the flow service will store body, status and headers for function invocations where the function indicates that it has terminated unsuccessfully. In this case the stage's status will be set to _failure_ and the body will echo the output from the function:
-
-```
-FnProject-DatumType: httpresp
-FnProject-ResultStatus: failure        
-FnProject-ResultCode: 500
-FnProject-Header-CUSTOM-HEADER: customValue
-Content-Type: application/json
-
-...function response body...
-```
-
-In the Java runtime, the stage's value will be wrapped in a `FunctionInvocationException`, which permits access to the underlying HttpResponse datum.
-
-
-This means that the following code can chain HttpResponses type-correctly:
-
-```java
-   // ...
-   rt.invokeFunction(/* ... */)
-     .exceptionally((e) -> ((FunctionInvocationException) e).getFunctionResponse())
-     .thenApply((resp) -> /* ... */);
-```
-
-#### Platform Error
-
-Errors occurring outside the function will cause the stage to fail and contain an error message describing the failure. These failures are handled identically to platform errors when invoking continuations.
-
-### External Completion
-
-External completion stages are created by a call to `externalCompletion` and can be completed successfully or exceptionally via a POST request to the appropriate URI returned by the _completionUrl()_ or _failUrl()_ methods of `ExternalCloudFuture`.
-
-#### Successful Value
-
-When a POST request is made to the _completionUrl_ of a stage, the HTTP status and headers will be persisted alongside the body of the request. For example, completing the stage via the request
- 
-```
-Content-Type: application/json
-CUSTOM-HEADER: user-12334
-
-...request body...
-```
-
-will result in the following being transmitted to the runtime:
-
-```
-FnProject-DatumType: httpreq
-FnProject-Method: POST
-FnProject-ResultStatus: success
-FnProject-Header-CUSTOM-HEADER: user-12334
-Content-Type: application/json
-
-... request body...
-```
-
-In the Java runtime, this stage's value will be transparently coerced to the `HttpRequest` type, which wraps the body and headers of the original request.
-
-#### Failed Value
-
-POSTing to the _failUrl_ will also result in the flow service saving HTTP status, headers and body of the original request. For example, the following POST request
-
-```
-Content-Type: application/json
-CUSTOM-HEADER: user-12334
-
-...request body...
-```
-
-will result in the following being transmitted to the runtime:
-
-```
-FnProject-DatumType: httpreq
-FnProject-Method: POST
-FnProject-ResultStatus: failure
-FnProject-Header-CUSTOM-HEADER: user-12334
-Content-Type: application/json
-
-...request body...
-```
-
-In the Java runtime, this stage's value will be transparently wrapped in the `ExternalCompletionException` type, which wraps the body and headers of the original request.
-
-
-
-## Graph Completion & Committing the graph 
+### Runtime signals that initial flow is committed 
+  
 A graph is completed  (and can no longer be modified) once all stages in the graph that can be executed are completed (note that  some stages may not be run). 
 
 The flow service observes the state of the graph to determine when pending work is complete,  to detect this condition, however as the graph is is created by a process that is outside of the flow service's control (e.g. a function not run by the flow service itself) that process must  indicate to the flow service that it has finished modifying the graph by calling the `commit` API call on a graph. 
 
 e.g.: 
 ```
-POST /graph/graph-121/commit HTTP/1.1
+POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/commit HTTP/1.1
 ```
 
+
+### Flow service Invokes a Continuation
+
+The flow service invokes stages using the Fn API using a special JSON message. 
+
+FDKs implementing flow should detect incoming flow invocations (using the `Fnproject-FlowID` header ) and handle them as flow stages rather than Fn invocations 
+
+For example:
+
+```
+POST /r/app/path HTTP/1.1
+Content-Type: application/json 
+
+FnProject-FlowID: 767b1b6d-bf7e-4739-b720-783518198176
+
+{
+  "flow_id" : "767b1b6d-bf7e-4739-b720-783518198176", 
+  "stage_id" : "2", 
+  "closure" : {
+    "blob_id" : "07284d92-b38e-41c9-8a61-994a0783994e",
+    "length" : 1201, 
+    "content_type" : "application/java-serialized-object"
+  },
+  "args" : [
+    {
+            "successful": true, 
+            "datum": {
+                 "empty": {}
+               }
+       },
+       {
+            "successful": true, 
+            "datum": {
+                 "blob": {
+                    "blob_id" : "bf1ec054-ed15-4802-9f9f-5f1c73a21eb3",
+    "length" : 1201, 
+    "content_type" : "application/java-serialized-object"
+                 }
+               }
+       }
+    ]
+}
+```
+
+#### Runtime response to stage invocation  of the result
+
+The FDK function should reply to an invocation request with an invocation response : 
+
+```
+{
+ "result" :  {
+                        "successful": true, 
+                        "datum": {
+                             "blob": {
+                                "blob_id" : "bf1ec054-ed15-4802-9f9f-5f1c73a21eb3",
+                "length" : 1201, 
+                "content_type" : "application/java-serialized-object"
+                             }
+                           }
+                   }
+}
+
+```
+
+
+
+
+
+##  Data handling  
+
+Flow operations use a consistent  set of data types to describe information being passed through the graph. 
+
+
+###  Blobs
+
+A blob is a wrapper for some data stored externally to flow, it is used to describe closures and stage arguments. 
+
+```json 
+{ 
+         "blob_id": "my_blob_id",
+         "length": 100, 
+         "content_type": "application/java-serialized-object"
+}
+``` 
+
+### Datum types 
+All data that is passed between stages in flow are expressed as _datum_ types that wrap the underlying raw type of a given data type: 
+
+#### Blob Datums:
+
+A blob datum wraps a blob
+```json
+{
+ "blob" : { 
+                   "blob_id": "my_blob_id",
+                   "length": 100, 
+                   "content_type": "application/java-serialized-object"
+          }
+}
+```
+
+#### Empty Datum: 
+An empty datum represents a null or empty value : 
+```json
+{
+  "empty" : {}
+}
+```
+
+#### HTTP Request Datum 
+ 
+```json
+  { "http_req" : {
+          "body" : {
+            "blob_id": "my_blob_id",
+            "length": 100,
+            "content_type": "application/java-serialized-object"
+           },
+           "method": "post",
+           "headers": [ { "key":"accept","value":"*/*"}]
+    }
+   }
+```
+#### HTTP Response Datum
+
+ 
+```json
+{ 
+    "http_resp" : {
+          "body" : {
+            "blob_id": "my_blob_id",
+            "length": 100,
+            "content_type": "application/java-serialized-object"
+           },
+           "status_code": "200",
+           "headers": [ { "key":"accept","value":"*/*"}]
+    }
+}
+```
+
+
+#### StageRef Datum : 
+StageRefs correspond to a pointer to another, existing stage in the current graph. These are used in operations like `thenCompose` to link sub-graphs together. 
+
+```
+{
+    "stage_ref" : {
+         "stage_id" : "0" 
+    }
+
+```
+
+
+#### Error Datum: 
+
+Completion stages can also fail due to errors thrown outside of the user's
+code. For example, the flow service may time out while waiting for a response to
+a continuation request. In such cases, the completion stage will fail, but
+there will be no exception or stacktrace associated with the failure.
+
+In the case of such a failure the flow-service will generate an _error datum_ that represents teh type of the message. 
+
+```json
+{
+ "error" :{
+     "type": "stage-timeout", 
+     "message" : "Stage invocation timed out"
+ }
+}
+```
+
+| Error Type | Meaning |
+| ---         | ----   |
+| stage_timeout | a completion stage function timed out - the stage may or may not have completed normally'|
+| stage_invoke_failed | a completion stage invocation failed  within Fn  - the stage may or may not have been invoked  and that invocation may or may not have completed |
+| function_timeout | A function call timed out | 
+| function_invoke_failed | A function call failed within Fn platform  - the function may or may not have been invoked  and that invocation may or may not have completed | 
+| stage_lost | A stage failed after an internal error in the flow service the stage may or may not have been invoked  and that invocation may or may not have completed| 
+| invalid_stage_response | A stage generated an invalid response or an invalid datum type  (e.g. thenCompose returning a blob datum) |
+
+
+Recipients must accept unknown values for this field.
+
+#### Status Datum
+
+The state datum is a special datum that is only used in termination hooks to denote how the graph was terminated :
+
+```json
+{
+	"status_datum" : {
+		 "type" :"succeeded"
+	}
+}
+
+```
+
+Valid types are:
+*   succeeded
+*   failed
+*   cancelled
+*   killed
 
 
 ### Flow Client API
-We'll swagger this up at some point 
+See [swagger](../model/model.swagger.json)
 
 
-| Route														| HTTP Method  | Description |
-| ---      													| ---         	 | ---       |
-| /graph?functionId=${fn_id} 								| POST 			| Creates a new execution graph cloud for the given Fn Flow function. |
-| /graph/${graph_id}										| GET  			| Returns a JSON representation of the flow completion graph. |
-| /graph/${graph_id}/commit								    | POST 			| Signals that the flow entrypoint function has finished executing and the graph is now committed. |
-| /graph/${graph_id}/supply								    | POST 			| Adds a root stage to this flow's graph that asynchronously executes a Supplier closure. Analogous to CompletableFuture's `supplyAsync`. http datum |
-| /graph/${graph_id}/invokeFunction?functionId=/app/somefn/path| POST 			| Adds a root stage to this flow's graph that asynchronously invokes an external FaaS (fn) function.  The content of the body should correspond to an httpreq datum. When the stage is completed it will yield a httpresp datum |
-| /graph/${graph_id}/completedValue							| POST 			 | Adds a root stage to this flow's graph that is completed with the value provided in the HTTP request body. Analogous to CompletableFuture's `completedFuture`. |
-| /graph/${graph_id}/delay?delayMs=uint									| POST 		| Adds a root stage to this flow's graph that completes asynchronously with an empty value after the specified delay. |
-| /graph/${graph_id}/allOf?cids=c1,c2,c3									| POST 		 | Adds a stage to this flow's graph that is completed with an empty value when all of the referenced stages complete successfully (or at least one completes exceptionally). Analogous to CompletableFuture's `allOf`. |
-| /graph/${graph_id}/anyOfcids=c1,c2,c3									| POST 	| Adds a stage to this flow's graph that is completed when at least one of the referenced stages completes successfully (or at least one completes exceptionally). This stage's completion value will be equal to that of the first completed referenced stage. Analogous to CompletableFuture's `anyOf`. |
-| /graph/${graph_id}/externalCompletion						| POST 			| Adds a root stage to this flow's graph that can be completed or failed externally via an HTTP post to `/graph/${graph_id}/stage/${stage_id}/complete` or `/graph/${graph_id}/stage/${stage_id}/fail`. Analogous to creating an empty CompletableFuture. |
-| /graph/${graph_id}/stage/${stage_id}						| GET 			| Blocks waiting for the given stage to complete, returning the associated value or error if executed exceptionally. |
-| /graph/${graph_id}/stage/${stage_id}/complete				| POST 			| Completes a pending  stage  with a specified datum.  Analogous to CompletableFuture's `complete` and `completeExceptionally`. |
-| /graph/${graph_id}/stage/${stage_id}/acceptEither?other=${other_stage}			| POST 	 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#acceptEither-java.util.concurrent.CompletionStage-java.util.function.Consumer-). |
-| /graph/${graph_id}/stage/${stage_id}/applyToEither?other=${other_stage}		| POST  | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#applyToEither-java.util.concurrent.CompletionStage-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenAcceptBoth?other=${other_stage}		| POST 		 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAcceptBoth-java.util.concurrent.CompletionStage-java.util.function.BiConsumer-). |
-| /graph/${graph_id}/stage/${stage_id}/thenApply			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenApply-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenRun				| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenRun-java.lang.Runnable-). |
-| /graph/${graph_id}/stage/${stage_id}/thenAccept			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenAccept-java.util.function.Consumer-). |
-| /graph/${graph_id}/stage/${stage_id}/thenCompose			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCompose-java.util.function.Function-). |
-| /graph/${graph_id}/stage/${stage_id}/thenCombine?other=${other_stage}			| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#thenCombine-java.util.concurrent.CompletionStage-java.util.function.BiFunction-). |
-| /graph/${graph_id}/stage/${stage_id}/whenComplete			| POST 			| Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#whenComplete-java.util.function.BiConsumer-). |
-| /graph/${graph_id}/stage/${stage_id}/handle				| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#handle-java.util.function.BiFunction-). |
-| /graph/${graph_id}/stage/${stage_id}/exceptionally		| POST 			 | Analogous to the [CompletionStage operation of the same name](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/CompletionStage.html#exceptionally-java.util.function.Function-). |
 
-Note that all operations that add a stage execute any associated closures asynchronously. The completion ID of the associated stage is returned in the `FnProject-CompletionID` header of the HTTP response. The caller can then block waiting for the stage result by making an HTTP GET request to `/graph/${graph_id}/stage/${stage_id}` which will return an HTTP [408](https://httpstatuses.com/408) if the value has not been populated in the stage/the function is still executing.
-
-Data is exchanged between the client and the flow service and the flow service and the function using HTTP multipart messages 
- 
-### Flow Invoke API
-
-The following sections describe the flow  contract for outgoing requests into fn's public API.
-
-#### Closure Invocation
-
-The flow service makes a closure invocation request into fn when triggering a stage of computation. The request consists of a closure optionally followed by a variable number of arguments. In order to frame the different elements of the request, HTTP multipart should be used. The closure and arguments constitute the individual parts and must be named _closure_ and _arg_X_ where X is the index of the argument starting at 0. Note also that the arguments should appear in increasing order in the request, with the lowest index appearing immediately after the closure part. 
-
-Example request:
-
-```
-POST /r/app/path HTTP/1.1
-Content-Type: multipart/form-data; boundary="01ead4a5-7a67-4703-ad02-589886e00923"
-FnProject-FlowID: flow-abcd-12344
-FnProject-StageID: 2
-Content-Length: 707419
-
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Type: application/java-serialized-object
-Content-Disposition: form-data; name=closure
-FnProject-DatumType: blob
-
-...serialized closure...
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Type: application/java-serialized-object
-Content-Disposition: form-data; name=arg_0
-FnProject-DatumType: blob
-
-...serialized arg 0...
---01ead4a5-7a67-4703-ad02-589886e00923
-Content-Disposition: form-data; name=arg_1
-FnProject-DatumType: empty
-
---01ead4a5-7a67-4703-ad02-589886e00923
-```
-
-The response is encapsulated in a wrapper HTTP frame due to the `fn` contract.
-
-Example of successful stage response: 
-
-```
-HTTP/1.1 200 OK
-Content-Type:
-Content-Length: ...
-
-HTTP/1.1 200 OK
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-FnProject-ResultStatus: success
-
-...serialized result...
-```
-
-Example of failed stage response: 
-
-```
-HTTP/1.1 200 OK
-Content-Type:
-Content-Length: ...
-
-HTTP/1.1 200 OK
-Content-Type: application/java-serialized-object
-FnProject-DatumType: blob
-FnProject-ResultStatus: failure
-
-...serialized exception...
-```
-
-#### Function Invocation
-
-The flow service makes a function request into fn when triggering execution of a stage associated with a function (i.e. a stage created via _invokeFunction_). The outgoing request will incorporate the HTTP method, headers, and body supplied by the application when constructing the stage.
-
-Example request:
-
-```
-POST /r/app/path HTTP/1.1
-Content-Type: application/octet-stream
-Content-Length: 707419
-Custom-Header: SomeValue
-
-...request body from stage...
-```
-
-The response from `fn` is not encapsulated because external functions do not need to conform to this contract.
-
-Example response:
-
-```
-HTTP/1.1 200 OK 
-Content-Type: application/json
-Content-Length: 10419
-Custom-Header: SomeOtherValue
-
-...response body from function...
-```
-
-
-### <a name="stage_types">Completion Stage Types</a>
+# <a name="stage_types">Completion Stage Types</a>
 
 
 

@@ -17,14 +17,12 @@ type sqlProvider struct {
 	db               *sqlx.DB
 }
 
-var log = logrus.New().WithField("logger", "persistence")
+var log = logrus.WithField("logger", "persistence")
 
 const slowQueryTime = 30 * time.Second
 
 // NewSQLProvider creates a journal/snapshot provider with an SQL db backing it
 func NewSQLProvider(db *sqlx.DB, snapshotInterval int) (ProviderState, error) {
-
-	log.Info("Creating SQL persistence provider")
 	return &sqlProvider{
 		snapshotInterval: snapshotInterval,
 		db:               db,
@@ -114,14 +112,19 @@ func (provider *sqlProvider) PersistSnapshot(actorName string, eventIndex int, s
 }
 
 func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, callback func(eventIndex int, e interface{})) {
-	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndexStart}).Debug("Getting events")
+	log.WithField("actor_name", actorName).
+		WithField("event_index", eventIndexStart).
+		Debug("Getting events")
+
 	span := opentracing.StartSpan("sql_get_events")
 	defer span.Finish()
+
 	rows, err := provider.db.Queryx("SELECT event_type,event_index,event FROM events where actor_name = ? AND event_index >= ? ORDER BY event_index ASC", actorName, eventIndexStart)
 	if err != nil {
-		log.WithField("actor_name", actorName).WithError(err).Error("Error getting events value from DB")
-		// DON'T PANIC ?
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithError(err).
+			Error("Error getting events value from DB")
+		panic(ErrReadingEvents)
 	}
 	defer rows.Close()
 
@@ -133,9 +136,13 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 		msg, err := extractData(actorName, eventType, eventBytes)
 		if err != nil {
-			log.WithField("actor_name", actorName).WithField("event_type", eventType).WithError(err).Error("Error getting events value from DB")
-			panic(err)
+			log.WithField("actor_name", actorName).
+				WithField("event_type", eventType).
+				WithError(err).
+				Error("Error getting events value from DB")
+			panic(ErrMarshalling)
 		}
+
 		callback(eventIndex, msg)
 	}
 
@@ -143,14 +150,19 @@ func (provider *sqlProvider) GetEvents(actorName string, eventIndexStart int, ca
 
 func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, event proto.Message) {
 
-	log.WithFields(logrus.Fields{"actor_name": actorName, "event_index": eventIndex}).Debug("Persisting event")
-
 	pbType := proto.MessageName(event)
-	pbBytes, err := proto.Marshal(event)
+	log.WithField("actor_name", actorName).
+		WithField("event_type", pbType).
+		WithField("event_index", eventIndex).
+		Debug("Persisting event")
 
+	pbBytes, err := proto.Marshal(event)
 	if err != nil {
-		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error marshalling event")
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithField("event_type", pbType).
+			WithError(err).
+			Error("Error marshalling event")
+		panic(ErrMarshalling)
 	}
 
 	span := opentracing.StartSpan("sql_persist_event")
@@ -161,8 +173,11 @@ func (provider *sqlProvider) PersistEvent(actorName string, eventIndex int, even
 		actorName, pbType, eventIndex, pbBytes)
 
 	if err != nil {
-		log.WithField("actor_name", actorName).WithField("event_type", pbType).WithError(err).Error("Error writing event to DB")
-		panic(err)
+		log.WithField("actor_name", actorName).
+			WithField("event_type", pbType).
+			WithError(err).
+			Error("Error writing event to DB")
+		panic(ErrPersistenceFailed)
 	}
 
 	if queryTime := time.Since(queryStart); queryTime.Nanoseconds() > slowQueryTime.Nanoseconds() {

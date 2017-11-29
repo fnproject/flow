@@ -24,11 +24,20 @@ func NewEmptyDatum() *Datum {
 }
 
 // NewBlobDatum creates a new blob datum
-func NewBlobDatum(blob *BlobDatum) *Datum {
+func NewBlobDatum(body *BlobDatum) *Datum {
 	return &Datum{
 		Val: &Datum_Blob{
-			Blob: blob,
+			Blob: body,
 		},
+	}
+}
+
+// NewBlob creates a new blob body element
+func NewBlob(id string, length int64, contentType string) *BlobDatum {
+	return &BlobDatum{
+		BlobId:      id,
+		Length:      length,
+		ContentType: contentType,
 	}
 }
 
@@ -36,7 +45,7 @@ func NewBlobDatum(blob *BlobDatum) *Datum {
 func NewStageRefDatum(stageID string) *Datum {
 	return &Datum{
 		Val: &Datum_StageRef{
-			StageRef: &StageRefDatum{StageRef: stageID},
+			StageRef: &StageRefDatum{StageId: stageID},
 		},
 	}
 }
@@ -67,10 +76,10 @@ func NewHTTPReqDatum(httpreq *HTTPReqDatum) *Datum {
 }
 
 // NewStateDatum creates a graph state datum
-func NewStateDatum(stateType StateDatumType) *Datum {
+func NewStateDatum(statusType StatusDatumType) *Datum {
 	return &Datum{
-		Val: &Datum_State{
-			State: &StateDatum{Type: stateType},
+		Val: &Datum_Status{
+			Status: &StatusDatum{Type: statusType},
 		},
 	}
 }

@@ -235,8 +235,8 @@ func TestShouldRejectUnknownOperationStage(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_unknown_operation,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
@@ -265,8 +265,8 @@ func TestShouldRejectStageWithInsufficientDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
@@ -279,8 +279,8 @@ func TestShouldRejectStageWithTooManyDependencies(t *testing.T) {
 
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{"s1", "s2"},
@@ -292,8 +292,8 @@ func TestShouldRejectStageWithUnknownDependency(t *testing.T) {
 	m := &MockedListener{}
 	g := New("graph", "function", m)
 
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_thenApply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{"unknown"},
@@ -305,12 +305,12 @@ func TestShouldCompleteEmptyGraph(t *testing.T) {
 
 	g := New("graph", "function", m)
 	m.On("OnGraphExecutionFinished").Run(func(args mock.Arguments) {
-		g.UpdateWithEvent(&model.GraphTerminatingEvent{GraphId: g.ID, State: model.StateDatumType_succeeded}, true)
+		g.UpdateWithEvent(&model.GraphTerminatingEvent{FlowId: g.ID, Status: model.StatusDatumType_succeeded}, true)
 	})
 
 	m.On("OnGraphComplete").Return()
 
-	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
+	g.UpdateWithEvent(&model.GraphCommittedEvent{FlowId: "graph"}, true)
 	m.AssertExpectations(t)
 }
 
@@ -320,7 +320,7 @@ func TestShouldNotCompletePendingGraph(t *testing.T) {
 	g := New("graph", "function", m)
 	withSimpleStage(g, false)
 	assert.False(t, g.IsCompleted())
-	g.UpdateWithEvent(&model.GraphCommittedEvent{GraphId: "graph"}, true)
+	g.UpdateWithEvent(&model.GraphCommittedEvent{FlowId: "graph"}, true)
 	m.AssertExpectations(t)
 }
 
@@ -330,8 +330,8 @@ func TestShouldPreventAddingStageToTerminatingGraph(t *testing.T) {
 	g := New("graph", "function", m)
 
 	g.state = StateTerminating
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_supply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
@@ -346,8 +346,8 @@ func TestShouldPreventAddingStageToCompletedGraph(t *testing.T) {
 	g := New("graph", "function", m)
 
 	g.state = StateCompleted
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Operation: model.CompletionOperation_supply,
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Deps:      []string{},
@@ -370,8 +370,8 @@ func TestShouldPreventAddingOverMaxTerminationHooksToGraph(t *testing.T) {
 		g.UpdateWithEvent(ev, false)
 	}
 
-	cmd := &model.AddChainedStageRequest{
-		GraphId:   "graph",
+	cmd := &model.AddStageRequest{
+		FlowId:    "graph",
 		Closure:   &model.BlobDatum{BlobId: "1", ContentType: "application/octet-stream"},
 		Operation: model.CompletionOperation_terminationHook,
 	}
@@ -394,7 +394,7 @@ func TestErrorInHookDoesNotInterruptOtherHooks(t *testing.T) {
 		Op:      model.CompletionOperation_terminationHook,
 	}, false)
 
-	datum := model.NewStateDatum(model.StateDatumType_succeeded)
+	datum := model.NewStateDatum(model.StatusDatumType_succeeded)
 	m.On("OnExecuteStage",
 		g.stages["2"],
 		[]*model.CompletionResult{{Successful: true, Datum: datum}}).
@@ -432,8 +432,8 @@ func TestErrorInHookDoesNotInterruptOtherHooks(t *testing.T) {
 	m.On("OnGraphComplete").Return()
 
 	g.UpdateWithEvent(&model.GraphTerminatingEvent{
-		State:      model.StateDatumType_succeeded,
-		GraphId:    g.ID,
+		Status:     model.StatusDatumType_succeeded,
+		FlowId:     g.ID,
 		FunctionId: g.FunctionID,
 	}, true)
 
@@ -447,8 +447,8 @@ func TestShutsDownGraphWithNoShutdownHooks(t *testing.T) {
 
 	m.On("OnGraphExecutionFinished").Run(func(args mock.Arguments) {
 		g.UpdateWithEvent(&model.GraphTerminatingEvent{
-			State:      model.StateDatumType_succeeded,
-			GraphId:    g.ID,
+			Status:     model.StatusDatumType_succeeded,
+			FlowId:     g.ID,
 			FunctionId: g.FunctionID,
 		}, true)
 	})
@@ -456,7 +456,7 @@ func TestShutsDownGraphWithNoShutdownHooks(t *testing.T) {
 	m.On("OnGraphComplete").Return()
 
 	g.UpdateWithEvent(&model.GraphCommittedEvent{
-		GraphId: g.ID,
+		FlowId: g.ID,
 	}, true)
 
 	m.AssertExpectations(t)
@@ -478,7 +478,7 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 
 	for i := noHooks - 1; i >= 0; i-- {
 		stage := g.stages[fmt.Sprintf("%d", i)]
-		datum := model.NewStateDatum(model.StateDatumType_succeeded)
+		datum := model.NewStateDatum(model.StatusDatumType_succeeded)
 		m.On("OnExecuteStage",
 			stage,
 			[]*model.CompletionResult{{Successful: true, Datum: datum}}).
@@ -498,25 +498,14 @@ func TestRunTerminationHooksInLIFOOrder(t *testing.T) {
 	m.On("OnGraphComplete").Return()
 
 	g.handleTerminating(&model.GraphTerminatingEvent{
-		State:      model.StateDatumType_succeeded,
-		GraphId:    g.ID,
+		Status:     model.StatusDatumType_succeeded,
+		FlowId:     g.ID,
 		FunctionId: g.FunctionID,
 	}, true)
 
 	m.AssertExpectations(t)
 }
 
-//func TestShouldRejectStageWithInvalidNumberOfDeps(t *testing.T) {
-//	m := &MockedListener{}
-//
-//	g := New("graph", "function", m)
-//
-//	err := g.ValidateCommand(&model.AddChainedStageRequest{
-//		GraphId:   g.ID,
-//		Operation: model.CompletionOperation_thenApply,
-//	})
-//	assert.Error(t, err)
-//}
 
 func withSimpleStage(g *CompletionGraph, trigger bool) *CompletionStage {
 	event := &model.StageAddedEvent{

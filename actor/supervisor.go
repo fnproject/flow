@@ -3,14 +3,43 @@ package actor
 import (
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/fnproject/flow/model"
 	"github.com/fnproject/flow/persistence"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
+
+var (
+	activeGraphsMetric = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "flow_concurrent_active_graphs",
+		Help: "Currently active graphs.",
+	})
+
+	graphDecider = func(reason interface{}) actor.Directive {
+		logrus.WithField("logger", "supervisor").
+			Warnf("Stopping failed graph actor due to error: %v", reason)
+		switch reason {
+		case persistence.ErrPersistenceFailed, persistence.ErrReadingEvents:
+			return actor.RestartDirective
+		case persistence.ErrPersistingSnapshot:
+			return actor.ResumeDirective
+		default:
+			return actor.StopDirective
+		}
+	}
+
+	graphStrategy = NewExponentialBackoffStrategy(1*time.Minute, 100*time.Millisecond, graphDecider)
+)
+
+func init() {
+	prometheus.MustRegister(activeGraphsMetric)
+	activeGraphsMetric.Set(0.0)
+}
 
 type graphSupervisor struct {
 	executor            *actor.PID
@@ -21,12 +50,12 @@ type graphSupervisor struct {
 	activeGraphs map[string]bool
 }
 
-// NewSupervisor creates new graphSupervisor actor
-func NewSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
+// NewGraphSupervisor creates new graphSupervisor actor
+func NewGraphSupervisor(name string, executor *actor.PID, persistenceProvider persistence.Provider) actor.Actor {
 	return &graphSupervisor{
 		executor:            executor,
 		persistenceProvider: persistenceProvider,
-		log:                 logrus.New().WithField("logger", name),
+		log:                 logrus.WithField("logger", name),
 		activeGraphs:        make(map[string]bool),
 	}
 }
@@ -39,66 +68,68 @@ func (s *graphSupervisor) Receive(context actor.Context) {
 	}
 }
 
-func (s *graphSupervisor) handleActiveGraph(graphID string) {
-	s.log.WithField("graph_id", graphID).Debug("Adding active graph")
-	s.activeGraphs[graphID] = true
+func (s *graphSupervisor) handleActiveGraph(flowID string) {
+	s.log.WithField("flow_id", flowID).Debug("Adding active graph")
+	s.activeGraphs[flowID] = true
+	activeGraphsMetric.Inc()
 }
 
-func (s *graphSupervisor) handleInactiveGraph(graphID string) {
-	s.log.WithField("graph_id", graphID).Debug("Removing inactive graph")
-	delete(s.activeGraphs, graphID)
+func (s *graphSupervisor) handleInactiveGraph(flowID string) {
+	s.log.WithField("flow_id", flowID).Debug("Removing inactive graph")
+	delete(s.activeGraphs, flowID)
+	activeGraphsMetric.Dec()
 }
 
 func (s *graphSupervisor) receiveCommand(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.CreateGraphRequest:
-		child, err := s.spawnGraphActor(context, msg.GraphId)
+		child, err := s.spawnGraphActor(context, msg.FlowId)
 		if err != nil {
-			s.log.WithFields(logrus.Fields{"graph_id": msg.GraphId}).Warn("Failed to spawn graph actor")
-			context.Respond(model.NewGraphCreationError(msg.GraphId))
+			s.log.WithFields(logrus.Fields{"flow_id": msg.FlowId}).Warn("Failed to spawn graph actor")
+			context.Respond(model.NewGraphCreationError(msg.FlowId))
 			return
 		}
-		s.PersistReceive(&model.GraphCreatedEvent{GraphId: msg.GraphId})
-		s.handleActiveGraph(msg.GraphId)
+		s.PersistReceive(&model.GraphCreatedEvent{FlowId: msg.FlowId})
+		s.handleActiveGraph(msg.FlowId)
 		child.Request(msg, context.Sender())
 
 	case *model.DeactivateGraphRequest:
-		if s.activeGraphs[msg.GraphId] {
-			s.PersistReceive(&model.GraphCompletedEvent{GraphId: msg.GraphId})
-			s.handleInactiveGraph(msg.GraphId)
+		if s.activeGraphs[msg.FlowId] {
+			s.PersistReceive(&model.GraphCompletedEvent{FlowId: msg.FlowId})
+			s.handleInactiveGraph(msg.FlowId)
 		}
-		if child, ok := s.findChild(context, msg.GraphId); ok {
+		if child, ok := s.findChild(context, msg.FlowId); ok {
 			child.Tell(&actor.PoisonPill{})
 		}
 
 	case model.GraphMessage:
-		child, err := s.getGraphActor(context, msg.GetGraphId())
+		child, err := s.getGraphActor(context, msg.GetFlowId())
 		if err != nil {
-			s.log.WithFields(logrus.Fields{"graph_id": msg.GetGraphId()}).Warn("No child actor found")
-			context.Respond(model.NewGraphNotFoundError(msg.GetGraphId()))
+			s.log.WithFields(logrus.Fields{"flow_id": msg.GetFlowId()}).Warn("No child actor found")
+			context.Respond(model.NewGraphNotFoundError(msg.GetFlowId()))
 			return
 		}
 		child.Request(msg, context.Sender())
 
 	case *actor.Terminated:
-		if graphID, ok := getGraphID(context.Self().Id, msg.GetWho()); ok {
-			s.log.WithFields(logrus.Fields{"graph_id": graphID}).Info("Graph actor terminated")
-			if s.activeGraphs[graphID] {
-				s.log.WithFields(logrus.Fields{"graph_id": graphID}).Warn("Graph actor crashed")
+		if flowID, ok := getFlowID(context.Self().Id, msg.GetWho()); ok {
+			s.log.WithFields(logrus.Fields{"flow_id": flowID}).Info("Graph actor terminated")
+			if s.activeGraphs[flowID] {
+				s.log.WithFields(logrus.Fields{"flow_id": flowID}).Warn("Graph actor crashed")
 				// TODO re-spawn failed graph actor and tell it to set its status to error
 			}
 		}
 
 	case *protoPersistence.ReplayComplete:
 		s.log.Infof("Respawning %d active graphs", len(s.activeGraphs))
-		for graphID := range s.activeGraphs {
-			s.spawnGraphActor(context, graphID)
+		for flowID := range s.activeGraphs {
+			s.spawnGraphActor(context, flowID)
 		}
 	}
 }
 
-func getGraphID(supervisorName string, child *actor.PID) (string, bool) {
+func getFlowID(supervisorName string, child *actor.PID) (string, bool) {
 	split := strings.Split(child.Id, supervisorName+"/")
 	if len(split) == 2 && len(split[1]) > 0 {
 		return split[1], true
@@ -110,26 +141,26 @@ func (s *graphSupervisor) receiveEvent(context actor.Context) {
 	switch msg := context.Message().(type) {
 
 	case *model.GraphCreatedEvent:
-		s.handleActiveGraph(msg.GraphId)
+		s.handleActiveGraph(msg.FlowId)
 
 	case *model.GraphCompletedEvent:
-		s.handleInactiveGraph(msg.GraphId)
+		s.handleInactiveGraph(msg.FlowId)
 
 	default:
-		s.log.Infof("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
+		s.log.Warnf("Ignoring replayed message of unknown type %v", reflect.TypeOf(msg))
 	}
 }
 
 // this method will spawn a graph actor if it doesn't already exist
-func (s *graphSupervisor) getGraphActor(context actor.Context, graphID string) (*actor.PID, error) {
-	if child, ok := s.findChild(context, graphID); ok {
+func (s *graphSupervisor) getGraphActor(context actor.Context, flowID string) (*actor.PID, error) {
+	if child, ok := s.findChild(context, flowID); ok {
 		return child, nil
 	}
-	return s.spawnGraphActor(context, graphID)
+	return s.spawnGraphActor(context, flowID)
 }
 
-func (s *graphSupervisor) findChild(context actor.Context, graphID string) (*actor.PID, bool) {
-	fullID := context.Self().Id + "/" + graphID
+func (s *graphSupervisor) findChild(context actor.Context, flowID string) (*actor.PID, bool) {
+	fullID := context.Self().Id + "/" + flowID
 	for _, pid := range context.Children() {
 		if pid.Id == fullID {
 			return pid, true
@@ -138,15 +169,18 @@ func (s *graphSupervisor) findChild(context actor.Context, graphID string) (*act
 	return nil, false
 }
 
-func (s *graphSupervisor) spawnGraphActor(context actor.Context, graphID string) (*actor.PID, error) {
+func (s *graphSupervisor) spawnGraphActor(context actor.Context, flowID string) (*actor.PID, error) {
 	props := actor.
 		FromInstance(NewGraphActor(s.executor)).
 		WithMiddleware(
 			plugin.Use(&PIDAwarePlugin{}),
 			persistence.Using(s.persistenceProvider),
 		)
-	pid, err := context.SpawnNamed(props, graphID)
+	pid, err := context.SpawnNamed(props, flowID)
+	if err != nil {
+		return nil, err
+	}
 	context.Watch(pid)
-	s.log.WithFields(logrus.Fields{"graph_id": graphID}).Infof("Created graph actor %s", pid.Id)
-	return pid, err
+	s.log.WithFields(logrus.Fields{"flow_id": flowID}).Debug("Created graph actor %s", pid.Id)
+	return pid, nil
 }

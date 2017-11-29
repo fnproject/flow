@@ -13,6 +13,9 @@ dep-up:
 
 protos:  model/model.pb.go persistence/testprotos.pb.go
 
+bindata:  model/model.swagger.json
+	go-bindata -nometadata -o  model/swagger_file.go -pkg model model/model.swagger.json
+
 vet: $(GOFILES)
 	go vet $(GOPACKAGES)
 
@@ -23,9 +26,12 @@ test: protos $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
-	protoc  --proto_path=$(@D) --go_out=$(@D) $<
+	# protoc  --proto_path=$(@D) --proto_path=./vendor --go_out=$(@D) 	--govalidators_out=$(@D) $<
+	protoc  --proto_path=$(@D) --proto_path=./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+      --go_out=plugins=grpc:$(@D) --govalidators_out=$(@D)  --grpc-gateway_out=logtostderr=true:$(@D)    --swagger_out=logtostderr=true:$(@D) $<
 
-build: $(GOFILES)
+
+build: $(GOFILES) bindata protos
 	go build -o flow-service
 
 run: build
@@ -51,6 +57,8 @@ docker-pull-image-funcy-go:
 docker-test: protos docker-pull-image-funcy-go
 	docker run --rm -it -v $(COMPLETER_DIR):$(CONTAINER_COMPLETER_DIR) -w $(CONTAINER_COMPLETER_DIR) -e CGO_ENABLED=1 funcy/go:dev sh -c 'go test -v $$(go list ./...  | grep -v /vendor/)'
 
-docker-build: docker-test docker-pull-image-funcy-go
+docker-build-0: docker-pull-image-funcy-go
 	docker run --rm -it -v $(COMPLETER_DIR):$(CONTAINER_COMPLETER_DIR) -w $(CONTAINER_COMPLETER_DIR) -e CGO_ENABLED=1 funcy/go:dev go build -o flow-service-docker
 	docker build -t $(IMAGE_FULL) -f $(COMPLETER_DIR)/Dockerfile $(COMPLETER_DIR)
+
+docker-build: docker-test docker-pull-image-funcy-go docker-build-0

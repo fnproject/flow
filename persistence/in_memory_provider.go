@@ -23,7 +23,7 @@ type InMemoryProvider struct {
 }
 
 // NewInMemoryProvider creates a new in mem provider
-func NewInMemoryProvider(snapshotInterval int) *InMemoryProvider {
+func NewInMemoryProvider(snapshotInterval int) ProviderState {
 	return &InMemoryProvider{
 		snapshotInterval: snapshotInterval,
 		store:            make(map[string]*entry),

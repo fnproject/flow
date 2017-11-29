@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 
 	"fmt"
+	"github.com/fnproject/flow/blobs"
 	"net/url"
 	"os"
 	"strconv"
@@ -19,10 +19,12 @@ import (
 )
 
 const (
-	envFnAPIURL         = "API_URL"
-	envDBURL            = "DB_URL"
-	envLogLevel         = "LOG_LEVEL"
-	envListen           = "LISTEN"
+	envFnAPIURL = "API_URL"
+	envDBURL    = "DB_URL"
+	envLogLevel = "LOG_LEVEL"
+	envListen   = "LISTEN"
+	envGrpcListen   = "GRPC_LISTEN"
+
 	envSnapshotInterval = "SNAPSHOT_INTERVAL"
 	envRequestTimeout   = "REQUEST_TIMEOUT"
 
@@ -38,7 +40,7 @@ const (
 var log = logrus.New().WithField("logger", "setup")
 
 // InitFromEnv sets up a whole  flow service from env/config
-func InitFromEnv() (*server.Server, error) {
+func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		logrus.WithError(err).Fatalln("")
@@ -46,21 +48,21 @@ func InitFromEnv() (*server.Server, error) {
 	// Replace forward slashes in case this is windows, URL parser errors
 	cwd = strings.Replace(cwd, "\\", "/", -1)
 	// Set viper configuration and activate its reading from env
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetDefault(envFnAPIURL, "http://localhost:8080/r")
-	viper.SetDefault(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
-	viper.SetDefault(envLogLevel, "debug")
-	viper.SetDefault(envListen, fmt.Sprintf(":8081"))
-	viper.SetDefault(envSnapshotInterval, "1000")
-	viper.SetDefault(envRequestTimeout, "60000ms")
-	viper.SetDefault(envClusterNodeCount, "1")
-	viper.SetDefault(envClusterShardCount, "1")
-	viper.SetDefault(envClusterNodePrefix, "node-")
-	viper.SetDefault(envClusterNodeID, "0")
-	viper.SetDefault(envClusterNodePort, "8081")
-	viper.AutomaticEnv()
+	setDefaultConfig(envFnAPIURL, "http://localhost:8080/r")
+	setDefaultConfig(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
+	setDefaultConfig(envLogLevel, "debug")
+	setDefaultConfig(envListen, fmt.Sprintf(":8081"))
+	setDefaultConfig(envGrpcListen, "localhost:9999")
+	setDefaultConfig(envSnapshotInterval, "1000")
+	setDefaultConfig(envRequestTimeout, "60000ms")
 
-	logLevel, err := logrus.ParseLevel(viper.GetString(envLogLevel))
+	setDefaultConfig(envClusterNodeCount, "1")
+	setDefaultConfig(envClusterShardCount, "1")
+	setDefaultConfig(envClusterNodePrefix, "node-")
+	setDefaultConfig(envClusterNodeID, "0")
+	setDefaultConfig(envClusterNodePort, "19081")
+
+	logLevel, err := logrus.ParseLevel(getStringConfig(envLogLevel))
 	if err != nil {
 		logrus.WithError(err).Fatalln("Invalid log level.")
 	}
@@ -73,55 +75,88 @@ func InitFromEnv() (*server.Server, error) {
 
 	provider, blobStore, err := initStorageFromEnv()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil,err
 	}
 
-	nodeCount := viper.GetInt(envClusterNodeCount)
+	nodeCount := getIntConfig(envClusterNodeCount)
 	var shardCount int
-	if len(viper.GetString(envClusterShardCount)) == 0 {
+	if len(getStringConfig(envClusterShardCount)) == 0 {
 		shardCount = 10 * nodeCount
 	} else {
-		shardCount = viper.GetInt(envClusterShardCount)
+		shardCount = getIntConfig(envClusterShardCount)
 	}
 	shardExtractor := sharding.NewFixedSizeExtractor(shardCount)
 
 	clusterSettings := &cluster.Settings{
 		NodeCount:  nodeCount,
-		NodeID:     viper.GetInt(envClusterNodeID),
-		NodePrefix: viper.GetString(envClusterNodePrefix),
-		NodePort:   viper.GetInt(envClusterNodePort),
+		NodeID:     getIntConfig(envClusterNodeID),
+		NodePrefix: getStringConfig(envClusterNodePrefix),
+		NodePort:   getIntConfig(envClusterNodePort),
 	}
 	clusterManager := cluster.NewManager(clusterSettings, shardExtractor)
 
 	shards := clusterManager.LocalShards()
-	graphManager, err := actor.NewGraphManager(provider, blobStore, viper.GetString(envFnAPIURL), shardExtractor, shards)
+
+	localGraphManager, err := actor.NewGraphManager(provider, blobStore, getStringConfig(envFnAPIURL), shardExtractor, shards)
 	if err != nil {
-		return nil, err
+		return nil, nil,nil, err
+	}
+	localServer, err := server.NewInternalFlowService(localGraphManager, ":"+getStringConfig(envClusterNodePort))
+	if err != nil {
+		return nil, nil,nil, err
 	}
 
-	srv, err := server.New(clusterManager, graphManager, blobStore, viper.GetString(envListen), viper.GetDuration(envRequestTimeout), viper.GetString(envZipkinURL))
+	apiServer, err := server.NewAPIServer(clusterManager, getStringConfig(envListen), getStringConfig(envGrpcListen), getStringConfig(envZipkinURL))
+
 	if err != nil {
-		return nil, err
+		return nil, nil,nil, err
 	}
 
-	return srv, nil
+	blobServer := blobs.NewFromEngine(blobStore,apiServer.Engine)
+
+	return apiServer, localServer, blobServer,nil
 }
 
-func initStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, error) {
-	dbURLString := viper.GetString(envDBURL)
+func getIntConfig(key string) int {
+	stringVal := getStringConfig(key)
+	intVal,err := strconv.Atoi(stringVal)
+	if err !=nil  {
+		panic(fmt.Sprintf("parameter %s with val \"%s\" could not be converted to an int",key,stringVal))
+	}
+	return intVal
+
+}
+
+func getStringConfig(key string) string {
+	val := os.Getenv(key)
+	if val !="" {
+		return val
+	}
+	return configDefaults[val]
+}
+
+
+var configDefaults = make(map[string]string)
+
+func setDefaultConfig(key string, val string) {
+	configDefaults[key] = val
+}
+
+func initStorageFromEnv() (persistence.ProviderState, blobs.Store, error) {
+	dbURLString := getStringConfig(envDBURL)
 	dbURL, err := url.Parse(dbURLString)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid DB URL in %s : %s", envDBURL, dbURLString)
 	}
 
-	snapshotIntervalStr := viper.GetString(envSnapshotInterval)
+	snapshotIntervalStr := getStringConfig(envSnapshotInterval)
 	snapshotInterval, ok := strconv.Atoi(snapshotIntervalStr)
 	if ok != nil {
 		snapshotInterval = 1000
 	}
 	if dbURL.Scheme == "inmem" {
 		log.Info("Using in-memory persistence")
-		return persistence.NewInMemoryProvider(snapshotInterval), persistence.NewInMemBlobStore(), nil
+		return persistence.NewInMemoryProvider(snapshotInterval), blobs.NewInMemBlobStore(), nil
 	}
 
 	dbConn, err := persistence.CreateDBConnection(dbURL)
@@ -129,12 +164,14 @@ func initStorageFromEnv() (persistence.ProviderState, persistence.BlobStore, err
 		return nil, nil, err
 	}
 
+	log.WithField("driver",dbConn.DriverName()).Info("Creating SQL Event store")
 	storageProvider, err := persistence.NewSQLProvider(dbConn, snapshotInterval)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	blobStore, err := persistence.NewSQLBlobStore(dbConn)
+	log.WithField("driver",dbConn.DriverName()).Info("Creating SQL Blob Store")
+	blobStore, err := blobs.NewSQLBlobStore(dbConn)
 
 	if err != nil {
 		return nil, nil, err

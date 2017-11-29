@@ -8,24 +8,24 @@ import (
 )
 
 const (
-	invalidGraphID = "invalid-id"
+	invalidFlowID = "invalid-id"
 )
 
 var (
-	validGraphID   = uuid.New().String()
+	validFlowID    = uuid.New().String()
 	shardExtractor = NewFixedSizeExtractor(10)
 )
 
 func TestShardIsStable(t *testing.T) {
-	shard, e := shardExtractor.ShardID(validGraphID)
+	shard, e := shardExtractor.ShardID(validFlowID)
 	assert.Nil(t, e)
 	assert.True(t, shard >= 0 && shard < 20)
-	shard, e = shardExtractor.ShardID(validGraphID)
+	shard, e = shardExtractor.ShardID(validFlowID)
 	assert.Nil(t, e)
 	assert.True(t, shard >= 0 && shard < 20)
 }
 
-func TestShardForInvalidGraphID(t *testing.T) {
-	_, e := shardExtractor.ShardID(invalidGraphID)
+func TestShardForInvalidFlowId(t *testing.T) {
+	_, e := shardExtractor.ShardID(invalidFlowID)
 	assert.Error(t, e)
 }

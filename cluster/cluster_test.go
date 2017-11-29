@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	validGraphID   = "fbff4e35-d3a0-4185-976a-68ef025282f0"
-	invalidGraphID = "invalid-id"
+	validFlowID   = "fbff4e35-d3a0-4185-976a-68ef025282f0"
+	invalidFlowID = "invalid-id"
 )
 
 var (
@@ -26,11 +26,11 @@ var (
 )
 
 func TestShardMapping(t *testing.T) {
-	node, e := defaultManager.resolveNode(validGraphID)
+	node, e := defaultManager.resolveNode(validFlowID)
 	assert.Nil(t, e)
 	assert.True(t, node >= 0 && node < defaultSettings.NodeCount)
 }
 func TestInvalidShardMapping(t *testing.T) {
-	_, e := defaultManager.resolveNode(invalidGraphID)
+	_, e := defaultManager.resolveNode(invalidFlowID)
 	assert.Error(t, e)
 }

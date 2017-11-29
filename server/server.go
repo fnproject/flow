@@ -18,6 +18,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	// "github.com/golang/protobuf/proto"
 	"errors"
+	"time"
 )
 
 
@@ -117,6 +118,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 	gRPCServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpcUnaryTimeout(2 * time.Minute),
 			unaryMetricsInterceptor(),
 			grpc_validator.UnaryServerInterceptor())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -154,7 +156,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
-		log.Info("Serving HTTP ")
+		log.Debug("Serving HTTP, request is %+v", c.Request)
 
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
@@ -167,6 +169,19 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, zipkinURL 
 
 // Run starts the server
 func (s *Server) Run() error {
+	srv := &http.Server{
+		Addr:           s.listen,
+		Handler:        s.Engine,
+		ReadTimeout:    10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	return srv.ListenAndServe()
+}
 
-	return s.Engine.Run(s.listen)
+func grpcUnaryTimeout(max time.Duration) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		newCtx, _ := context.WithTimeout(ctx, max)
+		// log.Debugf("Original context: %+v", ctx, "; new context: %+v", newCtx)
+		return handler(newCtx, req)
+	}
 }

@@ -11,67 +11,65 @@ import (
 )
 
 func TestShouldInsertBlobAndGenerateId(t *testing.T) {
-	store := givenEmptyBlobStore()
+	withProvider(t, func(store Store) {
+		data := []byte("Some data")
+		blob, err := store.Create("graph", "test/type", bytes.NewReader(data))
 
-	data := []byte("Some data")
-	blob, err := store.Create("graph", "test/type", bytes.NewReader(data))
-
-	assert.NoError(t, err)
-	require.NotNil(t, blob)
-	assert.NotNil(t, blob.ID)
-	assert.Equal(t, "test/type", blob.ContentType)
-	assert.Equal(t, int64(len(data)), blob.Length)
-
+		assert.NoError(t, err)
+		require.NotNil(t, blob)
+		assert.NotNil(t, blob.ID)
+		assert.Equal(t, "test/type", blob.ContentType)
+		assert.Equal(t, int64(len(data)), blob.Length)
+	})
 }
 
 func TestShouldRetrieveStoredBlob(t *testing.T) {
-	store := givenEmptyBlobStore()
+	withProvider(t, func(store Store) {
+		data := []byte("Some data")
+		blob, err := store.Create("graph", "test/type", bytes.NewReader(data))
+		require.NoError(t, err)
 
-	data := []byte("Some data")
-	blob, err := store.Create("graph", "test/type", bytes.NewReader(data))
-	require.NoError(t, err)
+		dataReader, err := store.Read("graph", blob.ID)
+		buf := bytes.Buffer{}
+		buf.ReadFrom(dataReader)
 
-	dataReader, err := store.Read("graph", blob.ID)
-	buf := bytes.Buffer{}
-	buf.ReadFrom(dataReader)
-
-	assert.NoError(t, err)
-	assert.Equal(t, data, buf.Bytes())
-
+		assert.NoError(t, err)
+		assert.Equal(t, data, buf.Bytes())
+	})
 }
 
 func TestShouldFailWithUnknownBlob(t *testing.T) {
-	store := givenEmptyBlobStore()
-
-	newData, err := store.Read("graph", "foo")
-	assert.Nil(t, newData)
-	assert.Error(t, err)
-
+	withProvider(t, func(store Store) {
+		newData, err := store.Read("graph", "foo")
+		assert.Nil(t, newData)
+		assert.Error(t, err)
+	})
 }
 func TestShouldReadAndWriteEmptyBlob(t *testing.T) {
-	store := givenEmptyBlobStore()
+	withProvider(t, func(store Store) {
+		blob, err := store.Create("graph", "test/type", bytes.NewReader([]byte{}))
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), blob.Length)
 
-	blob, err := store.Create("graph", "test/type", bytes.NewReader([]byte{}))
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), blob.Length)
+		dataReader, err := store.Read("graph", blob.ID)
+		buf := bytes.Buffer{}
+		buf.ReadFrom(dataReader)
 
-	dataReader, err := store.Read("graph", blob.ID)
-	buf := bytes.Buffer{}
-	buf.ReadFrom(dataReader)
-
-	assert.NoError(t, err)
-	assert.Empty(t, buf.Bytes())
+		assert.NoError(t, err)
+		assert.Empty(t, buf.Bytes())
+	})
 }
 
-func givenEmptyBlobStore() Store {
-	persistence.ResetTestDB()
-	db, err := persistence.CreateDBConnection(persistence.TestDBURL())
-	if err != nil {
-		panic(err)
-	}
+func withProvider(t *testing.T, testFunc func(store Store)) {
+	url, dbPath := persistence.TestDBURL()
+	defer persistence.ResetTestDB(dbPath)
+
+	db, err := persistence.CreateDBConnection(url)
+	require.NoError(t, err)
+	defer db.Close()
+
 	store, err := NewSQLBlobStore(db)
-	if err != nil {
-		panic(err)
-	}
-	return store
+	require.NoError(t, err)
+
+	testFunc(store)
 }

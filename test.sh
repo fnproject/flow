@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -exo pipefail
 
 if [[ -z "$TEST_RESULTS" ]]; then
   TEST_RESULTS=/tmp/test-results

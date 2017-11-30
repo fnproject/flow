@@ -257,7 +257,10 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 			return
 		}
 		g.log.Debug("Committing graph")
-		g.persistAndUpdateGraph(&model.GraphCommittedEvent{FlowId: msg.FlowId, Ts: currentTimestamp()})
+		g.persistAndUpdateGraph(&model.GraphCommittedEvent{
+			FlowId: msg.FlowId,
+			Ts:     currentTimestamp(),
+		})
 		context.SetReceiveTimeout(completionTimeout)
 		context.Respond(response)
 
@@ -285,6 +288,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Completing delayed stage")
 
 		g.persistAndUpdateGraph(&model.StageCompletedEvent{
+			FlowId:  msg.FlowId,
 			StageId: msg.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
@@ -294,6 +298,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.WithFields(logrus.Fields{"stage_id": msg.StageId}).Debug("Received fn invocation response")
 
 		g.persistAndUpdateGraph(&model.FaasInvocationCompletedEvent{
+			FlowId:  msg.FlowId,
 			StageId: msg.StageId,
 			Result:  msg.Result,
 			Ts:      currentTimestamp(),
@@ -426,6 +431,7 @@ func (g *graphActor) createExternalState() *model.GetGraphStateResponse {
 func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Executing Stage")
 	g.PersistReceive(&model.FaasInvocationStartedEvent{
+		FlowId:     g.graph.ID,
 		StageId:    stage.ID,
 		Ts:         currentTimestamp(),
 		FunctionId: g.graph.FunctionID,
@@ -444,6 +450,7 @@ func (g *graphActor) OnExecuteStage(stage *graph.CompletionStage, results []*mod
 func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model.CompletionResult) {
 	g.log.WithField("stage_id", stage.ID).Info("Completing stage in OnCompleteStage")
 	g.persistAndUpdateGraph(&model.StageCompletedEvent{
+		FlowId:  g.graph.ID,
 		StageId: stage.ID,
 		Result:  result,
 		Ts:      currentTimestamp(),
@@ -454,6 +461,7 @@ func (g *graphActor) OnCompleteStage(stage *graph.CompletionStage, result *model
 func (g *graphActor) OnComposeStage(stage *graph.CompletionStage, composedStage *graph.CompletionStage) {
 	g.log.WithField("stage_id", stage.ID).Info("Composing stage in OnComposeStage")
 	g.persistAndUpdateGraph(&model.StageComposedEvent{
+		FlowId:          g.graph.ID,
 		StageId:         stage.ID,
 		ComposedStageId: composedStage.ID,
 		Ts:              currentTimestamp(),
@@ -468,7 +476,7 @@ func (g *graphActor) OnGraphExecutionFinished() {
 	g.persistAndUpdateGraph(&model.GraphTerminatingEvent{
 		FlowId:     g.graph.ID,
 		FunctionId: g.graph.FunctionID,
-		Status:		model.StatusDatumType_succeeded,
+		Status:     model.StatusDatumType_succeeded,
 		Ts:         currentTimestamp(),
 	})
 

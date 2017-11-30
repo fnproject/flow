@@ -94,7 +94,6 @@ type GraphEventSource interface {
 	GraphEvent(index int) *GraphEvent
 }
 
-
 // GraphEvent implements GraphEventSource
 func (m *GraphCreatedEvent) GraphEvent(index int) *GraphEvent {
 	if m != nil {
@@ -114,6 +113,18 @@ func (m *GraphCompletedEvent) GraphEvent(index int) *GraphEvent {
 			FlowId: m.GetFlowId(),
 			Seq:    uint64(index),
 			Val:    &GraphEvent_GraphCompleted{GraphCompleted: m},
+		}
+	}
+	return new(GraphEvent)
+}
+
+// GraphEvent implements GraphEventSource
+func (m *GraphCommittedEvent) GraphEvent(index int) *GraphEvent {
+	if m != nil {
+		return &GraphEvent{
+			FlowId: m.GetFlowId(),
+			Seq:    uint64(index),
+			Val:    &GraphEvent_GraphCommitted{GraphCommitted: m},
 		}
 	}
 	return new(GraphEvent)
@@ -231,7 +242,6 @@ type AddStageCommand interface {
 	GetCallerId() string
 	HasClosure() bool
 }
-
 
 // GetOperation for AddStageCommand.GetOperation
 func (m *AddCompletedValueStageRequest) GetOperation() CompletionOperation {

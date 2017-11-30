@@ -716,6 +716,19 @@
         }
       }
     },
+    "modelGraphCommittedEvent": {
+      "type": "object",
+      "properties": {
+        "flow_id": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "The graph is committed - this typically indicates that the function that created the flow has completed\nonce this event has been posted the graph will finish when all active or pending nodes have completed."
+    },
     "modelGraphCompletedEvent": {
       "type": "object",
       "properties": {
@@ -784,6 +797,9 @@
         },
         "faas_invocation_completed": {
           "$ref": "#/definitions/modelFaasInvocationCompletedEvent"
+        },
+        "graph_committed": {
+          "$ref": "#/definitions/modelGraphCommittedEvent"
         }
       }
     },

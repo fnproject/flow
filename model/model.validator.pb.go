@@ -521,6 +521,13 @@ func (this *GraphEvent) Validate() error {
 			}
 		}
 	}
+	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCommitted); ok {
+		if oneOfNester.GraphCommitted != nil {
+			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCommitted); err != nil {
+				return go_proto_validators.FieldError("GraphCommitted", err)
+			}
+		}
+	}
 	return nil
 }
 func (this *GraphCreatedEvent) Validate() error {

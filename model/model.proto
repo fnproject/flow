@@ -336,6 +336,7 @@ message GraphEvent {
         StageComposedEvent stage_composed = 16;
         FaasInvocationStartedEvent faas_invocation_started = 17;
         FaasInvocationCompletedEvent faas_invocation_completed = 18;
+        GraphCommittedEvent graph_committed = 19;
     }
 
 }

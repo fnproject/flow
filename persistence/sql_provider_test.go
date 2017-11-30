@@ -102,8 +102,9 @@ func getEventsForActor(provider ProviderState, actorName string, startIdx int) [
 }
 
 func withProvider(t *testing.T, testFunc func(provider ProviderState)) {
-	ResetTestDB()
-	db, err := CreateDBConnection(TestDBURL())
+	url, dbPath := TestDBURL()
+	defer ResetTestDB(dbPath)
+	db, err := CreateDBConnection(url)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -111,4 +112,5 @@ func withProvider(t *testing.T, testFunc func(provider ProviderState)) {
 	require.NoError(t, err)
 
 	testFunc(provider)
+
 }

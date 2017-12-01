@@ -771,6 +771,10 @@
         "flow_id": {
           "type": "string"
         },
+        "sent_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
         "graph_created": {
           "$ref": "#/definitions/modelGraphCreatedEvent"
         },

@@ -323,9 +323,12 @@ message GraphLifecycleEvent {
     }
 }
 
+
 message GraphEvent {
     uint64 seq = 1;
     string flow_id = 2;
+    google.protobuf.Timestamp sent_ts = 3;
+
     oneof val {
         GraphCreatedEvent graph_created = 10;
         GraphTerminatingEvent graph_terminating = 11;

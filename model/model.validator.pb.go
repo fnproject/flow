@@ -458,6 +458,11 @@ func (this *GraphLifecycleEvent) Validate() error {
 	return nil
 }
 func (this *GraphEvent) Validate() error {
+	if this.SentTs != nil {
+		if err := go_proto_validators.CallValidatorIfExists(this.SentTs); err != nil {
+			return go_proto_validators.FieldError("SentTs", err)
+		}
+	}
 	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCreated); ok {
 		if oneOfNester.GraphCreated != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCreated); err != nil {

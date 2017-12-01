@@ -44,7 +44,7 @@ It has these top-level messages:
 	InvokeFunctionRequest
 	InvokeStageRequest
 	GraphLifecycleEvent
-	GraphEvent
+	ToGraphStreamEvent
 	GraphCreatedEvent
 	DelayScheduledEvent
 	GraphTerminatingEvent
@@ -457,76 +457,76 @@ func (this *GraphLifecycleEvent) Validate() error {
 	}
 	return nil
 }
-func (this *GraphEvent) Validate() error {
+func (this *GraphStreamEvent) Validate() error {
 	if this.SentTs != nil {
 		if err := go_proto_validators.CallValidatorIfExists(this.SentTs); err != nil {
 			return go_proto_validators.FieldError("SentTs", err)
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCreated); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_GraphCreated); ok {
 		if oneOfNester.GraphCreated != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCreated); err != nil {
 				return go_proto_validators.FieldError("GraphCreated", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphTerminating); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_GraphTerminating); ok {
 		if oneOfNester.GraphTerminating != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphTerminating); err != nil {
 				return go_proto_validators.FieldError("GraphTerminating", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCompleted); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_GraphCompleted); ok {
 		if oneOfNester.GraphCompleted != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCompleted); err != nil {
 				return go_proto_validators.FieldError("GraphCompleted", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_DelayScheduled); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_DelayScheduled); ok {
 		if oneOfNester.DelayScheduled != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.DelayScheduled); err != nil {
 				return go_proto_validators.FieldError("DelayScheduled", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_StageAdded); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_StageAdded); ok {
 		if oneOfNester.StageAdded != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.StageAdded); err != nil {
 				return go_proto_validators.FieldError("StageAdded", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_StageCompleted); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_StageCompleted); ok {
 		if oneOfNester.StageCompleted != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.StageCompleted); err != nil {
 				return go_proto_validators.FieldError("StageCompleted", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_StageComposed); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_StageComposed); ok {
 		if oneOfNester.StageComposed != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.StageComposed); err != nil {
 				return go_proto_validators.FieldError("StageComposed", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_FaasInvocationStarted); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_FaasInvocationStarted); ok {
 		if oneOfNester.FaasInvocationStarted != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.FaasInvocationStarted); err != nil {
 				return go_proto_validators.FieldError("FaasInvocationStarted", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_FaasInvocationCompleted); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_FaasInvocationCompleted); ok {
 		if oneOfNester.FaasInvocationCompleted != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.FaasInvocationCompleted); err != nil {
 				return go_proto_validators.FieldError("FaasInvocationCompleted", err)
 			}
 		}
 	}
-	if oneOfNester, ok := this.GetVal().(*GraphEvent_GraphCommitted); ok {
+	if oneOfNester, ok := this.GetVal().(*GraphStreamEvent_GraphCommitted); ok {
 		if oneOfNester.GraphCommitted != nil {
 			if err := go_proto_validators.CallValidatorIfExists(oneOfNester.GraphCommitted); err != nil {
 				return go_proto_validators.FieldError("GraphCommitted", err)

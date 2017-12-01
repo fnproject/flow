@@ -271,19 +271,19 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 		return err
 	}
 
-	eventsChan := make(chan *model.GraphEvent, 10)
+	eventsChan := make(chan *model.GraphStreamEvent, 10)
 	defer close(eventsChan)
 
 	sub := m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
-			msg, ok := event.Event.(model.GraphEventSource)
+			msg, ok := event.Event.(model.StreamableGraphEvent)
 			if !ok {
 				m.log.Info("Skipping unknown message %v", reflect.TypeOf(event.Event))
 				return
 			}
 
 			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
-			eventsChan <- msg.GraphEvent(event.EventIndex)
+			eventsChan <- msg.ToGraphStreamEvent(event.EventIndex)
 		})
 
 	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)

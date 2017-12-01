@@ -44,7 +44,7 @@ It has these top-level messages:
 	InvokeFunctionRequest
 	InvokeStageRequest
 	GraphLifecycleEvent
-	GraphEvent
+	GraphStreamEvent
 	GraphCreatedEvent
 	DelayScheduledEvent
 	GraphTerminatingEvent
@@ -1709,252 +1709,252 @@ func _GraphLifecycleEvent_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-type GraphEvent struct {
+type GraphStreamEvent struct {
 	Seq    uint64                     `protobuf:"varint,1,opt,name=seq" json:"seq,omitempty"`
 	FlowId string                     `protobuf:"bytes,2,opt,name=flow_id,json=flowId" json:"flow_id,omitempty"`
 	SentTs *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=sent_ts,json=sentTs" json:"sent_ts,omitempty"`
 	// Types that are valid to be assigned to Val:
-	//	*GraphEvent_GraphCreated
-	//	*GraphEvent_GraphTerminating
-	//	*GraphEvent_GraphCompleted
-	//	*GraphEvent_DelayScheduled
-	//	*GraphEvent_StageAdded
-	//	*GraphEvent_StageCompleted
-	//	*GraphEvent_StageComposed
-	//	*GraphEvent_FaasInvocationStarted
-	//	*GraphEvent_FaasInvocationCompleted
-	//	*GraphEvent_GraphCommitted
+	//	*GraphStreamEvent_GraphCreated
+	//	*GraphStreamEvent_GraphTerminating
+	//	*GraphStreamEvent_GraphCompleted
+	//	*GraphStreamEvent_DelayScheduled
+	//	*GraphStreamEvent_StageAdded
+	//	*GraphStreamEvent_StageCompleted
+	//	*GraphStreamEvent_StageComposed
+	//	*GraphStreamEvent_FaasInvocationStarted
+	//	*GraphStreamEvent_FaasInvocationCompleted
+	//	*GraphStreamEvent_GraphCommitted
 	Val isGraphEvent_Val `protobuf_oneof:"val"`
 }
 
-func (m *GraphEvent) Reset()                    { *m = GraphEvent{} }
-func (m *GraphEvent) String() string            { return proto.CompactTextString(m) }
-func (*GraphEvent) ProtoMessage()               {}
-func (*GraphEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
+func (m *GraphStreamEvent) Reset()                    { *m = GraphStreamEvent{} }
+func (m *GraphStreamEvent) String() string            { return proto.CompactTextString(m) }
+func (*GraphStreamEvent) ProtoMessage()               {}
+func (*GraphStreamEvent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
 
 type isGraphEvent_Val interface {
 	isGraphEvent_Val()
 }
 
-type GraphEvent_GraphCreated struct {
+type GraphStreamEvent_GraphCreated struct {
 	GraphCreated *GraphCreatedEvent `protobuf:"bytes,10,opt,name=graph_created,json=graphCreated,oneof"`
 }
-type GraphEvent_GraphTerminating struct {
+type GraphStreamEvent_GraphTerminating struct {
 	GraphTerminating *GraphTerminatingEvent `protobuf:"bytes,11,opt,name=graph_terminating,json=graphTerminating,oneof"`
 }
-type GraphEvent_GraphCompleted struct {
+type GraphStreamEvent_GraphCompleted struct {
 	GraphCompleted *GraphCompletedEvent `protobuf:"bytes,12,opt,name=graph_completed,json=graphCompleted,oneof"`
 }
-type GraphEvent_DelayScheduled struct {
+type GraphStreamEvent_DelayScheduled struct {
 	DelayScheduled *DelayScheduledEvent `protobuf:"bytes,13,opt,name=delay_scheduled,json=delayScheduled,oneof"`
 }
-type GraphEvent_StageAdded struct {
+type GraphStreamEvent_StageAdded struct {
 	StageAdded *StageAddedEvent `protobuf:"bytes,14,opt,name=stage_added,json=stageAdded,oneof"`
 }
-type GraphEvent_StageCompleted struct {
+type GraphStreamEvent_StageCompleted struct {
 	StageCompleted *StageCompletedEvent `protobuf:"bytes,15,opt,name=stage_completed,json=stageCompleted,oneof"`
 }
-type GraphEvent_StageComposed struct {
+type GraphStreamEvent_StageComposed struct {
 	StageComposed *StageComposedEvent `protobuf:"bytes,16,opt,name=stage_composed,json=stageComposed,oneof"`
 }
-type GraphEvent_FaasInvocationStarted struct {
+type GraphStreamEvent_FaasInvocationStarted struct {
 	FaasInvocationStarted *FaasInvocationStartedEvent `protobuf:"bytes,17,opt,name=faas_invocation_started,json=faasInvocationStarted,oneof"`
 }
-type GraphEvent_FaasInvocationCompleted struct {
+type GraphStreamEvent_FaasInvocationCompleted struct {
 	FaasInvocationCompleted *FaasInvocationCompletedEvent `protobuf:"bytes,18,opt,name=faas_invocation_completed,json=faasInvocationCompleted,oneof"`
 }
-type GraphEvent_GraphCommitted struct {
+type GraphStreamEvent_GraphCommitted struct {
 	GraphCommitted *GraphCommittedEvent `protobuf:"bytes,19,opt,name=graph_committed,json=graphCommitted,oneof"`
 }
 
-func (*GraphEvent_GraphCreated) isGraphEvent_Val()            {}
-func (*GraphEvent_GraphTerminating) isGraphEvent_Val()        {}
-func (*GraphEvent_GraphCompleted) isGraphEvent_Val()          {}
-func (*GraphEvent_DelayScheduled) isGraphEvent_Val()          {}
-func (*GraphEvent_StageAdded) isGraphEvent_Val()              {}
-func (*GraphEvent_StageCompleted) isGraphEvent_Val()          {}
-func (*GraphEvent_StageComposed) isGraphEvent_Val()           {}
-func (*GraphEvent_FaasInvocationStarted) isGraphEvent_Val()   {}
-func (*GraphEvent_FaasInvocationCompleted) isGraphEvent_Val() {}
-func (*GraphEvent_GraphCommitted) isGraphEvent_Val()          {}
+func (*GraphStreamEvent_GraphCreated) isGraphEvent_Val()            {}
+func (*GraphStreamEvent_GraphTerminating) isGraphEvent_Val()        {}
+func (*GraphStreamEvent_GraphCompleted) isGraphEvent_Val()          {}
+func (*GraphStreamEvent_DelayScheduled) isGraphEvent_Val()          {}
+func (*GraphStreamEvent_StageAdded) isGraphEvent_Val()              {}
+func (*GraphStreamEvent_StageCompleted) isGraphEvent_Val()          {}
+func (*GraphStreamEvent_StageComposed) isGraphEvent_Val()           {}
+func (*GraphStreamEvent_FaasInvocationStarted) isGraphEvent_Val()   {}
+func (*GraphStreamEvent_FaasInvocationCompleted) isGraphEvent_Val() {}
+func (*GraphStreamEvent_GraphCommitted) isGraphEvent_Val()          {}
 
-func (m *GraphEvent) GetVal() isGraphEvent_Val {
+func (m *GraphStreamEvent) GetVal() isGraphEvent_Val {
 	if m != nil {
 		return m.Val
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetSeq() uint64 {
+func (m *GraphStreamEvent) GetSeq() uint64 {
 	if m != nil {
 		return m.Seq
 	}
 	return 0
 }
 
-func (m *GraphEvent) GetFlowId() string {
+func (m *GraphStreamEvent) GetFlowId() string {
 	if m != nil {
 		return m.FlowId
 	}
 	return ""
 }
 
-func (m *GraphEvent) GetSentTs() *google_protobuf.Timestamp {
+func (m *GraphStreamEvent) GetSentTs() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.SentTs
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetGraphCreated() *GraphCreatedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_GraphCreated); ok {
+func (m *GraphStreamEvent) GetGraphCreated() *GraphCreatedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_GraphCreated); ok {
 		return x.GraphCreated
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetGraphTerminating() *GraphTerminatingEvent {
-	if x, ok := m.GetVal().(*GraphEvent_GraphTerminating); ok {
+func (m *GraphStreamEvent) GetGraphTerminating() *GraphTerminatingEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_GraphTerminating); ok {
 		return x.GraphTerminating
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetGraphCompleted() *GraphCompletedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_GraphCompleted); ok {
+func (m *GraphStreamEvent) GetGraphCompleted() *GraphCompletedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_GraphCompleted); ok {
 		return x.GraphCompleted
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetDelayScheduled() *DelayScheduledEvent {
-	if x, ok := m.GetVal().(*GraphEvent_DelayScheduled); ok {
+func (m *GraphStreamEvent) GetDelayScheduled() *DelayScheduledEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_DelayScheduled); ok {
 		return x.DelayScheduled
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetStageAdded() *StageAddedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_StageAdded); ok {
+func (m *GraphStreamEvent) GetStageAdded() *StageAddedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_StageAdded); ok {
 		return x.StageAdded
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetStageCompleted() *StageCompletedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_StageCompleted); ok {
+func (m *GraphStreamEvent) GetStageCompleted() *StageCompletedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_StageCompleted); ok {
 		return x.StageCompleted
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetStageComposed() *StageComposedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_StageComposed); ok {
+func (m *GraphStreamEvent) GetStageComposed() *StageComposedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_StageComposed); ok {
 		return x.StageComposed
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetFaasInvocationStarted() *FaasInvocationStartedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_FaasInvocationStarted); ok {
+func (m *GraphStreamEvent) GetFaasInvocationStarted() *FaasInvocationStartedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_FaasInvocationStarted); ok {
 		return x.FaasInvocationStarted
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetFaasInvocationCompleted() *FaasInvocationCompletedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_FaasInvocationCompleted); ok {
+func (m *GraphStreamEvent) GetFaasInvocationCompleted() *FaasInvocationCompletedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_FaasInvocationCompleted); ok {
 		return x.FaasInvocationCompleted
 	}
 	return nil
 }
 
-func (m *GraphEvent) GetGraphCommitted() *GraphCommittedEvent {
-	if x, ok := m.GetVal().(*GraphEvent_GraphCommitted); ok {
+func (m *GraphStreamEvent) GetGraphCommitted() *GraphCommittedEvent {
+	if x, ok := m.GetVal().(*GraphStreamEvent_GraphCommitted); ok {
 		return x.GraphCommitted
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*GraphEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+func (*GraphStreamEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _GraphEvent_OneofMarshaler, _GraphEvent_OneofUnmarshaler, _GraphEvent_OneofSizer, []interface{}{
-		(*GraphEvent_GraphCreated)(nil),
-		(*GraphEvent_GraphTerminating)(nil),
-		(*GraphEvent_GraphCompleted)(nil),
-		(*GraphEvent_DelayScheduled)(nil),
-		(*GraphEvent_StageAdded)(nil),
-		(*GraphEvent_StageCompleted)(nil),
-		(*GraphEvent_StageComposed)(nil),
-		(*GraphEvent_FaasInvocationStarted)(nil),
-		(*GraphEvent_FaasInvocationCompleted)(nil),
-		(*GraphEvent_GraphCommitted)(nil),
+		(*GraphStreamEvent_GraphCreated)(nil),
+		(*GraphStreamEvent_GraphTerminating)(nil),
+		(*GraphStreamEvent_GraphCompleted)(nil),
+		(*GraphStreamEvent_DelayScheduled)(nil),
+		(*GraphStreamEvent_StageAdded)(nil),
+		(*GraphStreamEvent_StageCompleted)(nil),
+		(*GraphStreamEvent_StageComposed)(nil),
+		(*GraphStreamEvent_FaasInvocationStarted)(nil),
+		(*GraphStreamEvent_FaasInvocationCompleted)(nil),
+		(*GraphStreamEvent_GraphCommitted)(nil),
 	}
 }
 
 func _GraphEvent_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*GraphEvent)
+	m := msg.(*GraphStreamEvent)
 	// val
 	switch x := m.Val.(type) {
-	case *GraphEvent_GraphCreated:
+	case *GraphStreamEvent_GraphCreated:
 		b.EncodeVarint(10<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GraphCreated); err != nil {
 			return err
 		}
-	case *GraphEvent_GraphTerminating:
+	case *GraphStreamEvent_GraphTerminating:
 		b.EncodeVarint(11<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GraphTerminating); err != nil {
 			return err
 		}
-	case *GraphEvent_GraphCompleted:
+	case *GraphStreamEvent_GraphCompleted:
 		b.EncodeVarint(12<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GraphCompleted); err != nil {
 			return err
 		}
-	case *GraphEvent_DelayScheduled:
+	case *GraphStreamEvent_DelayScheduled:
 		b.EncodeVarint(13<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.DelayScheduled); err != nil {
 			return err
 		}
-	case *GraphEvent_StageAdded:
+	case *GraphStreamEvent_StageAdded:
 		b.EncodeVarint(14<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.StageAdded); err != nil {
 			return err
 		}
-	case *GraphEvent_StageCompleted:
+	case *GraphStreamEvent_StageCompleted:
 		b.EncodeVarint(15<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.StageCompleted); err != nil {
 			return err
 		}
-	case *GraphEvent_StageComposed:
+	case *GraphStreamEvent_StageComposed:
 		b.EncodeVarint(16<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.StageComposed); err != nil {
 			return err
 		}
-	case *GraphEvent_FaasInvocationStarted:
+	case *GraphStreamEvent_FaasInvocationStarted:
 		b.EncodeVarint(17<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.FaasInvocationStarted); err != nil {
 			return err
 		}
-	case *GraphEvent_FaasInvocationCompleted:
+	case *GraphStreamEvent_FaasInvocationCompleted:
 		b.EncodeVarint(18<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.FaasInvocationCompleted); err != nil {
 			return err
 		}
-	case *GraphEvent_GraphCommitted:
+	case *GraphStreamEvent_GraphCommitted:
 		b.EncodeVarint(19<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GraphCommitted); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("GraphEvent.Val has unexpected type %T", x)
+		return fmt.Errorf("GraphStreamEvent.Val has unexpected type %T", x)
 	}
 	return nil
 }
 
 func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*GraphEvent)
+	m := msg.(*GraphStreamEvent)
 	switch tag {
 	case 10: // val.graph_created
 		if wire != proto.WireBytes {
@@ -1962,7 +1962,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(GraphCreatedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_GraphCreated{msg}
+		m.Val = &GraphStreamEvent_GraphCreated{msg}
 		return true, err
 	case 11: // val.graph_terminating
 		if wire != proto.WireBytes {
@@ -1970,7 +1970,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(GraphTerminatingEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_GraphTerminating{msg}
+		m.Val = &GraphStreamEvent_GraphTerminating{msg}
 		return true, err
 	case 12: // val.graph_completed
 		if wire != proto.WireBytes {
@@ -1978,7 +1978,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(GraphCompletedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_GraphCompleted{msg}
+		m.Val = &GraphStreamEvent_GraphCompleted{msg}
 		return true, err
 	case 13: // val.delay_scheduled
 		if wire != proto.WireBytes {
@@ -1986,7 +1986,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(DelayScheduledEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_DelayScheduled{msg}
+		m.Val = &GraphStreamEvent_DelayScheduled{msg}
 		return true, err
 	case 14: // val.stage_added
 		if wire != proto.WireBytes {
@@ -1994,7 +1994,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(StageAddedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_StageAdded{msg}
+		m.Val = &GraphStreamEvent_StageAdded{msg}
 		return true, err
 	case 15: // val.stage_completed
 		if wire != proto.WireBytes {
@@ -2002,7 +2002,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(StageCompletedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_StageCompleted{msg}
+		m.Val = &GraphStreamEvent_StageCompleted{msg}
 		return true, err
 	case 16: // val.stage_composed
 		if wire != proto.WireBytes {
@@ -2010,7 +2010,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(StageComposedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_StageComposed{msg}
+		m.Val = &GraphStreamEvent_StageComposed{msg}
 		return true, err
 	case 17: // val.faas_invocation_started
 		if wire != proto.WireBytes {
@@ -2018,7 +2018,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(FaasInvocationStartedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_FaasInvocationStarted{msg}
+		m.Val = &GraphStreamEvent_FaasInvocationStarted{msg}
 		return true, err
 	case 18: // val.faas_invocation_completed
 		if wire != proto.WireBytes {
@@ -2026,7 +2026,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(FaasInvocationCompletedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_FaasInvocationCompleted{msg}
+		m.Val = &GraphStreamEvent_FaasInvocationCompleted{msg}
 		return true, err
 	case 19: // val.graph_committed
 		if wire != proto.WireBytes {
@@ -2034,7 +2034,7 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		}
 		msg := new(GraphCommittedEvent)
 		err := b.DecodeMessage(msg)
-		m.Val = &GraphEvent_GraphCommitted{msg}
+		m.Val = &GraphStreamEvent_GraphCommitted{msg}
 		return true, err
 	default:
 		return false, nil
@@ -2042,55 +2042,55 @@ func _GraphEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 }
 
 func _GraphEvent_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*GraphEvent)
+	m := msg.(*GraphStreamEvent)
 	// val
 	switch x := m.Val.(type) {
-	case *GraphEvent_GraphCreated:
+	case *GraphStreamEvent_GraphCreated:
 		s := proto.Size(x.GraphCreated)
 		n += proto.SizeVarint(10<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_GraphTerminating:
+	case *GraphStreamEvent_GraphTerminating:
 		s := proto.Size(x.GraphTerminating)
 		n += proto.SizeVarint(11<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_GraphCompleted:
+	case *GraphStreamEvent_GraphCompleted:
 		s := proto.Size(x.GraphCompleted)
 		n += proto.SizeVarint(12<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_DelayScheduled:
+	case *GraphStreamEvent_DelayScheduled:
 		s := proto.Size(x.DelayScheduled)
 		n += proto.SizeVarint(13<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_StageAdded:
+	case *GraphStreamEvent_StageAdded:
 		s := proto.Size(x.StageAdded)
 		n += proto.SizeVarint(14<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_StageCompleted:
+	case *GraphStreamEvent_StageCompleted:
 		s := proto.Size(x.StageCompleted)
 		n += proto.SizeVarint(15<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_StageComposed:
+	case *GraphStreamEvent_StageComposed:
 		s := proto.Size(x.StageComposed)
 		n += proto.SizeVarint(16<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_FaasInvocationStarted:
+	case *GraphStreamEvent_FaasInvocationStarted:
 		s := proto.Size(x.FaasInvocationStarted)
 		n += proto.SizeVarint(17<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_FaasInvocationCompleted:
+	case *GraphStreamEvent_FaasInvocationCompleted:
 		s := proto.Size(x.FaasInvocationCompleted)
 		n += proto.SizeVarint(18<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *GraphEvent_GraphCommitted:
+	case *GraphStreamEvent_GraphCommitted:
 		s := proto.Size(x.GraphCommitted)
 		n += proto.SizeVarint(19<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
@@ -2618,7 +2618,7 @@ func init() {
 	proto.RegisterType((*InvokeFunctionRequest)(nil), "model.InvokeFunctionRequest")
 	proto.RegisterType((*InvokeStageRequest)(nil), "model.InvokeStageRequest")
 	proto.RegisterType((*GraphLifecycleEvent)(nil), "model.GraphLifecycleEvent")
-	proto.RegisterType((*GraphEvent)(nil), "model.GraphEvent")
+	proto.RegisterType((*GraphStreamEvent)(nil), "model.GraphStreamEvent")
 	proto.RegisterType((*GraphCreatedEvent)(nil), "model.GraphCreatedEvent")
 	proto.RegisterType((*DelayScheduledEvent)(nil), "model.DelayScheduledEvent")
 	proto.RegisterType((*GraphTerminatingEvent)(nil), "model.GraphTerminatingEvent")
@@ -2799,7 +2799,7 @@ func (c *flowServiceClient) StreamEvents(ctx context.Context, in *StreamGraphReq
 }
 
 type FlowService_StreamEventsClient interface {
-	Recv() (*GraphEvent, error)
+	Recv() (*GraphStreamEvent, error)
 	grpc.ClientStream
 }
 
@@ -2807,8 +2807,8 @@ type flowServiceStreamEventsClient struct {
 	grpc.ClientStream
 }
 
-func (x *flowServiceStreamEventsClient) Recv() (*GraphEvent, error) {
-	m := new(GraphEvent)
+func (x *flowServiceStreamEventsClient) Recv() (*GraphStreamEvent, error) {
+	m := new(GraphStreamEvent)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -3027,7 +3027,7 @@ func _FlowService_StreamEvents_Handler(srv interface{}, stream grpc.ServerStream
 }
 
 type FlowService_StreamEventsServer interface {
-	Send(*GraphEvent) error
+	Send(*GraphStreamEvent) error
 	grpc.ServerStream
 }
 
@@ -3035,7 +3035,7 @@ type flowServiceStreamEventsServer struct {
 	grpc.ServerStream
 }
 
-func (x *flowServiceStreamEventsServer) Send(m *GraphEvent) error {
+func (x *flowServiceStreamEventsServer) Send(m *GraphStreamEvent) error {
 	return x.ServerStream.SendMsg(m)
 }
 

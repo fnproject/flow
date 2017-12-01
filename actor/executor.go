@@ -125,9 +125,14 @@ func (exec *graphExecutor) HandleInvokeStage(msg *model.InvokeStageRequest) *mod
 	if err != nil {
 		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service: ", err)
 		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
-
 	}
+
 	result := runtimeResponse.GetResult()
+	if result == nil {
+		stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).Error("Failed to read result from functions service: ", err)
+		return stageFailed(msg, model.ErrorDatumType_invalid_stage_response, "Failed to read result from functions service", callID)
+	}
+
 	stageLog.WithField("fn_call_id", callID).WithField("fn_lb_delay", lbDelayHeader).WithField("successful", fmt.Sprintf("%t", result.Successful)).Info("Got stage response")
 
 	return &model.FaasInvocationResponse{FlowId: msg.FlowId, StageId: msg.StageId, FunctionId: msg.FunctionId, Result: result, CallId: callID}

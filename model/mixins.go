@@ -4,6 +4,7 @@ import (
 	"github.com/fnproject/flow/blobs"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"time"
 )
 
 // This contains mixins that add operations and types to the protobuf messages
@@ -88,130 +89,125 @@ func (m *GraphCompletedEvent) GraphLifecycleEvent(index int) *GraphLifecycleEven
 	return new(GraphLifecycleEvent)
 }
 
-// GraphEventSource describes an event that can be mapped to a graph event
-type GraphEventSource interface {
-	// GraphEvent constructs a GraphEvent from the current event type
-	GraphEvent(index int) *GraphEvent
+// StreamableGraphEvent describes an event that can be mapped to a graph event
+type StreamableGraphEvent interface {
+	// ToGraphStreamEvent constructs a GraphStreamEvent from the current event type
+	ToGraphStreamEvent(index int) *GraphStreamEvent
 }
 
-// GraphEvent implements GraphEventSource
-func (m *GraphCreatedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_GraphCreated{GraphCreated: m},
-		}
+func currentTimestamp() *timestamp.Timestamp {
+	now := time.Now()
+
+	return &timestamp.Timestamp{
+		Seconds: now.Unix(),
+		Nanos:   int32(now.Nanosecond()),
 	}
-	return new(GraphEvent)
 }
 
-// GraphEvent implements GraphEventSource
-func (m *GraphCompletedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_GraphCompleted{GraphCompleted: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *GraphCreatedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_GraphCreated{GraphCreated: m},
 	}
-	return new(GraphEvent)
 }
 
-// GraphEvent implements GraphEventSource
-func (m *GraphCommittedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_GraphCommitted{GraphCommitted: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *GraphCompletedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_GraphCompleted{GraphCompleted: m},
 	}
-	return new(GraphEvent)
+
 }
 
-// GraphEvent implements GraphEventSource
-func (m *GraphTerminatingEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_GraphTerminating{GraphTerminating: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *GraphCommittedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_GraphCommitted{GraphCommitted: m},
 	}
-	return new(GraphEvent)
+
 }
 
-// GraphEvent implements GraphEventSource
-func (m *DelayScheduledEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_DelayScheduled{DelayScheduled: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *GraphTerminatingEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_GraphTerminating{GraphTerminating: m},
 	}
-	return new(GraphEvent)
 }
 
-// GraphEvent implements GraphEventSource
-func (m *StageAddedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_StageAdded{StageAdded: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *DelayScheduledEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_DelayScheduled{DelayScheduled: m},
 	}
-	return new(GraphEvent)
+
 }
 
-// GraphEvent implements GraphEventSource
-func (m *StageCompletedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_StageCompleted{StageCompleted: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *StageAddedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_StageAdded{StageAdded: m},
 	}
-	return new(GraphEvent)
 }
 
-// GraphEvent implements GraphEventSource
-func (m *StageComposedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_StageComposed{StageComposed: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *StageCompletedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_StageCompleted{StageCompleted: m},
 	}
-	return new(GraphEvent)
+
 }
 
-// GraphEvent implements GraphEventSource
-func (m *FaasInvocationStartedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_FaasInvocationStarted{FaasInvocationStarted: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *StageComposedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_StageComposed{StageComposed: m},
 	}
-	return new(GraphEvent)
 }
 
-// GraphEvent implements GraphEventSource
-func (m *FaasInvocationCompletedEvent) GraphEvent(index int) *GraphEvent {
-	if m != nil {
-		return &GraphEvent{
-			FlowId: m.GetFlowId(),
-			Seq:    uint64(index),
-			Val:    &GraphEvent_FaasInvocationCompleted{FaasInvocationCompleted: m},
-		}
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *FaasInvocationStartedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_FaasInvocationStarted{FaasInvocationStarted: m},
 	}
-	return new(GraphEvent)
+}
+
+// ToGraphStreamEvent implements StreamableGraphEvent
+func (m *FaasInvocationCompletedEvent) ToGraphStreamEvent(index int) *GraphStreamEvent {
+	return &GraphStreamEvent{
+		FlowId: m.GetFlowId(),
+		SentTs: currentTimestamp(),
+		Seq:    uint64(index),
+		Val:    &GraphStreamEvent_FaasInvocationCompleted{FaasInvocationCompleted: m},
+	}
+
 }
 
 // StageMessage is any message that belongs exclusively a stage (and hence a graph)

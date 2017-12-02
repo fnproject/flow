@@ -72,6 +72,9 @@ func (provider *InMemoryProvider) PersistSnapshot(actorName string, eventIndex i
 // GetEvents implements ProviderState.GetEvents
 func (provider *InMemoryProvider) GetEvents(actorName string, eventIndexStart int, callback func(index int, e interface{})) {
 	entry, _ := provider.loadOrInit(actorName)
+	if eventIndexStart >= len(entry.events){
+		return;
+	}
 	for idx, e := range entry.events[eventIndexStart:] {
 		callback(idx, e)
 	}

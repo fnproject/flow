@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"runtime"
 	"time"
 
 	"math"
@@ -23,6 +24,8 @@ import (
 
 const (
 	supervisorBaseName = "supervisor"
+	// number of streaming events that will be buffered prior to being read by client
+	eventBufferSize = 1000
 )
 
 type actorManager struct {
@@ -241,26 +244,44 @@ func isGraphLifecycleEvent(event *persistence.StreamEvent) bool {
 func (m *actorManager) StreamLifecycle(lr *model.StreamLifecycleRequest, stream model.FlowService_StreamLifecycleServer) error {
 	m.log.Debug("Streaming lifecycle events")
 
-	eventsChan := make(chan *model.GraphLifecycleEvent, 10)
+	eventsChan := make(chan *model.GraphLifecycleEvent, eventBufferSize)
 	defer close(eventsChan)
 
 	sub := m.persistenceProvider.GetStreamingState().StreamNewEvents(isGraphLifecycleEvent,
 		func(event *persistence.StreamEvent) {
 			msg := event.Event.(model.GraphLifecycleEventSource)
-			m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
-			eventsChan <- msg.GraphLifecycleEvent(event.EventIndex)
+
+			// don't block the persistence provider writes!
+			select {
+			case eventsChan <- msg.GraphLifecycleEvent(event.EventIndex):
+				m.log.Debugf("Processing lifecycle event %v", reflect.TypeOf(msg))
+
+			default:
+				m.log.Debug("Skipping lifecycle event")
+			}
 		})
 
-	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+	defer func() {
+		m.log.Debug("Unsubscribing from lifecycle stream")
+		m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+	}()
 
-	for event := range eventsChan {
-		m.log.Debugf("Sent a graph lifecycle event %v", event)
-		err := stream.Send(event)
-		if err != nil {
-			return err
+	for {
+		select {
+
+		case <-stream.Context().Done():
+			m.log.Debug("Client closed stream")
+			return nil
+
+		case event := <-eventsChan:
+			m.log.Debugf("Sent a graph lifecycle event %v", event)
+			err := stream.Send(event)
+			if err != nil {
+				m.log.Debugf("Error sending to stream: %v", err)
+				return err
+			}
 		}
 	}
-	return nil
 }
 
 func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.FlowService_StreamEventsServer) error {
@@ -271,8 +292,48 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 		return err
 	}
 
-	eventsChan := make(chan *model.GraphStreamEvent, 10)
+	eventsChan := make(chan *model.GraphStreamEvent, eventBufferSize)
 	defer close(eventsChan)
+
+	done := make(chan error, 1)
+
+	// start consuming events as soon as they are produced by the persistence provider
+	go func() {
+		var err error
+
+	eventLoop:
+		for {
+			select {
+
+			case err = <-done:
+				m.log.Debug("Producer marked stream for closing")
+				break eventLoop
+
+			case <-stream.Context().Done():
+				m.log.Debug("Client closed stream")
+				break eventLoop
+
+			case event := <-eventsChan:
+				m.log.Debugf("Sent a graph event %v", event)
+				err = stream.Send(event)
+				if err != nil {
+					m.log.Debugf("Error sending to stream: %v", err)
+					break eventLoop
+				}
+			}
+		}
+
+		select {
+		case done <- err:
+			m.log.Debug("Marking stream for closing")
+		default:
+			m.log.Debug("Stream already marked for closing")
+		}
+	}()
+
+	// give the event loop a chance to execute, since SubscribeActorJournal
+	// will replay the persistence logs in the caller's thread
+	runtime.Gosched()
 
 	sub := m.persistenceProvider.GetStreamingState().SubscribeActorJournal(graphPath, int(gr.FromSeq),
 		func(event *persistence.StreamEvent) {
@@ -282,20 +343,28 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 				return
 			}
 
-			m.log.Debugf("Processing graph event %v", reflect.TypeOf(msg))
-			eventsChan <- msg.ToGraphStreamEvent(event.EventIndex)
+			// don't block the persistence provider writes!
+			select {
+			case eventsChan <- msg.ToGraphStreamEvent(event.EventIndex):
+				m.log.Debugf("Processing graph event %v", event)
+
+			default:
+				m.log.Debug("Skipping graph event")
+				select {
+				case done <- fmt.Errorf("Closing graph stream since buffer size exceeded"):
+					m.log.Warn("Marking stream for closing, since buffer size exceeded")
+				default:
+					// already marked stream for closing, so do nothing
+				}
+			}
 		})
 
-	defer m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+	defer func() {
+		m.log.Debug("Unsubscribing from graph stream")
+		m.persistenceProvider.GetStreamingState().UnsubscribeStream(sub)
+	}()
 
-	for event := range eventsChan {
-		m.log.Debugf("Sent a graph event %v", event)
-		err := stream.Send(event)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return <-done
 }
 
 func (m *actorManager) StreamNewEvents(predicate persistence.StreamPredicate, fn persistence.StreamCallBack) *eventstream.Subscription {

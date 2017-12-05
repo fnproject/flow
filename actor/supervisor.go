@@ -181,6 +181,6 @@ func (s *graphSupervisor) spawnGraphActor(context actor.Context, flowID string) 
 		return nil, err
 	}
 	context.Watch(pid)
-	s.log.WithFields(logrus.Fields{"flow_id": flowID}).Debug("Created graph actor %s", pid.Id)
+	s.log.WithFields(logrus.Fields{"flow_id": flowID, "actor_name": pid.Id}).Debug("Created graph actor")
 	return pid, nil
 }

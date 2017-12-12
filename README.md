@@ -5,7 +5,7 @@
 [![GoDoc](https://godoc.org/github.com/fnproject/flow?status.svg)](https://godoc.org/github.com/fnproject/flow)
 [![Go Report Card](https://goreportcard.com/badge/github.com/fnproject/flow)](https://goreportcard.com/report/github.com/fnproject/flow)
 
-Fn Flow lets you build long-running, reliable and scalable functions using [Fn](https://github.com/fnproject/fn) that only consume compute resources when they have work to do and are written purely in code.  Flow supports building complex parallel processes that are readable, testable (including via unit testing) using standard programming tools. Flow empowers you to build workflows as distributed programs that are as complex as you need them to be and supports a rich set of concurrency primitives including fork-join, chaining, delays and error handing. 
+Fn Flow lets you build long-running, reliable and scalable functions using [Fn](https://github.com/fnproject/fn) that only consume compute resources when they have work to do and are written purely in code.  Flow supports building complex parallel processes that are readable, testable (including via unit testing) using standard programming tools. Flow empowers you to build workflows as distributed programs that are as complex as you need them to be and supports a rich set of concurrency primitives including fork-join, chaining, delays and error handling. 
 
 
 

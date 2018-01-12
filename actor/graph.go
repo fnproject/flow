@@ -348,7 +348,9 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 		if g.graph != nil {
 			g.log.Debugf("Requesting passivation of inactive actor %s", g.GetSelf().Id)
 			context.Parent().Tell(&model.DeactivateGraphRequest{FlowId: g.graph.ID})
+			return
 		}
+		context.Self().GracefulStop()
 
 	case *protoPersistence.ReplayComplete:
 		if g.graph != nil {

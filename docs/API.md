@@ -28,7 +28,7 @@ Completion stages consist of the following :
 The following sections define the request/response protocol for the lifetime of a Fn Flow application.
 ### Runtime Creates a Flow (Function->Flow Service)
 
-The function creates a new flow by POST am empty request to the `/v1/flows` endpoint with a function ID  of the current function.
+The function creates a new flow by POST an empty request to the `/v1/flows` endpoint with a function ID  of the current function.
  
 The function ID is the qualified path of the function in Fn, containing the app name and route. 
 

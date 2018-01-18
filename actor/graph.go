@@ -350,6 +350,7 @@ func (g *graphActor) receiveMessage(context actor.Context) {
 			context.Parent().Tell(&model.DeactivateGraphRequest{FlowId: g.graph.ID})
 			return
 		}
+		g.log.Debugf("Cleaning up uninitialized actor %s", g.GetSelf().Id)
 		context.Self().GracefulStop()
 
 	case *protoPersistence.ReplayComplete:

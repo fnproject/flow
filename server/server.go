@@ -1,26 +1,25 @@
 package server
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/fnproject/flow/cluster"
-	"golang.org/x/net/context"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"google.golang.org/grpc"
-	"github.com/fnproject/flow/model"
-	"net/http"
-	"github.com/gin-gonic/gin"
-	"github.com/openzipkin/zipkin-go-opentracing"
-	"github.com/opentracing/opentracing-go"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"strings"
-	"net"
-	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	// "github.com/golang/protobuf/proto"
 	"errors"
+	"net"
+	"net/http"
+	"strings"
 	"time"
-)
 
+	"github.com/fnproject/flow/cluster"
+	"github.com/fnproject/flow/model"
+	"github.com/gin-gonic/gin"
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/validator"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/opentracing/opentracing-go"
+	"github.com/openzipkin/zipkin-go-opentracing"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+)
 
 var log = logrus.WithField("logger", "server")
 
@@ -28,18 +27,16 @@ func (s *Server) handlePrometheusMetrics(c *gin.Context) {
 	s.promHandler.ServeHTTP(c.Writer, c.Request)
 }
 
-
-func (s *Server) handleSwagger(c *gin.Context){
-	file,err := model.Asset("model/model.swagger.json")
-	if err !=nil{
-		c.AbortWithError(500,errors.New("error reading swagger content"))
+func (s *Server) handleSwagger(c *gin.Context) {
+	file, err := model.Asset("model/model.swagger.json")
+	if err != nil {
+		c.AbortWithError(500, errors.New("error reading swagger content"))
 		return
 	}
 
-	c.Data(200,"application/json",file)
+	c.Data(200, "application/json", file)
 
 }
-
 
 func setTracer(ownURL string, zipkinURL string) {
 	var (
@@ -112,13 +109,13 @@ func serverGrpc(server *grpc.Server) gin.HandlerFunc {
 }
 
 // NewAPIServer creates a new API server - params are injected dependencies
-func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen string,zipkinURL string) (*Server, error) {
+func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen string, zipkinURL string) (*Server, error) {
 
 	setTracer(restListen, zipkinURL)
 
 	gRPCServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpcUnaryTimeout(2 * time.Minute),
+			grpcUnaryTimeout(2*time.Minute),
 			unaryMetricsInterceptor(),
 			grpc_validator.UnaryServerInterceptor())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -127,7 +124,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen
 	proxySvc := cluster.NewClusterProxy(clusterManager)
 	model.RegisterFlowServiceServer(gRPCServer, proxySvc)
 
-	log.WithField("listen",grpcListen).Info("Starting API gRPC service")
+	log.WithField("listen", grpcListen).Info("Starting API gRPC service")
 
 	l, err := net.Listen("tcp", grpcListen)
 	if err != nil {
@@ -140,8 +137,7 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery(), engineMetrics(), serverGrpc(gRPCServer))
 
-
-	log.WithField("listen",restListen).Info("Starting API REST service")
+	log.WithField("listen", restListen).Info("Starting API REST service")
 
 	s := &Server{
 		Engine:         engine,
@@ -155,18 +151,17 @@ func NewAPIServer(clusterManager *cluster.Manager, restListen string, grpcListen
 		c.Status(http.StatusOK)
 	})
 
-	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard,&runtime.JSONPb{OrigName: true,EmitDefaults:true})) 
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	model.RegisterFlowServiceHandlerFromEndpoint(context.Background(), gwmux, "localhost:9999", []grpc.DialOption{grpc.WithInsecure()})
 
-
 	s.Engine.Any("/v1/*path", func(c *gin.Context) {
-		log.Debug("Serving HTTP, request is %+v", c.Request)
+		log.Debugf("Serving HTTP, request is %+v", c.Request)
 
 		gwmux.ServeHTTP(c.Writer, c.Request)
 	})
 
 	s.Engine.GET("/metrics", s.handlePrometheusMetrics)
-	s.Engine.GET("/swagger.json",s.handleSwagger)
+	s.Engine.GET("/swagger.json", s.handleSwagger)
 	return s, nil
 
 }

@@ -129,6 +129,9 @@ Configure via the environment
 | DB_URL | sqlite3://./data/flow.db | DB url, you may also use "inmem:/" for in memory storage |
 | LISTEN |  :8081 | listen host/port (overrides PORT)  |
 
+Also see our [Flow UI](http://github.com/fnproject/flowui)
+
+
 # Get help
 
 * Come over and chat to us on the [fnproject Slack](https://join.slack.com/t/fnproject/shared_invite/enQtMjIwNzc5MTE4ODg3LTdlYjE2YzU1MjAxODNhNGUzOGNhMmU2OTNhZmEwOTcxZDQxNGJiZmFiMzNiMTk0NjU2NTIxZGEyNjI0YmY4NTA).

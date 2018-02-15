@@ -22,7 +22,7 @@ vet: $(GOFILES)
 lint: $(GOFILES)
 	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  $(GOLINTPATH) $$pkg  || OK=1 ;  done ; exit $$OK
 
-test: protos $(shell find . -name *.go)
+test:  $(shell find . -name *.go)
 	go test -v $(GOPACKAGES)
 
 %.pb.go: %.proto
@@ -31,7 +31,7 @@ test: protos $(shell find . -name *.go)
       --go_out=plugins=grpc:$(@D) --govalidators_out=$(@D)  --grpc-gateway_out=logtostderr=true:$(@D)    --swagger_out=logtostderr=true:$(@D) $<
 
 
-build: $(GOFILES) bindata protos
+build: $(GOFILES) bindata
 	go build -o flow-service
 
 run: build
@@ -54,7 +54,7 @@ IMAGE_LATEST = $(IMAGE_REPO_USER)/$(IMAGE_NAME):latest
 docker-pull-image-funcy-go:
 	docker pull funcy/go:dev
 
-docker-test: protos docker-pull-image-funcy-go
+docker-test: docker-pull-image-funcy-go
 	docker run --rm -it -v $(COMPLETER_DIR):$(CONTAINER_COMPLETER_DIR) -w $(CONTAINER_COMPLETER_DIR) -e CGO_ENABLED=1 funcy/go:dev sh -c 'go test -v $$(go list ./...  | grep -v /vendor/)'
 
 docker-build-0: docker-pull-image-funcy-go

@@ -99,15 +99,10 @@ time="2017-09-16T22:04:49Z" level=info msg="available memory" ram=1590210560
 time="2017-09-16T22:04:49Z" level=info msg="Serving Functions API on address `:8080`"
 ```
 
-set $DOCKER_LOCALHOST to the loopback interface for your docker. 
+Set $DOCKER_LOCALHOST to the IP address of the docker bridge:
 
-On Mac: 
 ```bash
-export DOCKER_LOCALHOST=docker.for.mac.localhost
-```
-Otherwise run:
-```bash
-$ export DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
+export DOCKER_LOCALHOST=$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}')
 ```
 
 Then run the Flow Service: 

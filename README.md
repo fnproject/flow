@@ -99,22 +99,21 @@ time="2017-09-16T22:04:49Z" level=info msg="available memory" ram=1590210560
 time="2017-09-16T22:04:49Z" level=info msg="Serving Functions API on address `:8080`"
 ```
 
-Set $DOCKER_LOCALHOST to the IP address of the docker bridge:
+Set $FNSERVER_IP to the IP address of the fnserver container:
 
 ```bash
-export DOCKER_LOCALHOST=$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}')
+FLOWSERVER_IP=$(docker inspect --type container -f '{{.NetworkSettings.IPAddress}}' flowserver)
 ```
 
 Then run the Flow Service: 
 ```
-docker run --rm  -d -p 8081:8081 \
-           -e API_URL="http://$DOCKER_LOCALHOST:8080/r" \
-           -e no_proxy=$DOCKER_LOCALHOST \
-           --name flow-service \
-           fnproject/flow:latest
+docker run --rm -d \
+      -p 8081:8081 \
+      -e API_URL="http://$FNSERVER_IP:8080/r" \
+      -e no_proxy=$FNSERVER_IP \
+      --name flowserver \
+      fnproject/flow:latest
 ```
-
-Note if you have an HTTP proxy configured in docker you should add the docker loopback interface (and docker.for.mac.localhost) to your `no_proxy` settings.  
 
 Configure via the environment 
 

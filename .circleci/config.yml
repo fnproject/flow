@@ -69,6 +69,6 @@ jobs:
                 echo "Error: GH_DEPLOY_KEY is not set in the build context"
                 false
               fi
-              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+              printenv DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
               ./release.sh
             fi

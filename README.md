@@ -99,10 +99,10 @@ time="2017-09-16T22:04:49Z" level=info msg="available memory" ram=1590210560
 time="2017-09-16T22:04:49Z" level=info msg="Serving Functions API on address `:8080`"
 ```
 
-Set $FNSERVER_IP to the IP address of the fnserver container:
+Set FNSERVER_IP to the IP address of the Fn Server:
 
 ```bash
-FLOWSERVER_IP=$(docker inspect --type container -f '{{.NetworkSettings.IPAddress}}' flowserver)
+FNSERVER_IP=$(docker inspect --type container -f '{{.NetworkSettings.IPAddress}}' fnserver)
 ```
 
 Then run the Flow Service: 

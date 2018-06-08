@@ -52,7 +52,7 @@ func InitFromEnv() (*server.Server, *server.InternalServer,*blobs.Server, error)
 	setDefaultConfig(envDBURL, fmt.Sprintf("sqlite3://%s/data/flow.db", cwd))
 	setDefaultConfig(envLogLevel, "info")
 	setDefaultConfig(envListen, fmt.Sprintf(":8081"))
-	setDefaultConfig(envGrpcListen, "localhost:9999")
+	setDefaultConfig(envGrpcListen, "127.0.0.1:9999")
 	setDefaultConfig(envSnapshotInterval, "1000")
 	setDefaultConfig(envRequestTimeout, "60000ms")
 

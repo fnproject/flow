@@ -17,13 +17,13 @@ bindata:  model/model.swagger.json
 	go-bindata -nometadata -o  model/swagger_file.go -pkg model model/model.swagger.json
 
 vet: $(GOFILES)
-	go vet $(GOPACKAGES)
+	go vet ./...
 
 lint: $(GOFILES)
 	OK=0; for pkg in $(GOPACKAGES) ; do   echo Running golint $$pkg ;  $(GOLINTPATH) $$pkg  || OK=1 ;  done ; exit $$OK
 
 test:  $(shell find . -name *.go)
-	go test -v $(GOPACKAGES)
+	go test -v ./...
 
 %.pb.go: %.proto
 	# protoc  --proto_path=$(@D) --proto_path=./vendor --go_out=$(@D) 	--govalidators_out=$(@D) $<

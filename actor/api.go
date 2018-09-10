@@ -339,7 +339,7 @@ func (m *actorManager) StreamEvents(gr *model.StreamGraphRequest, stream model.F
 		func(event *persistence.StreamEvent) {
 			msg, ok := event.Event.(model.StreamableGraphEvent)
 			if !ok {
-				m.log.Info("Skipping unknown message %v", reflect.TypeOf(event.Event))
+				m.log.Infof("Skipping unknown message %v", reflect.TypeOf(event.Event))
 				return
 			}
 

@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	"regexp"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	protoPersistence "github.com/AsynkronIT/protoactor-go/persistence"
 	"github.com/fnproject/flow/graph"
@@ -205,10 +203,7 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 		g.log.Debug("Adding invoke stage")
 		stageID := g.graph.NextStageID()
 
-		realFunctionID, err := resolveFunctionID(g.graph.FunctionID, msg.FunctionId)
-		if err != nil {
-			panic(fmt.Sprintf("Unable to parse function ID (%s | %s): %s", g.graph.FunctionID, msg.FunctionId, err))
-		}
+		realFunctionID := msg.FunctionId
 
 		g.persistAndUpdateGraph(&model.StageAddedEvent{
 			FlowId:       msg.FlowId,
@@ -315,23 +310,6 @@ func (g *graphActor) receiveCommand(cmd model.Command, context actor.Context) {
 	}
 }
 
-var appIDRegex = regexp.MustCompile("^([^/]+)/(.*)$")
-
-func resolveFunctionID(original string, relative string) (string, error) {
-	orig, err := model.ParseFunctionID(original)
-	if err != nil {
-		return "", err
-	}
-	rel, err := model.ParseFunctionID(relative)
-	if err != nil {
-		return "", err
-	}
-
-	if rel.AppID == "." {
-		rel.AppID = orig.AppID
-	}
-	return rel.String(), nil
-}
 
 func (g *graphActor) receiveMessage(context actor.Context) {
 	switch msg := context.Message().(type) {

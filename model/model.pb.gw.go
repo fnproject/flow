@@ -32,7 +32,7 @@ func request_FlowService_CreateGraph_0(ctx context.Context, marshaler runtime.Ma
 	var protoReq CreateGraphRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -45,7 +45,7 @@ func request_FlowService_AddStage_0(ctx context.Context, marshaler runtime.Marsh
 	var protoReq AddStageRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -76,7 +76,7 @@ func request_FlowService_AddValueStage_0(ctx context.Context, marshaler runtime.
 	var protoReq AddCompletedValueStageRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -107,7 +107,7 @@ func request_FlowService_AddInvokeFunction_0(ctx context.Context, marshaler runt
 	var protoReq AddInvokeFunctionStageRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -138,7 +138,7 @@ func request_FlowService_AddDelay_0(ctx context.Context, marshaler runtime.Marsh
 	var protoReq AddDelayStageRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -215,7 +215,7 @@ func request_FlowService_CompleteStageExternally_0(ctx context.Context, marshale
 	var protoReq CompleteStageExternallyRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
@@ -377,14 +377,14 @@ func RegisterFlowServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.Se
 	defer func() {
 		if err != nil {
 			if cerr := conn.Close(); cerr != nil {
-				grpclog.Printf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 			return
 		}
 		go func() {
 			<-ctx.Done()
 			if cerr := conn.Close(); cerr != nil {
-				grpclog.Printf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 		}()
 	}()
@@ -398,8 +398,8 @@ func RegisterFlowServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn
 	return RegisterFlowServiceHandlerClient(ctx, mux, NewFlowServiceClient(conn))
 }
 
-// RegisterFlowServiceHandler registers the http handlers for service FlowService to "mux".
-// The handlers forward requests to the grpc endpoint over the given implementation of "FlowServiceClient".
+// RegisterFlowServiceHandlerClient registers the http handlers for service FlowService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "FlowServiceClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "FlowServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "FlowServiceClient" to call the correct interceptors.

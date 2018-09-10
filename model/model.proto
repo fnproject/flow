@@ -5,6 +5,7 @@ import "google/protobuf/timestamp.proto";
 import "github.com/mwitkow/go-proto-validators/validator.proto";
 import "google/api/annotations.proto";
 
+
 // CompletinonResult holds a value Datum and a result status (successful/failed)
 message CompletionResult {
     bool successful = 1;
@@ -174,7 +175,7 @@ message AddDelayStageRequest {
 // AddInvokeFunctionStageRequest adds a function invocation
 message AddInvokeFunctionStageRequest {
     string flow_id = 1 [(validator.field) = {string_not_empty : true}];
-    string function_id = 2 [(validator.field) = {regex : "^(\\.|[a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$"}];
+    string function_id = 2 [(validator.field) = {regex : "^([a-zA-Z0-9_.\\-]{1,255})?$" human_error:"function id must be specified"}];
     HTTPReqDatum arg = 3 [(validator.field) = {msg_exists : true}];
     string code_location = 4;
     string caller_id = 5;
@@ -213,7 +214,7 @@ message DeactivateGraphRequest {
 }
 
 message CreateGraphRequest {
-    string function_id = 1 [(validator.field) = {regex : "^([a-zA-Z0-9_\\-]{1,255})(/[a-zA-Z0-9_/\\-]{0,255})(\\?.*)?$" human_error:"function id must be an absolute function of form \"app/route\""}];
+    string function_id = 1 [(validator.field) = {regex : "^([a-zA-Z0-9_.\\-]{1,255})?$" human_error:"function id must be specified"}];
 
     string flow_id = 2;
     // TODO add this

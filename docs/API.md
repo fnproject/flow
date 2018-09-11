@@ -371,7 +371,7 @@ FDKs implementing flow should detect incoming flow invocations (using the `Fnpro
 For example:
 
 ```
-POST /r/app/path HTTP/1.1
+POST /invoke/fnid  HTTP/1.1
 Content-Type: application/json 
 
 FnProject-FlowID: 767b1b6d-bf7e-4739-b720-783518198176

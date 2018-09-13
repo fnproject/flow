@@ -109,7 +109,7 @@ Then run the Flow Service:
 ```
 docker run --rm -d \
       -p 8081:8081 \
-      -e API_URL="http://$FNSERVER_IP:8080/r" \
+      -e API_URL="http://$FNSERVER_IP:8080/invoke" \
       -e no_proxy=$FNSERVER_IP \
       --name flowserver \
       fnproject/flow:latest

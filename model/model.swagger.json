@@ -267,7 +267,7 @@
           "200": {
             "description": "(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/modelGraphEvent"
+              "$ref": "#/definitions/modelGraphStreamEvent"
             }
           }
         },
@@ -761,7 +761,33 @@
       },
       "title": "Graph created"
     },
-    "modelGraphEvent": {
+    "modelGraphLifecycleEvent": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "flow_id": {
+          "type": "string"
+        },
+        "graph_created": {
+          "$ref": "#/definitions/modelGraphCreatedEvent"
+        },
+        "graph_completed": {
+          "$ref": "#/definitions/modelGraphCompletedEvent"
+        }
+      }
+    },
+    "modelGraphRequestProcessedResponse": {
+      "type": "object",
+      "properties": {
+        "flow_id": {
+          "type": "string"
+        }
+      }
+    },
+    "modelGraphStreamEvent": {
       "type": "object",
       "properties": {
         "seq": {
@@ -804,32 +830,6 @@
         },
         "graph_committed": {
           "$ref": "#/definitions/modelGraphCommittedEvent"
-        }
-      }
-    },
-    "modelGraphLifecycleEvent": {
-      "type": "object",
-      "properties": {
-        "seq": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "flow_id": {
-          "type": "string"
-        },
-        "graph_created": {
-          "$ref": "#/definitions/modelGraphCreatedEvent"
-        },
-        "graph_completed": {
-          "$ref": "#/definitions/modelGraphCompletedEvent"
-        }
-      }
-    },
-    "modelGraphRequestProcessedResponse": {
-      "type": "object",
-      "properties": {
-        "flow_id": {
-          "type": "string"
         }
       }
     },

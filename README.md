@@ -1,3 +1,5 @@
+*WARNING* Fn Flow is an experimental feature please get in touch on [Fn Slack](https://fnproject.slack.com/join/shared_invite/MjIwNzc5MTE4ODg3LTE1MDE0NTUyNTktYThmYmRjZDUwOQ)  if you are interesrted in contributing to/using it. 
+
 # Fn Flow
 ![Fn Project](http://fnproject.io/images/fn-300x125.png)
 

@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: fn-service
-        image: fnproject/functions
+        image: fnproject/fnserver
         imagePullPolicy: Always
         securityContext:
           privileged: true

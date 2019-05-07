@@ -6,7 +6,7 @@ There are two API call contracts:
 
 The [Client API](#completer-client-api) between a client function and the flow service: Functions make calls to the flow service to create flows and append completion stages , the flow service stores these and invokes the stages when they are triggered.
 
-The [Invoke API](#completer-invoke-api) between the flow service and a the fn service: The flow service invokes back into fn via its public API to trigger stages of the computation. The function code inteprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the flow service.
+The [Invoke API](#completer-invoke-api) between the flow service and a the fn service: The flow service invokes back into fn via its public API to trigger stages of the computation. The function code interprets incoming requests and dispatches code to the appropriate implementations before returning a result back to the flow service.
 
  
 
@@ -53,7 +53,7 @@ Content-type: application/json
 ``` 
 
 ### Runtime creates a stage in the graph
-Stages can be added to a graph at any time and are executed as soon as their dependencies are satisified.
+Stages can be added to a graph at any time and are executed as soon as their dependencies are satisfied.
 
 #### Storing Blob data  
 
@@ -120,7 +120,7 @@ Content-type: application/json
 Some stages take other stages as dependencies, and will execute when some or all of these dependencies succeed or fail
 
 
-e.g. to create a `thenApply`  stage that executes a closure after a preceding stage is compelte: 
+e.g. to create a `thenApply` stage that executes a closure after a preceding stage is complete: 
 
 ```
 POST /v1/flows/1212b145-5695-4b57-97b8-54ffeda83210/stage HTTP/1.1
